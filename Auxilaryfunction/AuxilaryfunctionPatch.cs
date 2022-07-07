@@ -449,13 +449,24 @@ namespace Auxilaryfunction
                 if (!KeepBeltHeight.Value) return;
                 PlanetAuxData planetAux = GameMain.mainPlayer.controller.actionBuild.planetAux;
                 if (planetAux == null) return;
-                if (ObjectIsBeltOrSplitter(__instance, __instance.castObjectId))
+                if(__instance.altitude == 0)
+                {
+                    if (ObjectIsBeltOrSplitter(__instance, __instance.castObjectId))
+                    {
+                        __instance.altitude = Altitude(__instance.castObjectPos, planetAux, __instance);
+                    }
+                    else if (__instance.startObjectId != 0)
+                    {
+                        __instance.altitude = Altitude(__instance.pathPoints[0], planetAux, __instance);
+                    }
+                }
+                else if(Input.GetKey(KeyCode.LeftControl) && ObjectIsBeltOrSplitter(__instance, __instance.castObjectId))
                 {
                     __instance.altitude = Altitude(__instance.castObjectPos, planetAux, __instance);
-                }
-                else if (__instance.altitude == 0 && __instance.startObjectId != 0)
-                {
-                    __instance.altitude = Altitude(__instance.pathPoints[0], planetAux, __instance);
+                    if(__instance.altitude == 0)
+                    {
+                        __instance.altitude =1;
+                    }
                 }
             }
             public static int Altitude(Vector3 pos, PlanetAuxData aux, BuildTool_Path buildtoolpath)
