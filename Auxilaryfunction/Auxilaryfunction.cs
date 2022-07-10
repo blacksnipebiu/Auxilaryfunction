@@ -21,7 +21,7 @@ namespace Auxilaryfunction
         public const long AU = 40000;
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.7.0";
+        public const string VERSION = "1.7.2";
         private const string GAME_PROCESS = "DSPGAME.exe";
         public int stationindex = 4;
         public int locallogic = 0;
@@ -1230,10 +1230,10 @@ namespace Auxilaryfunction
             });
             #endregion
 
-            stationTip = Instantiate<GameObject>(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks"), GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs").transform);
+            stationTip = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks"), GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs").transform);
             stationTip.name = "stationTip";
             Destroy(stationTip.GetComponent<UIVeinDetail>());
-            tipPrefab = Instantiate<GameObject>(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks/vein-tip-prefab"), stationTip.transform);
+            tipPrefab = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks/vein-tip-prefab"), stationTip.transform);
             tipPrefab.name = "tipPrefab";
             tipPrefab.GetComponent<Image>().sprite = GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Key Tips/tip-prefab").GetComponent<Image>().sprite;
             tipPrefab.GetComponent<Image>().color = new Color(0, 0, 0, 0.8f);
@@ -1256,7 +1256,7 @@ namespace Auxilaryfunction
                 gameObject1.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
                 gameObject1.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(0, (-5 - 30 * index), 0);
                 Destroy(gameObject1.GetComponent<Shadow>());
-                GameObject gameObject2 = Instantiate<GameObject>(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
+                GameObject gameObject2 = Instantiate(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
                 gameObject2.name = "icon" + index;
                 gameObject2.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
                 gameObject2.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
@@ -1268,14 +1268,14 @@ namespace Auxilaryfunction
             }
             for(int i = 0; i < 3; i++)
             {
-                GameObject icontext = Instantiate<GameObject>(GameObject.Find("UI Root/Overlay Canvas/In Game/Top Tips/Entity Briefs/brief-info-top/brief-info/content/icons/icon"), new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
+                GameObject icontext = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Top Tips/Entity Briefs/brief-info-top/brief-info/content/icons/icon"), new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
                 icontext.name = "icontext" + i;
                 icontext.GetComponent<RectTransform>().localScale = new Vector3(0.7f, 0.7f,1);
                 icontext.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
                 icontext.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
                 icontext.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
                 icontext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(i*30, -180, 0);
-                GameObject gameObject1 = Instantiate<GameObject>(tipPrefab.transform.Find("info-text").gameObject, new Vector3(0, 0, 0), Quaternion.identity, icontext.transform);
+                GameObject gameObject1 = Instantiate(tipPrefab.transform.Find("info-text").gameObject, new Vector3(0, 0, 0), Quaternion.identity, icontext.transform);
                 gameObject1.name = "countText";
                 gameObject1.GetComponent<Text>().fontSize =22;
                 gameObject1.GetComponent<Text>().text = "100";
@@ -1286,6 +1286,20 @@ namespace Auxilaryfunction
                 gameObject1.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
                 gameObject1.GetComponent<RectTransform>().localPosition = new Vector3(-50, -20, 0);
                 Destroy(gameObject1.GetComponent<Shadow>());
+                if (i != 2)
+                {
+                    GameObject gameObject2 = Instantiate(tipPrefab.transform.Find("info-text").gameObject, new Vector3(0, 0, 0), Quaternion.identity, icontext.transform);
+                    gameObject2.name = "countText2";
+                    gameObject2.GetComponent<Text>().fontSize = 22;
+                    gameObject2.GetComponent<Text>().text = "100";
+                    gameObject2.GetComponent<Text>().alignment = TextAnchor.MiddleRight;
+                    gameObject2.GetComponent<RectTransform>().sizeDelta = new Vector2(95, 30);
+                    gameObject2.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
+                    gameObject2.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
+                    gameObject2.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+                    gameObject2.GetComponent<RectTransform>().localPosition = new Vector3(-50, 10, 0);
+                    Destroy(gameObject2.GetComponent<Shadow>());
+                }
                 Destroy(icontext.transform.Find("count-text").gameObject);
                 Destroy(icontext.transform.Find("bg").gameObject);
                 Destroy(icontext.transform.Find("inc").gameObject);
@@ -1426,6 +1440,11 @@ namespace Auxilaryfunction
                                             tip[index1].transform.Find("icontext" + i).GetComponent<Image>().sprite = LDB.items.Select(i != 2 ? 5001 + i : 1210).iconSprite;
                                             tip[index1].transform.Find("icontext" + i).Find("countText").GetComponent<Text>().color = Color.white;
                                             tip[index1].transform.Find("icontext" + i).Find("countText").GetComponent<Text>().text = i == 0 ? (stationComponent.idleDroneCount + stationComponent.workDroneCount).ToString() : (i == 1 ? (stationComponent.idleShipCount + stationComponent.workShipCount).ToString() : stationComponent.warperCount.ToString());
+                                            if (i != 2)
+                                            {
+                                                tip[index1].transform.Find("icontext" + i).Find("countText2").GetComponent<Text>().color = Color.white;
+                                                tip[index1].transform.Find("icontext" + i).Find("countText2").GetComponent<Text>().text = i == 0 ? stationComponent.idleDroneCount.ToString() : stationComponent.idleShipCount.ToString();
+                                            }
                                             tip[index1].transform.Find("icontext" + i).gameObject.SetActive(true);
                                         }
                                     }

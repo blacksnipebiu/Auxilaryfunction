@@ -387,8 +387,16 @@ namespace Auxilaryfunction
                 return !norender_dysonswarm_bool.Value && !simulatorrender;
             }
         }
-        [HarmonyPatch(typeof(PowerSystemRenderer), "DrawDisks")]
-        class PowerSystemRendererPatch
+        [HarmonyPatch(typeof(UIPowerGizmo), "DrawArea")]
+        class UIPowerGizmoDrawAreaPatch
+        {
+            public static bool Prefix()
+            {
+                return !norender_powerdisk_bool.Value && !simulatorrender;
+            }
+        }
+        [HarmonyPatch(typeof(UIPowerGizmo), "DrawCover")]
+        class UIPowerGizmoDrawCoverPatch
         {
             public static bool Prefix()
             {
