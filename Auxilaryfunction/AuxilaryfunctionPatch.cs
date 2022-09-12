@@ -404,6 +404,14 @@ namespace Auxilaryfunction
             }
         }
 
+        [HarmonyPatch(typeof(CargoContainer), "Draw")]
+        class PathRenderingBatchDrawPatch
+        {
+            public static bool Prefix()
+            {
+                return !norender_beltitem.Value;
+            }
+        }
         [HarmonyPatch(typeof(BuildingParameters), "CopyFromFactoryObject")]
         class CopyFromFactoryObjectPatch
         {
@@ -455,25 +463,28 @@ namespace Auxilaryfunction
             public static void Postfix(BuildTool_Path __instance)
             {
                 if (!KeepBeltHeight.Value) return;
-                PlanetAuxData planetAux = GameMain.mainPlayer.controller.actionBuild.planetAux;
-                if (planetAux == null) return;
-                if(__instance.altitude == 0)
+                if (Input.GetKey(KeyCode.LeftShift))
                 {
-                    if (ObjectIsBeltOrSplitter(__instance, __instance.castObjectId))
-                    {
-                        __instance.altitude = Altitude(__instance.castObjectPos, planetAux, __instance);
-                    }
-                    else if (__instance.startObjectId != 0)
-                    {
-                        __instance.altitude = Altitude(__instance.pathPoints[0], planetAux, __instance);
-                    }
-                }
-                else if(Input.GetKey(KeyCode.LeftControl) && ObjectIsBeltOrSplitter(__instance, __instance.castObjectId))
-                {
-                    __instance.altitude = Altitude(__instance.castObjectPos, planetAux, __instance);
+                    PlanetAuxData planetAux = GameMain.mainPlayer.controller.actionBuild.planetAux;
+                    if (planetAux == null) return;
                     if(__instance.altitude == 0)
                     {
-                        __instance.altitude =1;
+                        if (ObjectIsBeltOrSplitter(__instance, __instance.castObjectId))
+                        {
+                            __instance.altitude = Altitude(__instance.castObjectPos, planetAux, __instance);
+                        }
+                        else if (__instance.startObjectId != 0)
+                        {
+                            __instance.altitude = Altitude(__instance.pathPoints[0], planetAux, __instance);
+                        }
+                    }
+                    else if(Input.GetKey(KeyCode.LeftControl) && ObjectIsBeltOrSplitter(__instance, __instance.castObjectId))
+                    {
+                        __instance.altitude = Altitude(__instance.castObjectPos, planetAux, __instance);
+                        if(__instance.altitude == 0)
+                        {
+                            __instance.altitude =1;
+                        }
                     }
                 }
             }
@@ -612,11 +623,6 @@ namespace Auxilaryfunction
             {
                 if (GameMain.localPlanet != null)
                 {
-                    if (autorightfly || autoupfly)
-                    {
-                        if (autorightfly) __instance.input0.x = 1;
-                        if (autoupfly) __instance.input0.y = 1;
-                    }
                     #region
                     if (automovetounbuilt.Value && closecollider)
                     {

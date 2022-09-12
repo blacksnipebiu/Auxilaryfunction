@@ -21,7 +21,7 @@ namespace Auxilaryfunction
         public const long AU = 40000;
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.7.2";
+        public const string VERSION = "1.7.4";
         private const string GAME_PROCESS = "DSPGAME.exe";
         public int stationindex = 4;
         public int locallogic = 0;
@@ -35,12 +35,14 @@ namespace Auxilaryfunction
         public int pointsignalid = 0;
         public List<int> assemblerpools;
         public List<int> labpools;
+        public List<int> fuelItems = new List<int>();
         public List<int> beltpools = new List<int>();
         public List<int> monitorpools = new List<int>();
         public List<int> ejectorpools = new List<int>();
         public List<int> pointlayeridlist = new List<int>();
         public List<int> stationpools = new List<int>();
         public List<int> readyresearch = new List<int>();
+        private static Dictionary<int, bool> FuelFilter = new Dictionary<int, bool>();
         public string[] stationname = new string[6] { "星球矿机", "垃圾站", "星球无限供货机", "星球量子传输站", "星系量子传输站", "设置翘曲需求" };
         public float slowconstructspeed = 1;
         public float drawdysonlasttime;
@@ -56,36 +58,38 @@ namespace Auxilaryfunction
         public float window_width = 800;
         public float window_height = 710;
         public static float upsfix = 1;
-        public static bool temp = false;
-        public static bool simulatorrender = false;
-        public static bool simulatorchanging = false;
+        public static bool temp;
+        public static bool simulatorrender;
+        public static bool simulatorchanging;
         public bool firstopen = true;
-        public bool TextTech = false;
-        public bool DysonBluePrint = false;
-        public bool changescale = false;
-        public bool selectautoaddtechid = false;
-        public bool constructframe = false;
-        public bool constructingshell = false;
-        public bool constructshell = false;
+        public bool TextTech;
+        public bool DysonBluePrint;
+        public bool changescale;
+        public bool selectautoaddtechid;
+        public bool constructframe;
+        public bool constructingshell;
+        public bool constructshell;
         public bool slowconstruct = true;
         public bool onlysinglelayer = true;
-        public bool limitmaterial = false;
-        public bool blueprintopen = false;
+        public bool limitmaterial;
+        public bool blueprintopen;
         public bool autosetstationconfig = true;
-        public bool ready = false;
+        public bool ready;
         public bool firstStart = true;
-        public bool moving = false;
-        public bool leftscaling = false;
-        public bool startdrawdyson = false;
-        public bool rightscaling = false;
-        public bool topscaling = false;
-        public bool bottomscaling = false;
-        public bool showwindow = false;
-        public bool ChangeQuickKey = false;
-        public bool ChangingQuickKey = false;
-        public bool autoaddtech = false;
-        public bool changename = false;
-        public bool auto_setejector_start = false;
+        public bool moving;
+        public bool leftscaling;
+        public bool startdrawdyson;
+        public bool rightscaling;
+        public bool topscaling;
+        public bool bottomscaling;
+        public bool showwindow;
+        public bool ChangeQuickKey;
+        public bool ChangingQuickKey;
+        public bool autoaddtech;
+        public bool changename;
+        public bool auto_setejector_start;
+        public bool autoAddwarp_start = false;
+        public bool autoAddFuel_start;
         public static Dictionary<int, List<int>> EjectorDictionary;
         public static List<ItemProto> ItemList = new List<ItemProto>();
         public Texture2D mytexture;
@@ -111,8 +115,6 @@ namespace Auxilaryfunction
         public static bool slowdownsail = false;
         public static bool stopDysonSphere = false;
         public static bool stopfactory = false;
-        public static bool autorightfly = false;
-        public static bool autoupfly = false;
         public static bool fly = false;
         public static bool changeups = false;
         public static bool autobuildgetitem = false;
@@ -134,6 +136,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<Boolean> blueprintsetrecipe_bool;
         public static ConfigEntry<Boolean> norender_shipdrone_bool;
         public static ConfigEntry<Boolean> norender_lab_bool;
+        public static ConfigEntry<Boolean> norender_beltitem;
         public static ConfigEntry<Boolean> norender_dysonshell_bool;
         public static ConfigEntry<Boolean> norender_dysonswarm_bool;
         public static ConfigEntry<Boolean> norender_entity_bool;
@@ -149,8 +152,10 @@ namespace Auxilaryfunction
         public static ConfigEntry<Boolean> ShowStationInfo;
         public static ConfigEntry<Boolean> CloseUIpanel;
         public static ConfigEntry<Boolean> KeepBeltHeight;
-        public static ConfigEntry<double> stationwarpdist; 
-        public static ConfigEntry<KeyboardShortcut> ShowCounter1;
+        public static ConfigEntry<Boolean> autoAddFuel;
+        public static ConfigEntry<Boolean> autoAddwarp;
+        public static ConfigEntry<double> stationwarpdist;
+        public static ConfigEntry<KeyboardShortcut> QuickKey;
         public static ConfigEntry<int> stationdronedist;
         public static ConfigEntry<int> autosavetime;
         public static ConfigEntry<int> scale;
@@ -182,11 +187,10 @@ namespace Auxilaryfunction
             AssetBundle assetBundle = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.auxilarypanel"));
             //AssetBundle assetBundle = AssetBundle.LoadFromFile("E:/game/game1/New Unity Project (4)/AssetBundles/StandaloneWindows64/panel");
             AuxilaryPanel = assetBundle.LoadAsset<GameObject>("AuxilaryPanel");
-            preparedraw();
             trashlasttime = Time.time;
             drawdysonlasttime = Time.time;
-            ShowCounter1 = Config.Bind("打开窗口快捷键", "Key", new KeyboardShortcut(KeyCode.Alpha2, KeyCode.LeftAlt));
-            tempShowWindow = ShowCounter1.Value;
+            QuickKey = Config.Bind("打开窗口快捷键", "Key", new KeyboardShortcut(KeyCode.Alpha2, KeyCode.LeftAlt));
+            tempShowWindow = QuickKey.Value;
             AuxilaryTranslate.regallTranslate();
             auto_setejector_bool = Config.Bind("自动配置太阳帆弹射器", "auto_setejector_bool", false);
 
@@ -202,10 +206,10 @@ namespace Auxilaryfunction
             stationdronedist = Config.Bind("自动设置物流站运输机最远距离", "stationdronedist", 180);
             stationshipdist = Config.Bind("自动设置物流站运输船最远距离", "stationshipdist", 61);
             scale = Config.Bind("大小适配", "scale", 16);
-            
+
             closeplayerflyaudio = Config.Bind("关闭玩家飞行声音", "closeplayerflyaudio", false);
-            blueprintdelete_bool = Config.Bind("蓝图删除", "blueprintdelete_bool", false); 
-             blueprintrevoke_bool = Config.Bind("蓝图撤销", "blueprintrevoke_bool", false);
+            blueprintdelete_bool = Config.Bind("蓝图删除", "blueprintdelete_bool", false);
+            blueprintrevoke_bool = Config.Bind("蓝图撤销", "blueprintrevoke_bool", false);
             blueprintsetrecipe_bool = Config.Bind("蓝图配方", "blueprintsetrecipe_bool", false);
             blueprintcopytopaste_bool = Config.Bind("蓝图直接粘贴", "blueprintcopytopaste_bool", false);
             stationcopyItem_bool = Config.Bind("物流站复制物品配方", "stationcopyItem_bool", false);
@@ -213,18 +217,21 @@ namespace Auxilaryfunction
             autocleartrash_bool = Config.Bind("30s间隔自动清除垃圾", "autocleartrash_bool", false);
             autoabsorttrash_bool = Config.Bind("30s间隔自动吸收垃圾", "autoabsorttrash_bool", false);
             onlygetbuildings = Config.Bind("只回收建筑", "onlygetbuildings", false);
-            
+
             autowarpcommand = Config.Bind("自动导航使用翘曲", "autowarpcommand", false);
             close_alltip_bool = Config.Bind("关掉所有提示", "close_alltip_bool", false);
 
+            autoAddwarp = Config.Bind("自动添加翘曲器", "autoAddwarp", false);
+            autoAddFuel = Config.Bind("自动添加燃料", "autoAddFuel", false);
             autonavigation_bool = Config.Bind("自动导航", "autonavigation_bool", false);
             autowarpdistance = Config.Bind("自动使用翘曲器距离", "autowarpdistance", 0f);
             autoaddtech_bool = Config.Bind("自动添加科技队列", "autoaddtech_bool", false);
             ShowStationInfo = Config.Bind("展示物流站信息", "ShowStationInfo", false);
-            
+
             noscaleuitech_bool = Config.Bind("科技页面不缩放", "noscaleuitech_bool", false);
             norender_shipdrone_bool = Config.Bind("不渲染飞机飞船", "norender_shipdrone_bool", false);
             norender_lab_bool = Config.Bind("不渲染研究室", "norender_shipdrone_bool", false);
+            norender_beltitem = Config.Bind("不渲染传送带货物", "norender_beltitem", false);
             norender_dysonshell_bool = Config.Bind("不渲染戴森壳", "norender_dysonshell_bool", false);
             norender_dysonswarm_bool = Config.Bind("不渲染戴森云", "norender_dysonswarm_bool", false);
             norender_entity_bool = Config.Bind("不渲染实体", "norender_entity_bool", false);
@@ -239,8 +246,8 @@ namespace Auxilaryfunction
             autosavetime = Config.Bind("自动保存时间", "autosavetime", 25);
             CloseUIpanel = Config.Bind("关闭面板", "CloseUIpanel", true);
             maxheight = Screen.height;
-            scrollPosition[0] = 0; 
-             pdselectscrollPosition[0] = 0;
+            scrollPosition[0] = 0;
+            pdselectscrollPosition[0] = 0;
             mytexture = new Texture2D(10, 10);
             for (int i = 0; i < mytexture.width; i++)
                 for (int j = 0; j < mytexture.height; j++)
@@ -262,26 +269,11 @@ namespace Auxilaryfunction
             StationinfoUpdate();
             if (Input.GetKeyDown(KeyCode.F9))
             {
-                temp = !temp;
-                //int entityid = 0;
-                //foreach(StationComponent sc in GameMain.localPlanet.factory.transport.stationPool)
-                //{
-                //    if(sc!=null && sc.storage != null)
-                //    {
-                //        entityid = sc.entityId;
-                //    }
-                //}
-                //GameObject testitem1 = Instantiate<GameObject>(GameObject.Find("UI Root/Overlay Canvas/In Game/Top Tips/Entity Briefs"), GameObject.Find("UI Root/Overlay Canvas/In Game/Top Tips").transform);
-                //testitem1.GetComponent<UIEntityBriefInfo>().SetInfo(GameMain.localPlanet.factory, entityid);
-                //Destroy(tipPrefab.GetComponent<UIEntityBriefInfo>());
-                //Destroy(testitem1.transform.FindChildRecur("key-tip-text").gameObject);
-                //Destroy(testitem1.transform.FindChildRecur("far-tip-text").gameObject);
-                //testitem1.SetActive(true);
-
+                //temp = !temp;
             }
             if (GameMain.instance != null)
             {
-                if (autosavetimechange.Value&&UIAutoSave.autoSaveTime!=autosavetime.Value)
+                if (autosavetimechange.Value && UIAutoSave.autoSaveTime != autosavetime.Value)
                 {
                     DSPGame.globalOption.autoSaveTime = autosavetime.Value;
                     DSPGame.globalOption.Apply();
@@ -309,6 +301,17 @@ namespace Auxilaryfunction
                     ready = true;
                     EjectorDictionary = new Dictionary<int, List<int>>();
                     techlist = new List<TechProto>(LDB.techs.dataArray);
+                    if (fuelItems.Count == 0)
+                    {
+                        foreach (var item in LDB.items.dataArray)
+                        {
+                            if (item.HeatValue > 0)
+                            {
+                                fuelItems.Add(item.ID);
+                                FuelFilter.Add(item.ID, false);
+                            }
+                        }
+                    }
                     foreach (StarData sd in GameMain.galaxy.stars)
                     {
                         foreach (PlanetData pd in sd.planets)
@@ -333,11 +336,11 @@ namespace Auxilaryfunction
                     }
                     firstStart = true;
                 }
-                if(GameMain.history!=null&&GameMain.mainPlayer!=null && firstStart)
+                if (GameMain.history != null && GameMain.mainPlayer != null && firstStart)
                 {
                     if (auto_setejector_bool.Value && !auto_setejector_start)
                     {
-                        InvokeRepeating("ResetEjector", 0.1f, 1);
+                        InvokeRepeating("ResetEjector", 1, 1);
                         auto_setejector_start = true;
                     }
                     else if (!auto_setejector_bool.Value && auto_setejector_start)
@@ -345,7 +348,27 @@ namespace Auxilaryfunction
                         CancelInvoke("ResetEjector");
                         auto_setejector_start = false;
                     }
-                    if (GameMain.history.techQueueLength == 0&&autoaddtech_bool.Value && autoaddtechid>0)
+                    if (autoAddwarp.Value && !autoAddwarp_start)
+                    {
+                        InvokeRepeating("AutoAddwarp", 1, 1);
+                        autoAddwarp_start = true;
+                    }
+                    else if (!autoAddwarp.Value && autoAddwarp_start)
+                    {
+                        CancelInvoke("AutoAddwarp");
+                        autoAddwarp_start = false;
+                    }
+                    if (autoAddFuel.Value && !autoAddFuel_start)
+                    {
+                        InvokeRepeating("AutoAddFuel", 1, 1);
+                        autoAddFuel_start = true;
+                    }
+                    else if (!autoAddFuel.Value && autoAddFuel_start)
+                    {
+                        CancelInvoke("AutoAddFuel");
+                        autoAddFuel_start = false;
+                    }
+                    if (GameMain.history.techQueueLength == 0 && autoaddtech_bool.Value && autoaddtechid > 0)
                     {
                         GameMain.history.EnqueueTech(autoaddtechid);
                     }
@@ -353,8 +376,8 @@ namespace Auxilaryfunction
                     BluePrintoptimize();
                 }
             }
-            
-            if (ShowCounter1.Value.IsDown() && !ChangingQuickKey && ready)
+
+            if (QuickKey.Value.IsDown() && !ChangingQuickKey && ready)
             {
                 showwindow = !showwindow;
                 if (ui_AuxilaryPanelPanel == null)
@@ -363,32 +386,18 @@ namespace Auxilaryfunction
                 }
                 ui_AuxilaryPanelPanel.SetActive(showwindow && !CloseUIpanel.Value);
             }
-            if (showwindow&& Input.GetKey(KeyCode.LeftControl))
+            if (showwindow && Input.GetKey(KeyCode.LeftControl))
             {
                 if (Input.GetKeyDown(KeyCode.UpArrow)) { scale.Value++; changescale = true; }
                 if (Input.GetKeyDown(KeyCode.DownArrow)) { scale.Value--; changescale = true; }
-                if (scale.Value <5) scale.Value = 5;
+                if (scale.Value < 5) scale.Value = 5;
                 if (scale.Value > 35) scale.Value = 35;
             }
-            if ((constructframe||constructingshell) && Time.time - drawdysonlasttime >1)
-            {
-                drawdysonlasttime = Time.time;
-                if (constructframe)
-                {
-                    for (int i = 0; i < (int)slowconstructspeed; i++)
-                        slowconstructframe();
-                }
-                else
-                {
-                    for (int i = 0; i < (int)slowconstructspeed; i++)
-                        slowconstructshell();
-                }
-            }
-            if (autoaddtech && LDB.techs!=null && LDB.techs.dataArray != null && GameMain.history!=null)
+            if (autoaddtech && LDB.techs != null && LDB.techs.dataArray != null && GameMain.history != null)
             {
                 foreach (TechProto tp in LDB.techs.dataArray)
                 {
-                    if (readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID)||tp.MaxLevel>20 || GameMain.history.TechUnlocked(tp.ID)) continue;
+                    if (readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || GameMain.history.TechUnlocked(tp.ID)) continue;
                     bool condition = true;
                     foreach (int ip in tp.Items)
                     {
@@ -452,7 +461,7 @@ namespace Auxilaryfunction
             {
                 var rt = ui_AuxilaryPanelPanel.GetComponent<RectTransform>();
                 rt.sizeDelta = new Vector2(window_width, window_height);
-                rt.localPosition = new Vector2(-Screen.width/2+ window_x, Screen.height/2 - window_y-window_height);
+                rt.localPosition = new Vector2(-Screen.width / 2 + window_x, Screen.height / 2 - window_y - window_height);
                 //ui_StarMapToolsBasePanel.transform. = new Vector3(window_width, window_height , 1);
                 Rect window = new Rect(window_x, window_y, window_width, window_height);
                 GUI.DrawTexture(window, mytexture);
@@ -460,7 +469,7 @@ namespace Auxilaryfunction
                 else
                     moveWindow_xl_first(ref window_x, ref window_y, ref window_x_move, ref window_y_move, ref moving, ref temp_window_x, ref temp_window_y, window_width);
                 scaling_window(window_width, window_height, ref window_x, ref window_y);
-                window = GUI.Window(20210827, window, DoMyWindow1, "辅助面板".getTranslate()+"("+ VERSION+")" + "ps:ctrl+↑↓");
+                window = GUI.Window(20210827, window, DoMyWindow1, "辅助面板".getTranslate() + "(" + VERSION + ")" + "ps:ctrl+↑↓");
                 int window2width = Localization.language != Language.zhCN ? 15 * scale.Value : 15 * scale.Value / 2;
                 Rect switchwindow = new Rect(window_x - window2width, window_y, window2width, 25 * scale.Value);
                 if (leftscaling || rightscaling || topscaling || bottomscaling) { }
@@ -470,9 +479,9 @@ namespace Auxilaryfunction
                 switchwindow = GUI.Window(202108228, switchwindow, DoMyWindow2, "");
                 GUI.DrawTexture(switchwindow, mytexture);
             }
-            if (GameMain.mainPlayer!=null && GameMain.mainPlayer.navigation!=null && GameMain.mainPlayer.navigation._indicatorAstroId != 0)
+            if (GameMain.mainPlayer != null && GameMain.mainPlayer.navigation != null && GameMain.mainPlayer.navigation._indicatorAstroId != 0)
             {
-                if (GUI.Button(new Rect(10, 250, 150, 60), fly?"停止导航".getTranslate() : "继续导航".getTranslate()))
+                if (GUI.Button(new Rect(10, 250, 150, 60), fly ? "停止导航".getTranslate() : "继续导航".getTranslate()))
                 {
                     fly = !fly;
                     if (fly) slowdownsail = false;
@@ -482,7 +491,7 @@ namespace Auxilaryfunction
                     GameMain.mainPlayer.navigation._indicatorAstroId = 0;
                 }
             }
-            if (automovetounbuilt.Value&& GameMain.mainPlayer != null&& GameMain.localPlanet!=null && GameMain.localPlanet.factory!=null && GameMain.localPlanet.factory.prebuildCount>0 && GameMain.mainPlayer.movementState == EMovementState.Fly)
+            if (automovetounbuilt.Value && GameMain.mainPlayer != null && GameMain.localPlanet != null && GameMain.localPlanet.factory != null && GameMain.localPlanet.factory.prebuildCount > 0 && GameMain.mainPlayer.movementState == EMovementState.Fly)
             {
                 if (GUI.Button(new Rect(10, 360, 150, 60), closecollider ? "停止寻找未完成建筑".getTranslate() : "开始寻找未完成建筑".getTranslate()))
                 {
@@ -490,7 +499,7 @@ namespace Auxilaryfunction
                     GameMain.mainPlayer.gameObject.GetComponent<SphereCollider>().enabled = !closecollider;
                     GameMain.mainPlayer.gameObject.GetComponent<CapsuleCollider>().enabled = !closecollider;
                     autobuildgetitem = false;
-                    if (autobuildThread!=null)
+                    if (autobuildThread != null)
                     {
                         if (autobuildThread.ThreadState == ThreadState.WaitSleepJoin)
                             autobuildThread.Interrupt();
@@ -515,19 +524,19 @@ namespace Auxilaryfunction
                     autobuildThread = null;
                 }
             }
-            if (closecollider && GameMain.localPlanet.gasItems == null && GUI.Button(new Rect(10, 420, 150, 60),  autobuildgetitem ? "停止自动补充材料".getTranslate() : "开始自动补充材料".getTranslate()))
+            if (closecollider && GameMain.localPlanet.gasItems == null && GUI.Button(new Rect(10, 420, 150, 60), autobuildgetitem ? "停止自动补充材料".getTranslate() : "开始自动补充材料".getTranslate()))
             {
                 autobuildgetitem = !autobuildgetitem;
             }
             if (changeups)
             {
-                GUI.Label(new Rect(Screen.width/2, 0, 200, 50), string.Format("{0:N2}",upsfix) + "x");
+                GUI.Label(new Rect(Screen.width / 2, 0, 200, 50), string.Format("{0:N2}", upsfix) + "x");
             }
             if (blueprintopen)
             {
                 int tempwidth = 0;
                 int tempheight = 0;
-                if(pointeRecipetype != ERecipeType.None)
+                if (pointeRecipetype != ERecipeType.None)
                 {
                     List<RecipeProto> showrecipe = new List<RecipeProto>();
                     foreach (RecipeProto rp in LDB.recipes.dataArray)
@@ -567,11 +576,11 @@ namespace Auxilaryfunction
                                     GameMain.localPlanet.factory.factorySystem.assemblerPool[assemblerpools[j]].forceAccMode = false;
                             }
                         }
-                        if (GUI.Button(new Rect(recipewindowx +200, maxheight - recipewindowy + tempheight * 50, 200, 50), "生产加速".getTranslate()))
+                        if (GUI.Button(new Rect(recipewindowx + 200, maxheight - recipewindowy + tempheight * 50, 200, 50), "生产加速".getTranslate()))
                         {
                             for (int j = 0; j < assemblerpools.Count; j++)
                             {
-                                if(GameMain.localPlanet.factory.factorySystem.assemblerPool[assemblerpools[j]].productive)
+                                if (GameMain.localPlanet.factory.factorySystem.assemblerPool[assemblerpools[j]].productive)
                                     GameMain.localPlanet.factory.factorySystem.assemblerPool[assemblerpools[j]].forceAccMode = true;
                             }
                         }
@@ -579,12 +588,12 @@ namespace Auxilaryfunction
                 }
                 else if (labpools.Count > 0)
                 {
-                    for(int i=0;i<=5;i++)
+                    for (int i = 0; i <= 5; i++)
                         if (GUI.Button(new Rect(recipewindowx + tempwidth++ * 50, maxheight - recipewindowy + tempheight * 50, 50, 50), LDB.items.Select(LabComponent.matrixIds[i]).iconSprite.texture))
                         {
                             for (int j = 0; j < labpools.Count; j++)
                             {
-                                GameMain.localPlanet.factory.factorySystem.labPool[labpools[j]].SetFunction(false,LDB.items.Select(LabComponent.matrixIds[i]).maincraft.ID,0, GameMain.localPlanet.factory.entitySignPool);
+                                GameMain.localPlanet.factory.factorySystem.labPool[labpools[j]].SetFunction(false, LDB.items.Select(LabComponent.matrixIds[i]).maincraft.ID, 0, GameMain.localPlanet.factory.entitySignPool);
                             }
                         }
                     if (GUI.Button(new Rect(recipewindowx + tempwidth++ * 50, maxheight - recipewindowy + tempheight++ * 50, 50, 50), "无".getTranslate()))
@@ -618,17 +627,17 @@ namespace Auxilaryfunction
                         }
                     }
                 }
-                else if (ejectorpools.Count > 0 && GameMain.data.dysonSpheres[GameMain.localStar.index]!=null)
+                else if (ejectorpools.Count > 0 && GameMain.data.dysonSpheres[GameMain.localStar.index] != null)
                 {
                     DysonSwarm ds = GameMain.data.dysonSpheres[GameMain.localStar.index].swarm;
                     for (int i = 0; i < 4; i++)
                     {
-                        for(int j = 0; j < 5; j++)
+                        for (int j = 0; j < 5; j++)
                         {
-                            int orbitid = i * 5 + j+1;
-                            if (ds.OrbitExist(orbitid)&& GUI.Button(new Rect(recipewindowx + j * 50, maxheight - recipewindowy + tempheight * 50, 50, 50), orbitid.ToString()))
+                            int orbitid = i * 5 + j + 1;
+                            if (ds.OrbitExist(orbitid) && GUI.Button(new Rect(recipewindowx + j * 50, maxheight - recipewindowy + tempheight * 50, 50, 50), orbitid.ToString()))
                             {
-                                for(int k = 0; k < ejectorpools.Count; k++)
+                                for (int k = 0; k < ejectorpools.Count; k++)
                                 {
                                     GameMain.localPlanet.factory.factorySystem.ejectorPool[ejectorpools[k]].SetOrbit(orbitid);
                                 }
@@ -637,7 +646,7 @@ namespace Auxilaryfunction
                         tempheight++;
                     }
                 }
-                else if (changename&&stationpools.Count > 0)
+                else if (changename && stationpools.Count > 0)
                 {
                     if (tempheight + tempwidth > 0) tempheight++;
                     tempwidth = 0;
@@ -645,15 +654,15 @@ namespace Auxilaryfunction
                     {
                         if (GUI.Button(new Rect(recipewindowx + tempwidth++ * 130, maxheight - recipewindowy + tempheight * 50, 130, 50), stationname[i]))
                         {
-                            
+
                             for (int j = 0; j < stationpools.Count; j++)
                             {
                                 StationComponent sc = GameMain.localPlanet.factory.transport.stationPool[stationpools[j]];
                                 if (i == 5)
                                 {
                                     if (sc.storage[4].count > 0 && sc.storage[4].itemId != 1210)
-                                        GameMain.mainPlayer.TryAddItemToPackage(sc.storage[4].itemId, sc.storage[4].count,0, false);
-                                    GameMain.localPlanet.factory.transport.SetStationStorage(stationpools[j], stationindex, 1210,(int) batchnum*100, (ELogisticStorage)locallogic, (ELogisticStorage)remotelogic, GameMain.mainPlayer);
+                                        GameMain.mainPlayer.TryAddItemToPackage(sc.storage[4].itemId, sc.storage[4].count, 0, false);
+                                    GameMain.localPlanet.factory.transport.SetStationStorage(stationpools[j], stationindex, 1210, (int)batchnum * 100, (ELogisticStorage)locallogic, (ELogisticStorage)remotelogic, GameMain.mainPlayer);
                                 }
                                 else sc.name = stationname[i];
                             }
@@ -668,19 +677,19 @@ namespace Auxilaryfunction
                     }
                     int tempx = recipewindowx + tempwidth * 130;
                     int tempy = maxheight - recipewindowy + tempheight * 50;
-                    batchnum = (int)GUI.HorizontalSlider(new Rect(tempx,tempy, 150, 30),batchnum,0,100);
-                    GUI.Label(new Rect(tempx, tempy+30, 100, 30), "上限".getTranslate()+":" + batchnum * 100);
-                    if(GUI.Button(new Rect(tempx + 150, tempy, 100, 30), "第".getTranslate() + (stationindex + 1) + "格".getTranslate()))
+                    batchnum = (int)GUI.HorizontalSlider(new Rect(tempx, tempy, 150, 30), batchnum, 0, 100);
+                    GUI.Label(new Rect(tempx, tempy + 30, 100, 30), "上限".getTranslate() + ":" + batchnum * 100);
+                    if (GUI.Button(new Rect(tempx + 150, tempy, 100, 30), "第".getTranslate() + (stationindex + 1) + "格".getTranslate()))
                     {
                         stationindex++;
                         stationindex %= 5;
                     }
-                    if(GUI.Button(new Rect(tempx + 250, tempy , 100, 30), "本地".getTranslate() + getStationlogic(locallogic)))
+                    if (GUI.Button(new Rect(tempx + 250, tempy, 100, 30), "本地".getTranslate() + getStationlogic(locallogic)))
                     {
                         locallogic++;
                         locallogic %= 3;
                     }
-                    if (GUI.Button(new Rect(tempx + 350, tempy , 100, 30), "星际".getTranslate() + getStationlogic(remotelogic)))
+                    if (GUI.Button(new Rect(tempx + 350, tempy, 100, 30), "星际".getTranslate() + getStationlogic(remotelogic)))
                     {
                         remotelogic++;
                         remotelogic %= 3;
@@ -697,7 +706,7 @@ namespace Auxilaryfunction
                                 if (stationcopyItem[i, 0] > 0)
                                 {
                                     if (sc.storage[i].count > 0 && sc.storage[i].itemId != stationcopyItem[i, 0])
-                                        GameMain.mainPlayer.TryAddItemToPackage(sc.storage[i].itemId, sc.storage[i].count,0, false);
+                                        GameMain.mainPlayer.TryAddItemToPackage(sc.storage[i].itemId, sc.storage[i].count, 0, false);
                                     factory.transport.SetStationStorage(stationpools[j], i, stationcopyItem[i, 0], stationcopyItem[i, 1], (ELogisticStorage)stationcopyItem[i, 2]
                                         , (ELogisticStorage)stationcopyItem[i, 3], GameMain.mainPlayer);
                                 }
@@ -708,7 +717,7 @@ namespace Auxilaryfunction
                         stationpools.Clear();
                     }
                 }
-                
+
             }
             else
             {
@@ -721,26 +730,22 @@ namespace Auxilaryfunction
         public void DoMyWindow2(int winId)
         {
             int heightdis = scale.Value * 2;
-            int widthlen2 = Localization.language != Language.zhCN?15 * scale.Value : 9*scale.Value;
+            int widthlen2 = Localization.language != Language.zhCN ? 15 * scale.Value : 9 * scale.Value;
             GUILayout.BeginArea(new Rect(10, 20, widthlen2, 400));
-            if(TextTech!= GUI.Toggle(new Rect(0, 10, widthlen2, heightdis), TextTech, "文字科技树".getTranslate()))
+            if (TextTech != GUI.Toggle(new Rect(0, 10, widthlen2, heightdis), TextTech, "文字科技树".getTranslate()))
             {
                 TextTech = !TextTech;
             }
-            if (limitmaterial != GUI.Toggle(new Rect(heightdis/2, 10+ heightdis, widthlen2, heightdis), limitmaterial, "限制材料".getTranslate()))
+            if (limitmaterial != GUI.Toggle(new Rect(heightdis / 2, 10 + heightdis, widthlen2, heightdis), limitmaterial, "限制材料".getTranslate()))
             {
                 limitmaterial = !limitmaterial;
                 if (limitmaterial) TextTech = true;
             }
-            if (autoaddtech != GUI.Toggle(new Rect(heightdis / 2, 10+ heightdis*2, widthlen2, heightdis), autoaddtech, "自动乱点".getTranslate()))
+            if (autoaddtech != GUI.Toggle(new Rect(heightdis / 2, 10 + heightdis * 2, widthlen2, heightdis), autoaddtech, "自动乱点".getTranslate()))
             {
                 autoaddtech = !autoaddtech;
             }
-            if(DysonBluePrint!=GUI.Toggle(new Rect(heightdis/2,10+heightdis*3,widthlen2,heightdis), DysonBluePrint, "戴森球蓝图".getTranslate()))
-            {
-                DysonBluePrint = !DysonBluePrint;
-            }
-            
+
             GUILayout.EndArea();
 
         }
@@ -751,23 +756,23 @@ namespace Auxilaryfunction
             int widthlen1 = 75 * scale.Value / 8;
             int widthlen2 = Localization.language != Language.zhCN ? 15 * scale.Value : 25 * scale.Value / 2;
             int oneareamaxwidth = Localization.language != Language.zhCN ? widthlen1 + widthlen2 : widthlen2;
-            GUILayout.BeginArea(new Rect(10, 20, window_width+100, window_height));
+            GUILayout.BeginArea(new Rect(10, 20, window_width + 100, window_height));
             if (TextTech)
             {
-                scrollPosition = GUI.BeginScrollView(new Rect(0, 0, window_width - 10, window_height - heightdis), scrollPosition, new Rect(0, 0, 37*heightdis, windowmaxheight), true, true);
+                scrollPosition = GUI.BeginScrollView(new Rect(0, 0, window_width - 10, window_height - heightdis), scrollPosition, new Rect(0, 0, 37 * heightdis, windowmaxheight), true, true);
 
-                GUI.Label(new Rect(0, 0, heightdis*3, heightdis), "准备研究".getTranslate());
+                GUI.Label(new Rect(0, 0, heightdis * 3, heightdis), "准备研究".getTranslate());
                 int i = 0;
                 tempheight += heightdis;
-                for (;i< readyresearch.Count; i++)
+                for (; i < readyresearch.Count; i++)
                 {
                     TechProto tp = LDB.techs.Select(readyresearch[i]);
-                    if (i != 0 && i % 7 == 0) tempheight += heightdis*4;
-                    if (GUI.Button(new Rect(i % 7 * heightdis * 5, tempheight, heightdis*5, heightdis*2), tp.ID<2000?tp.name:(tp.name+tp.Level)))
+                    if (i != 0 && i % 7 == 0) tempheight += heightdis * 4;
+                    if (GUI.Button(new Rect(i % 7 * heightdis * 5, tempheight, heightdis * 5, heightdis * 2), tp.ID < 2000 ? tp.name : (tp.name + tp.Level)))
                     {
                         if (GameMain.history.TechInQueue(readyresearch[i]))
                         {
-                            for(int j = 0; j < GameMain.history.techQueue.Length; j++)
+                            for (int j = 0; j < GameMain.history.techQueue.Length; j++)
                             {
                                 if (GameMain.history.techQueue[j] != readyresearch[i]) continue;
                                 GameMain.history.RemoveTechInQueue(j);
@@ -787,14 +792,14 @@ namespace Auxilaryfunction
                         GUI.Button(new Rect(i % 7 * heightdis * 5 + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
                     }
                 }
-                tempheight += heightdis*4;
+                tempheight += heightdis * 4;
                 GUI.Label(new Rect(0, tempheight, heightdis * 3, heightdis), "科技".getTranslate());
                 tempheight += heightdis;
                 i = 0;
-                foreach(TechProto tp in LDB.techs.dataArray)
+                foreach (TechProto tp in LDB.techs.dataArray)
                 {
                     if (tp.ID > 2000) break;
-                    if (readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) ||tp.MaxLevel>20|| GameMain.history.TechUnlocked(tp.ID)) continue;
+                    if (readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || GameMain.history.TechUnlocked(tp.ID)) continue;
                     if (limitmaterial)
                     {
                         bool condition = true;
@@ -806,8 +811,8 @@ namespace Auxilaryfunction
                         }
                         if (!condition) continue;
                     }
-                    if (i!=0&&i % 5 == 0) tempheight += heightdis * 4;
-                    if (GUI.Button(new Rect(i % 5 * heightdis * 5, tempheight, heightdis * 5, heightdis * 2),tp.name))
+                    if (i != 0 && i % 5 == 0) tempheight += heightdis * 4;
+                    if (GUI.Button(new Rect(i % 5 * heightdis * 5, tempheight, heightdis * 5, heightdis * 2), tp.name))
                     {
                         readyresearch.Add(tp.ID);
                     }
@@ -823,13 +828,13 @@ namespace Auxilaryfunction
                     }
                     i++;
                 }
-                tempheight += heightdis*4;
-                GUI.Label(new Rect(0, tempheight, heightdis*4, heightdis), "升级".getTranslate());
+                tempheight += heightdis * 4;
+                GUI.Label(new Rect(0, tempheight, heightdis * 4, heightdis), "升级".getTranslate());
                 i = 0;
                 tempheight += heightdis;
                 foreach (TechProto tp in LDB.techs.dataArray)
                 {
-                    if (tp.ID < 2000||readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 ||tp.MaxLevel>100 || GameMain.history.TechUnlocked(tp.ID)) continue;
+                    if (tp.ID < 2000 || readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || tp.MaxLevel > 100 || GameMain.history.TechUnlocked(tp.ID)) continue;
                     if (limitmaterial)
                     {
                         bool condition = true;
@@ -841,25 +846,19 @@ namespace Auxilaryfunction
                         }
                         if (!condition) continue;
                     }
-                    if (i != 0 && i % 5 == 0) tempheight += heightdis*3;
-                    if (GUI.Button(new Rect(i % 5 * heightdis*5, tempheight, heightdis*5, heightdis*2), tp.name+tp.Level))
+                    if (i != 0 && i % 5 == 0) tempheight += heightdis * 3;
+                    if (GUI.Button(new Rect(i % 5 * heightdis * 5, tempheight, heightdis * 5, heightdis * 2), tp.name + tp.Level))
                     {
                         readyresearch.Add(tp.ID);
                     }
                     int k = 0;
                     foreach (ItemProto ip in tp.itemArray)
                     {
-                        GUI.Button(new Rect(i % 5 * heightdis*5 + k++ * heightdis, heightdis*2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
+                        GUI.Button(new Rect(i % 5 * heightdis * 5 + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
                     }
                     i++;
                 }
-                windowmaxheight = tempheight+ heightdis*4;
-                GUI.EndScrollView();
-            }
-            else if (DysonBluePrint)
-            {
-                scrollPosition = GUI.BeginScrollView(new Rect(0, 0, window_width - 10, window_height - heightdis), scrollPosition, new Rect(0, 0, 37 * heightdis, windowmaxheight), true, true);
-
+                windowmaxheight = tempheight + heightdis * 4;
                 GUI.EndScrollView();
             }
             else
@@ -867,60 +866,56 @@ namespace Auxilaryfunction
                 int finalheight = 0;
                 oneareamaxwidth = widthlen1 + widthlen2;
                 {
-                    GUILayout.BeginArea(new Rect(10, 0, 20+ widthlen1+ widthlen2, window_height));
+                    GUILayout.BeginArea(new Rect(10, 0, 20 + widthlen1 + widthlen2, window_height));
                     auto_supply_station.Value = GUI.Toggle(new Rect(10, heightdis * tempheight, widthlen1, heightdis), auto_supply_station.Value, "自动配置新运输站".getTranslate());
-                    autosetstationconfig = GUI.Toggle(new Rect(20+ widthlen1, heightdis * tempheight++, widthlen2, heightdis), autosetstationconfig, "配置参数".getTranslate());
+                    autosetstationconfig = GUI.Toggle(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), autosetstationconfig, "配置参数".getTranslate());
                     if (autosetstationconfig)
                     {
                         auto_supply_drone.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), auto_supply_drone.Value, 0, 100);
-                        GUI.Label(new Rect(20+ widthlen1, heightdis * tempheight++, widthlen2, heightdis), auto_supply_drone.Value + " "+"填充飞机数量".getTranslate());
+                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), auto_supply_drone.Value + " " + "填充飞机数量".getTranslate());
                         auto_supply_ship.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), auto_supply_ship.Value, 0, 10);
-                        GUI.Label(new Rect(20+ widthlen1, heightdis * tempheight++, widthlen2, heightdis), auto_supply_ship.Value + " "+"填充飞船数量".getTranslate());
+                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), auto_supply_ship.Value + " " + "填充飞船数量".getTranslate());
                         stationmaxpowerpertick.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), stationmaxpowerpertick.Value, 30, 300);
-                        GUI.Label(new Rect(20+ widthlen1, heightdis * tempheight++, widthlen2, 30), (int)stationmaxpowerpertick.Value + "MW "+"最大充电功率".getTranslate());
+                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, 30), (int)stationmaxpowerpertick.Value + "MW " + "最大充电功率".getTranslate());
 
                         stationdronedist.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), (float)stationdronedist.Value, 20, 180);
-                        GUI.Label(new Rect(20+ widthlen1, heightdis * tempheight++, widthlen2, heightdis), stationdronedist.Value + "° "+"运输机最远路程".getTranslate());
+                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), stationdronedist.Value + "° " + "运输机最远路程".getTranslate());
                         stationshipdist.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), (float)stationshipdist.Value, 1, 61);
-                        GUI.Label(new Rect(20+ widthlen1, heightdis * tempheight++, widthlen2, heightdis), (stationshipdist.Value == 61 ? "∞ " : stationshipdist.Value + "ly ") +"运输船最远路程".getTranslate());
+                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), (stationshipdist.Value == 61 ? "∞ " : stationshipdist.Value + "ly ") + "运输船最远路程".getTranslate());
                         stationwarpdist.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), (float)stationwarpdist.Value, 0.5f, 60);
                         if (stationwarpdist.Value == 0) stationwarpdist.Value = 0.5;
-                        GUI.Label(new Rect(20+ widthlen1, heightdis * tempheight++, widthlen2, heightdis), stationwarpdist.Value + "AU "+"曲速启用路程".getTranslate());
+                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), stationwarpdist.Value + "AU " + "曲速启用路程".getTranslate());
                         DroneStartCarry.Value = GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), DroneStartCarry.Value, 0.01f, 1);
                         DroneStartCarry.Value = DroneStartCarry.Value == 0 ? 0.01f : DroneStartCarry.Value;
 
-                        GUI.Label(new Rect(20+ widthlen1, heightdis * tempheight++, widthlen2, heightdis), ((int)(DroneStartCarry.Value * 10) * 10 == 0 ? "1" : "" + (int)(DroneStartCarry.Value * 10) * 10) + "% " + "运输机起送量".getTranslate());
+                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), ((int)(DroneStartCarry.Value * 10) * 10 == 0 ? "1" : "" + (int)(DroneStartCarry.Value * 10) * 10) + "% " + "运输机起送量".getTranslate());
                         ShipStartCarry.Value = GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), ShipStartCarry.Value, 0.1f, 1);
-                        GUI.Label(new Rect(20+ widthlen1, heightdis * tempheight++, widthlen2, heightdis), (int)(ShipStartCarry.Value * 10) * 10 + "% " + "运输船起送量".getTranslate());
+                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), (int)(ShipStartCarry.Value * 10) * 10 + "% " + "运输船起送量".getTranslate());
                         auto_supply_warp.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), auto_supply_warp.Value, 0, 50);
-                        GUI.Label(new Rect(20+ widthlen1, heightdis * tempheight++, widthlen2, heightdis), auto_supply_warp.Value + " "+"翘曲填充数量".getTranslate());
-                        veincollectorspeed.Value =(int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), veincollectorspeed.Value, 10, 30);
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis*2), veincollectorspeed.Value/10.0f + " " + "大型采矿机采矿速率".getTranslate());
+                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), auto_supply_warp.Value + " " + "翘曲填充数量".getTranslate());
+                        veincollectorspeed.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), veincollectorspeed.Value, 10, 30);
+                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis * 2), veincollectorspeed.Value / 10.0f + " " + "大型采矿机采矿速率".getTranslate());
                     }
                     tempheight += Localization.language != Language.zhCN ? 1 : 0;
                     if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "铺满轨道采集器".getTranslate())) setgasstation();
                     if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "填充当前星球飞机飞船、翘曲器".getTranslate())) addDroneShiptooldstation();
                     if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "批量配置当前星球物流站".getTranslate())) changeallstationconfig();
                     if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "批量配置当前星球大型采矿机采矿速率".getTranslate())) changeallveincollectorspeedconfig();
-                    
+
                     norender_dysonshell_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_dysonshell_bool.Value, "不渲染戴森壳".getTranslate());
                     norender_dysonswarm_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_dysonswarm_bool.Value, "不渲染戴森云".getTranslate());
                     norender_lab_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_lab_bool.Value, "不渲染研究站".getTranslate());
+                    norender_beltitem.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_beltitem.Value, "不渲染传送带货物".getTranslate());
                     norender_shipdrone_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_shipdrone_bool.Value, "不渲染运输船和飞机".getTranslate());
                     norender_entity_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_entity_bool.Value, "不渲染实体".getTranslate());
-                    if(simulatorrender != GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), simulatorrender, "不渲染全部".getTranslate()))
+                    if (simulatorrender != GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), simulatorrender, "不渲染全部".getTranslate()))
                     {
                         simulatorrender = !simulatorrender;
                         simulatorchanging = true;
                     }
                     norender_powerdisk_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_powerdisk_bool.Value, "不渲染电网覆盖".getTranslate());
                     closeplayerflyaudio.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), closeplayerflyaudio.Value, "关闭玩家走路飞行声音".getTranslate());
-                    autorightfly = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autorightfly, "自动向右飞".getTranslate());
-                    autoupfly = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autoupfly, "自动向上飞".getTranslate());
 
-                    stopfactory = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), stopfactory, "停止工厂".getTranslate());
-                    stopDysonSphere = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), stopDysonSphere, "停止戴森球".getTranslate());
-                    Quickstop_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), Quickstop_bool.Value, "ctrl+空格快速开关".getTranslate());
                     finalheight = heightdis * (tempheight + 1);
                     GUILayout.EndArea();
 
@@ -929,7 +924,7 @@ namespace Auxilaryfunction
                 oneareamaxwidth = Localization.language != Language.zhCN ? widthlen1 + widthlen2 : widthlen2;
                 {
                     tempheight = 0;
-                    GUILayout.BeginArea(new Rect(30 + widthlen1+widthlen2, 0, oneareamaxwidth+10, window_height));
+                    GUILayout.BeginArea(new Rect(30 + widthlen1 + widthlen2, 0, oneareamaxwidth + 10, window_height));
 
                     if (autoaddtech_bool.Value != GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autoaddtech_bool.Value, "自动添加科技队列".getTranslate()))
                     {
@@ -958,22 +953,41 @@ namespace Auxilaryfunction
                         }
 
                     }
-                    auto_setejector_bool.Value  = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate());
-                    autonavigation_bool.Value   = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autonavigation_bool.Value, "自动导航".getTranslate());
-                    autowarpcommand.Value       = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autowarpcommand.Value, "自动导航使用曲速".getTranslate());
+                    autoAddwarp.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autoAddwarp.Value, "自动添加翘曲器");
+                    autoAddFuel.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autoAddFuel.Value, "自动添加燃料");
+                    int iconIndex=0;
+                    foreach(var itemID in fuelItems)
+                    {
+                        GUIStyle style = new GUIStyle();
+                        if (FuelFilter[itemID])
+                            style.normal.background = Texture2D.whiteTexture;
+                        if (GUI.Button(new Rect(10+ iconIndex++*heightdis, heightdis * tempheight, heightdis, heightdis), LDB.items.Select(itemID).iconSprite.texture, style))
+                        {
+                            FuelFilter[itemID] = !FuelFilter[itemID];
+                        }
+                        if (iconIndex % 6 == 0)
+                        {
+                            iconIndex = 0;
+                            tempheight++;
+                        }
+                    }
+                    tempheight++;
+                    auto_setejector_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate());
+                    autonavigation_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autonavigation_bool.Value, "自动导航".getTranslate());
+                    autowarpcommand.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autowarpcommand.Value, "自动导航使用曲速".getTranslate());
                     GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "自动使用翘曲器距离".getTranslate() + ":");
-                    autowarpdistance.Value      = GUI.HorizontalSlider(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autowarpdistance.Value, 0, 30);
+                    autowarpdistance.Value = GUI.HorizontalSlider(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autowarpdistance.Value, 0, 30);
                     GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), String.Format("{0:N2}", autowarpdistance.Value) + "光年".getTranslate() + "\n");
-                    automovetounbuilt.Value     = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate());
-                    close_alltip_bool.Value     = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), close_alltip_bool.Value, "一键闭嘴".getTranslate());
-                    noscaleuitech_bool.Value    = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), noscaleuitech_bool.Value, "科技面板选中不缩放".getTranslate());
-                    blueprintdelete_bool.Value  = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintdelete_bool.Value, "蓝图删除".getTranslate() + "(ctrl+X）");
-                    blueprintrevoke_bool.Value  = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintrevoke_bool.Value, "蓝图撤销".getTranslate() + "(ctrl+Z)");
-                    blueprintsetrecipe_bool.Value   = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintsetrecipe_bool.Value, "蓝图设置配方".getTranslate() + "(ctrl+F)");
+                    automovetounbuilt.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate());
+                    close_alltip_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), close_alltip_bool.Value, "一键闭嘴".getTranslate());
+                    noscaleuitech_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), noscaleuitech_bool.Value, "科技面板选中不缩放".getTranslate());
+                    blueprintdelete_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintdelete_bool.Value, "蓝图删除".getTranslate() + "(ctrl+X）");
+                    blueprintrevoke_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintrevoke_bool.Value, "蓝图撤销".getTranslate() + "(ctrl+Z)");
+                    blueprintsetrecipe_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintsetrecipe_bool.Value, "蓝图设置配方".getTranslate() + "(ctrl+F)");
                     blueprintcopytopaste_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintcopytopaste_bool.Value, "蓝图复制直接粘贴".getTranslate());
-                    bool temp      = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), ShowStationInfo.Value, "物流站信息显示".getTranslate());
-                    stationcopyItem_bool.Value      = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), stationcopyItem_bool.Value, "物流站物品设置复制粘贴".getTranslate());
-                    if (temp!=ShowStationInfo.Value)
+                    bool temp = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), ShowStationInfo.Value, "物流站信息显示".getTranslate());
+                    stationcopyItem_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), stationcopyItem_bool.Value, "物流站物品设置复制粘贴".getTranslate());
+                    if (temp != ShowStationInfo.Value)
                     {
                         ShowStationInfo.Value = temp;
                         if (!temp)
@@ -1006,74 +1020,16 @@ namespace Auxilaryfunction
 
                     ChangeQuickKey = GUI.Toggle(new Rect(10, heightdis * tempheight++, widthlen2, heightdis), ChangeQuickKey, !ChangeQuickKey ? "改变窗口快捷键".getTranslate() : "点击确认".getTranslate());
                     GUI.TextArea(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), tempShowWindow.ToString());
-                    finalheight  = Math.Max(finalheight, heightdis * (tempheight + 1));
+                    finalheight = Math.Max(finalheight, heightdis * (tempheight + 1));
                     GUILayout.EndArea();
 
                 }
 
                 {
                     tempheight = 0;
-                    GUILayout.BeginArea(new Rect(40 + widthlen1+widthlen2+oneareamaxwidth , 0, oneareamaxwidth+10, window_height));
-                    startdrawdyson = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), startdrawdyson, "自动画最密戴森球".getTranslate());
-                    if (startdrawdyson)
-                    {
-                        slowconstruct = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), slowconstruct, "缓慢最密画法".getTranslate());
-                        GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, 40), "缓慢最密画法".getTranslate() + ":" + (int)slowconstructspeed + "根"+"/s");
-                        slowconstructspeed = GUI.HorizontalSlider(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), slowconstructspeed, 1, 500);
-                        constructshell = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), constructshell, "带壳".getTranslate() + "?" + (constructshell ? "带".getTranslate() : "不带".getTranslate()));
-                        onlysinglelayer = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), onlysinglelayer, "只画单层".getTranslate());
-                        if (onlysinglelayer)
-                        {
-                            if (GUI.Button(new Rect(10, heightdis * tempheight++, widthlen2, heightdis), !constructframe ? "启动".getTranslate() + " " + (pointlayerid > 0 ? pointlayerid.ToString() : "") : "正在画".getTranslate() + "...") && !constructframe && pointlayerid != 0)
-                            {
-                                quickconstruct();
-                            }
-                        }
-                        else
-                        {
-                            string layerid = "";
-                            for (int i = 0; i < pointlayeridlist.Count; i++)
-                                layerid += pointlayeridlist[i] + " ";
-                            if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), !constructframe ? "启动".getTranslate() + " " + layerid : "正在画...") && !constructframe && pointlayeridlist.Count != 0)
-                            {
-                                quickconstruct();
-                            }
-                        }
-                        if (constructframe)
-                        {
-                            if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "停止".getTranslate()))
-                            {
-                                constructframe = false;
-                            }
-                        }
-                        List<int> result = getDysonlayerid();
-                        int tempheightdis= 0;
-                        for (int i = 1; i <= 10; i++)
-                        {
-                            if (result.Contains(i))
-                            {
-                                if (GUI.Button(new Rect(10 + widthlen2 * ((i - 1) % 5) / 5, tempheightdis + heightdis * tempheight, widthlen2 / 5, widthlen2 / 5), i + ""))
-                                {
-                                    if (onlysinglelayer)
-                                    {
-                                        pointlayerid = i;
-                                    }
-                                    else
-                                    {
-                                        if (!pointlayeridlist.Contains(i))
-                                            pointlayeridlist.Add(i);
-                                        else
-                                            pointlayeridlist.Remove(i);
-                                    }
-                                }
-                            }
-                            if (i == 5) tempheightdis += heightdis * 5 / 4;
-                        }
-                        tempheight += result.Count==0?0:1+(result.Count + 4) / 5;
-                        tempheightdis = 0;
-                    }
+                    GUILayout.BeginArea(new Rect(40 + widthlen1 + widthlen2 + oneareamaxwidth, 0, oneareamaxwidth + 10, window_height));
                     changeups = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), changeups, "启动时间流速修改".getTranslate());
-                    GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, 40), "流速倍率".getTranslate() + ":"+string.Format("{0:N2}",upsfix));
+                    GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, 40), "流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix));
                     upsfix = GUI.HorizontalSlider(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), upsfix, 0.01f, 10);
                     if (upsfix < 0.01) upsfix = 0.01f;
                     upsquickset.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), upsquickset.Value, "加速减速".getTranslate() + "(shift,'+''-')");
@@ -1085,40 +1041,29 @@ namespace Auxilaryfunction
 
                     autosavetimechange.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autosavetimechange.Value, "自动保存".getTranslate());
                     GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "自动保存时间".getTranslate() + "/min：");
-                    int tempint = autosavetime.Value/60;
-                    if(int.TryParse(Regex.Replace(GUI.TextField(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), tempint+ ""), @"[^0-9]", ""),out tempint)){
+                    int tempint = autosavetime.Value / 60;
+                    if (int.TryParse(Regex.Replace(GUI.TextField(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), tempint + ""), @"[^0-9]", ""), out tempint))
+                    {
                         if (tempint < 1) tempint = 1;
                         if (tempint > 10000) tempint = 10000;
-                        autosavetime.Value = tempint*60;
+                        autosavetime.Value = tempint * 60;
                     }
                     finalheight = Math.Max(finalheight, heightdis * (tempheight + 1));
-                    if(CloseUIpanel.Value!= GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), CloseUIpanel.Value, "关闭白色面板".getTranslate()))
+                    if (CloseUIpanel.Value != GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), CloseUIpanel.Value, "关闭白色面板".getTranslate()))
                     {
                         CloseUIpanel.Value = !CloseUIpanel.Value;
                         ui_AuxilaryPanelPanel.SetActive(!CloseUIpanel.Value);
                     }
                     KeepBeltHeight.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), KeepBeltHeight.Value, "保持传送带高度".getTranslate());
+                    Quickstop_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), Quickstop_bool.Value, "ctrl+空格快速开关".getTranslate());
+                    stopfactory = GUI.Toggle(new Rect(20, heightdis * tempheight++, oneareamaxwidth, heightdis), stopfactory, "停止工厂".getTranslate());
+                    stopDysonSphere = GUI.Toggle(new Rect(20, heightdis * tempheight++, oneareamaxwidth, heightdis), stopDysonSphere, "停止戴森球".getTranslate());
                     GUILayout.EndArea();
                 }
                 window_height = finalheight;
             }
-            window_width = 70 + widthlen1 + widthlen2 + oneareamaxwidth * 2<window_width?window_width: 70 + widthlen1 + widthlen2 + oneareamaxwidth * 2;
+            window_width = 70 + widthlen1 + widthlen2 + oneareamaxwidth * 2 < window_width ? window_width : 70 + widthlen1 + widthlen2 + oneareamaxwidth * 2;
             GUILayout.EndArea();
-        }
-
-        public void RefreshImageName()
-        {
-            DysonSphereBluePrintNamelist.Clear();
-            DirectoryInfo directoryInfo = new DirectoryInfo(Paths.GameRootPath + "/DysonSphereBluePrints");
-            if (directoryInfo.Exists)
-            {
-                foreach (FileInfo file in directoryInfo.GetFiles("*.txt"))
-                {
-                    DysonSphereBluePrintNamelist.Add(file.Name);
-                }
-            }
-            else
-                directoryInfo.Create();
         }
         void StationinfoStart()
         {
@@ -1133,7 +1078,8 @@ namespace Auxilaryfunction
             Destroy(testitem.transform.Find("state").gameObject);
             Destroy(testitem.transform.Find("item-display").gameObject);
             Destroy(testitem.transform.Find("panel-bg").Find("title-text").gameObject);
-            testitem.transform.Find("item-sign").GetComponent<Button>().onClick.AddListener(() => {
+            testitem.transform.Find("item-sign").GetComponent<Button>().onClick.AddListener(() =>
+            {
                 if (UISignalPicker.isOpened)
                     UISignalPicker.Close();
                 else
@@ -1146,7 +1092,7 @@ namespace Auxilaryfunction
                     return;
                 if (beltpools.Count > 0)
                 {
-                    foreach(int i in beltpools)
+                    foreach (int i in beltpools)
                     {
                         GameMain.localPlanet.factory.cargoTraffic.SetBeltSignalIcon(i, pointsignalid);
                         GameMain.localPlanet.factory.cargoTraffic.SetBeltSignalNumber(i, result);
@@ -1170,7 +1116,8 @@ namespace Auxilaryfunction
             GameObject speaker_panel = testitem1.transform.Find("speaker-panel").gameObject;
             GameObject pitch = speaker_panel.transform.Find("pitch").gameObject;
             GameObject volume = speaker_panel.transform.Find("volume").gameObject;
-            speaker_panel.GetComponent<UISpeakerPanel>().toneCombo.onItemIndexChange.AddListener(new UnityAction(()=>{
+            speaker_panel.GetComponent<UISpeakerPanel>().toneCombo.onItemIndexChange.AddListener(new UnityAction(() =>
+            {
                 if (monitorpools != null && monitorpools.Count > 0)
                 {
                     UIComboBox toneCombo = speaker_panel.GetComponent<UISpeakerPanel>().toneCombo;
@@ -1213,21 +1160,21 @@ namespace Auxilaryfunction
                     }
                 }
             });
-            speaker_panel.GetComponent<UISpeakerPanel>().testPlayBtn.GetComponent<UIButton>().onClick+=new Action<int>((int str) =>
-            {
-                if (monitorpools != null && monitorpools.Count > 0)
-                {
-                    UIComboBox toneCombo = speaker_panel.GetComponent<UISpeakerPanel>().toneCombo;
-                    foreach (int i in monitorpools)
-                    {
-                        int speakerId = GameMain.localPlanet.factory.cargoTraffic.monitorPool[i].speakerId;
-                        GameMain.localPlanet.factory.digitalSystem.speakerPool[speakerId].SetPitch((int)speaker_panel.GetComponent<UISpeakerPanel>().pitchSlider.value);
-                        GameMain.localPlanet.factory.digitalSystem.speakerPool[speakerId].SetVolume((int)speaker_panel.GetComponent<UISpeakerPanel>().volumeSlider.value);
-                        GameMain.localPlanet.factory.digitalSystem.speakerPool[speakerId].SetTone(toneCombo.ItemsData[toneCombo.itemIndex]);
-                        GameMain.localPlanet.factory.digitalSystem.speakerPool[speakerId].Play(ESpeakerPlaybackOrigin.Current);
-                    }
-                }
-            });
+            speaker_panel.GetComponent<UISpeakerPanel>().testPlayBtn.GetComponent<UIButton>().onClick += new Action<int>((int str) =>
+              {
+                  if (monitorpools != null && monitorpools.Count > 0)
+                  {
+                      UIComboBox toneCombo = speaker_panel.GetComponent<UISpeakerPanel>().toneCombo;
+                      foreach (int i in monitorpools)
+                      {
+                          int speakerId = GameMain.localPlanet.factory.cargoTraffic.monitorPool[i].speakerId;
+                          GameMain.localPlanet.factory.digitalSystem.speakerPool[speakerId].SetPitch((int)speaker_panel.GetComponent<UISpeakerPanel>().pitchSlider.value);
+                          GameMain.localPlanet.factory.digitalSystem.speakerPool[speakerId].SetVolume((int)speaker_panel.GetComponent<UISpeakerPanel>().volumeSlider.value);
+                          GameMain.localPlanet.factory.digitalSystem.speakerPool[speakerId].SetTone(toneCombo.ItemsData[toneCombo.itemIndex]);
+                          GameMain.localPlanet.factory.digitalSystem.speakerPool[speakerId].Play(ESpeakerPlaybackOrigin.Current);
+                      }
+                  }
+              });
             #endregion
 
             stationTip = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks"), GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs").transform);
@@ -1266,18 +1213,18 @@ namespace Auxilaryfunction
                 //uiiconCountInc.SetTransformIdentity();
                 //uiiconCountInc.visible = false;
             }
-            for(int i = 0; i < 3; i++)
+            for (int i = 0; i < 3; i++)
             {
                 GameObject icontext = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Top Tips/Entity Briefs/brief-info-top/brief-info/content/icons/icon"), new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
                 icontext.name = "icontext" + i;
-                icontext.GetComponent<RectTransform>().localScale = new Vector3(0.7f, 0.7f,1);
+                icontext.GetComponent<RectTransform>().localScale = new Vector3(0.7f, 0.7f, 1);
                 icontext.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
                 icontext.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
                 icontext.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
-                icontext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(i*30, -180, 0);
+                icontext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(i * 30, -180, 0);
                 GameObject gameObject1 = Instantiate(tipPrefab.transform.Find("info-text").gameObject, new Vector3(0, 0, 0), Quaternion.identity, icontext.transform);
                 gameObject1.name = "countText";
-                gameObject1.GetComponent<Text>().fontSize =22;
+                gameObject1.GetComponent<Text>().fontSize = 22;
                 gameObject1.GetComponent<Text>().text = "100";
                 gameObject1.GetComponent<Text>().alignment = TextAnchor.MiddleRight;
                 gameObject1.GetComponent<RectTransform>().sizeDelta = new Vector2(95, 30);
@@ -1351,7 +1298,7 @@ namespace Auxilaryfunction
                                 position = pd.factory.entityPool[stationComponent.entityId].pos.normalized * (realRadius + 20f);
                                 num1 = 5;
                             }
-                            else if(stationComponent.isVeinCollector)
+                            else if (stationComponent.isVeinCollector)
                             {
                                 position = pd.factory.entityPool[stationComponent.entityId].pos.normalized * (realRadius + 5f);
                                 num1 = 1;
@@ -1396,7 +1343,7 @@ namespace Auxilaryfunction
                                     {
                                         if (stationComponent.storage[i].itemId > 0)
                                         {
-                                            tip[index1].transform.Find("icon" + i).GetComponent<Image>().sprite = LDB.items.Select(stationComponent.storage[i].itemId).iconSprite;
+                                            tip[index1].transform.Find("icon" + i).GetComponent<Image>().sprite = LDB.items.Select(stationComponent.storage[i].itemId)?.iconSprite;
                                             tip[index1].transform.Find("icon" + i).gameObject.SetActive(true);
                                             tip[index1].transform.Find("countText" + i).GetComponent<Text>().text = stationComponent.storage[i].count.ToString("#,##0");
                                             tip[index1].transform.Find("countText" + i).GetComponent<Text>().color = Color.white;
@@ -1425,7 +1372,7 @@ namespace Auxilaryfunction
                                     }
                                     for (int i = 0; i < 3; ++i)
                                     {
-                                        if(stationComponent.isCollector || stationComponent.isVeinCollector)
+                                        if (stationComponent.isCollector || stationComponent.isVeinCollector)
                                         {
                                             tip[index1].transform.Find("icontext" + i).gameObject.SetActive(false);
                                             continue;
@@ -1457,7 +1404,7 @@ namespace Auxilaryfunction
                                     }
                                     else
                                         tip[index1].transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-                                    for (int i = string.IsNullOrEmpty(stationComponent.name)?num1:num1+1; i < 6; ++i)
+                                    for (int i = string.IsNullOrEmpty(stationComponent.name) ? num1 : num1 + 1; i < 6; ++i)
                                     {
                                         tip[index1].transform.Find("icon" + i).gameObject.SetActive(false);
                                         tip[index1].transform.Find("countText" + i).gameObject.SetActive(false);
@@ -1475,15 +1422,15 @@ namespace Auxilaryfunction
                 stationTip.SetActive(false);
         }
 
-        public static void FindItemAndMove(int itemId,int itemCount)
+        public static void FindItemAndMove(int itemId, int itemCount)
         {
-            if (GameMain.localPlanet == null|| GameMain.localPlanet.factory==null || GameMain.localPlanet.gasItems != null) return;
+            if (GameMain.localPlanet == null || GameMain.localPlanet.factory == null || GameMain.localPlanet.gasItems != null) return;
             if (LDB.items == null || LDB.items.Select(itemId) == null) return;
             GameMain.mainPlayer.package.Sort();
             int packageGridLen = GameMain.mainPlayer.package.grids.Length;
             int stackMax;
             int stackSize = 0;
-            for (int i = packageGridLen - 1; i >= 0; i--, stackSize++) 
+            for (int i = packageGridLen - 1; i >= 0; i--, stackSize++)
             {
                 if (GameMain.mainPlayer.package.grids[i].count != 0) break;
             }
@@ -1512,7 +1459,7 @@ namespace Auxilaryfunction
 
             if (pf.factoryStorage != null && pf.factoryStorage.storagePool != null)
             {
-                if(pf.factoryStorage.storagePool != null)
+                if (pf.factoryStorage.storagePool != null)
                 {
                     foreach (StorageComponent sc in pf.factoryStorage.storagePool)
                     {
@@ -1558,7 +1505,7 @@ namespace Auxilaryfunction
             int inc;
             foreach (StationComponent sc in GameMain.localPlanet.factory.transport.stationPool)
             {
-                if (sc == null||sc.isVeinCollector) continue;
+                if (sc == null || sc.isVeinCollector) continue;
                 if (sc.isStellar && sc.workShipCount + sc.idleShipCount < auto_supply_ship.Value)
                     sc.idleShipCount += GameMain.mainPlayer.package.TakeItem(5002, auto_supply_ship.Value - sc.workShipCount - sc.idleShipCount, out inc);
                 if (sc.isStellar)
@@ -1580,7 +1527,7 @@ namespace Auxilaryfunction
                 if (sc == null) continue;
                 if (sc.isStellar && sc.workShipCount + sc.idleShipCount > 10)
                 {
-                    GameMain.mainPlayer.package.AddItem(5002, sc.workShipCount + sc.idleShipCount - 10,0,out inc);
+                    GameMain.mainPlayer.package.AddItem(5002, sc.workShipCount + sc.idleShipCount - 10, 0, out inc);
                     sc.idleShipCount -= sc.workShipCount + sc.idleShipCount - 10;
                 }
                 if (sc.isStellar)
@@ -1606,37 +1553,10 @@ namespace Auxilaryfunction
 
             foreach (StationComponent sc in GameMain.localPlanet.factory.transport.stationPool)
             {
-                if (sc==null|| !sc.isVeinCollector) continue;
+                if (sc == null || !sc.isVeinCollector) continue;
                 GameMain.localPlanet.factory.factorySystem.minerPool[sc.minerId].speed = veincollectorspeed.Value * 1000;
                 //GameMain.localPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)((double)LDB.items.Select((int)GameMain.localPlanet.factory.entityPool[sc.entityId].protoId).prefabDesc.workEnergyPerTick * (veincollectorspeed.Value / 10.0) * (veincollectorspeed.Value / 10.0));
             }
-        }
-        private List<int> getDysonlayerid()
-        {
-            List<int> result = new List<int>();
-            if (GameMain.localStar == null || GameMain.data == null || GameMain.data.dysonSpheres[GameMain.localStar.index] == null) return result;
-            DysonSphere dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
-            result.Add(0);
-            foreach (DysonSphereLayer w in dysonSphere.layersIdBased)
-            {
-                if(w!=null && w.orbitRadius > 10 && w.nodeCount==0)
-                {
-                    result.Add(w.id);
-                }
-            }
-            return result;
-        }
-        private List<int> getallDysonlayerid()
-        {
-            List<int> result = new List<int>();
-            if (GameMain.localStar == null || GameMain.data == null || GameMain.data.dysonSpheres[GameMain.localStar.index] == null) return result;
-            DysonSphere dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
-            foreach (DysonSphereLayer w in dysonSphere.layersIdBased)
-            {
-                if (w != null )
-                    result.Add(w.id);
-            }
-            return result;
         }
         private void setgasstation()
         {
@@ -1646,7 +1566,13 @@ namespace Auxilaryfunction
             if (pf != null)
             {
                 foreach (StationComponent sc in pf.transport.stationPool)
-                    if (sc != null && sc.isCollector) return;
+                {
+                    if (sc != null && sc.isCollector)
+                    {
+                        UIMessageBox.Show("铺满轨道采集器失败", "当前星球存在采集器，请先清空所有建筑", "确定", 3);
+                        return;
+                    }
+                }
             }
             StorageComponent package = GameMain.mainPlayer.package;
             int sum = 0;
@@ -1655,13 +1581,17 @@ namespace Auxilaryfunction
                 if (package.grids[index].itemId == 2105)
                 {
                     sum += package.grids[index].count;
-                    if (sum >=40)
+                    if (sum >= 40)
                         break;
                 }
             }
             int inc;
-            if (sum >= 40)  package.TakeItem(2105, 40, out inc);
-            else return;
+            if (sum >= 40) package.TakeItem(2105, 40, out inc);
+            else
+            {
+                UIMessageBox.Show("铺满轨道采集器失败", "背包里没有40个采集器，请重新准备", "确定", 3);
+                return;
+            }
             for (int i = 0; i < 40; i++)
             {
                 Vector3 pos;
@@ -1724,10 +1654,10 @@ namespace Auxilaryfunction
         {
             if (GameMain.localPlanet == null) return;
             PlanetFactory fs = GameMain.localPlanet.factory;
-            foreach(PowerGeneratorComponent pgc in fs.powerSystem.genPool)
+            foreach (PowerGeneratorComponent pgc in fs.powerSystem.genPool)
             {
                 int inc;
-                if (pgc.fuelMask == 4 && pgc.fuelCount < auto_supply_starfuel.Value) 
+                if (pgc.fuelMask == 4 && pgc.fuelCount < auto_supply_starfuel.Value)
                     fs.powerSystem.genPool[pgc.id].SetNewFuel(1803, (short)(GameMain.mainPlayer.package.TakeItem(1803, auto_supply_starfuel.Value - pgc.fuelCount, out inc) + pgc.fuelCount), (short)inc);
             }
         }
@@ -1751,7 +1681,7 @@ namespace Auxilaryfunction
             {
                 blueprintopen = true;
                 BuildTool_BlueprintCopy blue_copy = build.blueprintCopyTool;
-                if (blueprintrevoke_bool.Value&&Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Z))
+                if (blueprintrevoke_bool.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Z))
                 {
                     blue_copy.ClearSelection();
                     blue_copy.ClearPreSelection();
@@ -1759,13 +1689,13 @@ namespace Auxilaryfunction
                     for (int i = 0; i < GameMain.localPlanet.factory.prebuildPool.Length; i++)
                     {
                         int itemId = (int)GameMain.localPlanet.factory.prebuildPool[i].protoId;
-                        if(GameMain.localPlanet.factory.prebuildPool[i].itemRequired==0)
-                            player.TryAddItemToPackage(itemId, 1,0, true);
+                        if (GameMain.localPlanet.factory.prebuildPool[i].itemRequired == 0)
+                            player.TryAddItemToPackage(itemId, 1, 0, true);
                         GameMain.localPlanet.factory.RemovePrebuildWithComponents(i);
                     }
                     pointeRecipetype = ERecipeType.None;
                 }
-                if(blueprintsetrecipe_bool.Value&& Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.F))
+                if (blueprintsetrecipe_bool.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.F))
                 {
                     recipewindowx = (int)Input.mousePosition.x;
                     recipewindowy = (int)Input.mousePosition.y;
@@ -1790,8 +1720,8 @@ namespace Auxilaryfunction
                         changename = false;
                         stationpools = new List<int>();
                     }
-                    
-                    if (pointeRecipetype == ERecipeType.None && labpools.Count==0 && assemblerpools.Count==0)
+
+                    if (pointeRecipetype == ERecipeType.None && labpools.Count == 0 && assemblerpools.Count == 0)
                     {
                         assemblerpools = new List<int>();
                         labpools = new List<int>();
@@ -1823,18 +1753,18 @@ namespace Auxilaryfunction
                             bool exist = false;
                             foreach (BuildPreview bp in blue_copy.bpPool)
                             {
-                                if (bp != null && bp.item != null && bp.objId > 0 && bp.item.ID == 2030 && build.factory.entityPool[bp.objId].monitorId>0)
-                                {   
+                                if (bp != null && bp.item != null && bp.objId > 0 && bp.item.ID == 2030 && build.factory.entityPool[bp.objId].monitorId > 0)
+                                {
                                     monitorpools.Add(build.factory.entityPool[bp.objId].monitorId);
                                     int speakerId = build.factory.cargoTraffic.monitorPool[build.factory.entityPool[bp.objId].monitorId].speakerId;
 
-                                    if (!exist&& speakerId > 0)
+                                    if (!exist && speakerId > 0)
                                     {
                                         exist = true;
                                         SpeakerComponent speakerComponent = build.factory.digitalSystem.speakerPool[speakerId];
                                         testitem1.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().pitchSlider.value = speakerComponent.pitch;
                                         testitem1.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().volumeSlider.value = speakerComponent.volume;
-                                        testitem1.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().toneCombo.itemIndex = speakerComponent.tone > 0 ? testitem1.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().toneCombo.ItemsData.IndexOf(speakerComponent.tone) : 0;                                       
+                                        testitem1.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().toneCombo.itemIndex = speakerComponent.tone > 0 ? testitem1.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().toneCombo.ItemsData.IndexOf(speakerComponent.tone) : 0;
                                     }
                                 }
                             }
@@ -1879,7 +1809,7 @@ namespace Auxilaryfunction
                         else
                         {
                             testitem.gameObject.SetActive(false);
-                            if(UISignalPicker.isOpened)
+                            if (UISignalPicker.isOpened)
                                 UISignalPicker.Close();
                         }
                     }
@@ -1915,19 +1845,19 @@ namespace Auxilaryfunction
                         ejectorpools = new List<int>();
                     }
                 }
-                if (blueprintdelete_bool.Value&&Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.X))
+                if (blueprintdelete_bool.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.X))
                 {
                     foreach (BuildPreview bp in blue_copy.bpPool)
                     {
                         if (bp != null && bp.item != null && bp.objId > 0)
                         {
-                            int stationId = GameMain.localPlanet.factory.entityPool[bp.objId].stationId; 
+                            int stationId = GameMain.localPlanet.factory.entityPool[bp.objId].stationId;
                             if (stationId > 0)
                             {
                                 StationComponent sc = GameMain.localPlanet.factory.transport.stationPool[stationId];
                                 for (int i = 0; i < sc.storage.Length; i++)
                                 {
-                                    int package = player.TryAddItemToPackage(sc.storage[i].itemId, sc.storage[i].count,0, true, bp.objId);
+                                    int package = player.TryAddItemToPackage(sc.storage[i].itemId, sc.storage[i].count, 0, true, bp.objId);
                                     UIItemup.Up(sc.storage[i].itemId, package);
                                 }
                                 sc.storage = new StationStore[sc.storage.Length];
@@ -1942,7 +1872,7 @@ namespace Auxilaryfunction
                     blue_copy.ResetBuildPreviews();
                     blue_copy.RefreshBlueprintData();
                 }
-                if (blueprintcopytopaste_bool.Value&&Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.C))
+                if (blueprintcopytopaste_bool.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.C))
                     blue_copy.UseToPasteNow();
             }
             else
@@ -1982,16 +1912,16 @@ namespace Auxilaryfunction
             }
             else if (!ChangeQuickKey && ChangingQuickKey)
             {
-                ShowCounter1.Value = tempShowWindow;
+                QuickKey.Value = tempShowWindow;
                 ChangingQuickKey = false;
             }
         }
         private void changeallstationconfig()
         {
-            if (GameMain.localPlanet == null|| GameMain.localPlanet.factory==null||GameMain.localPlanet.factory.transport==null||GameMain.localPlanet.factory.transport.stationPool==null) return;
-            foreach(StationComponent sc in GameMain.localPlanet.factory.transport.stationPool)
+            if (GameMain.localPlanet == null || GameMain.localPlanet.factory == null || GameMain.localPlanet.factory.transport == null || GameMain.localPlanet.factory.transport.stationPool == null) return;
+            foreach (StationComponent sc in GameMain.localPlanet.factory.transport.stationPool)
             {
-                if (sc == null||sc.isVeinCollector) continue;
+                if (sc == null || sc.isVeinCollector) continue;
 
                 sc.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
                 GameMain.localPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
@@ -2009,501 +1939,14 @@ namespace Auxilaryfunction
                 }
             }
         }
-        private void quickconstruct()
-        {
-            if (GameMain.localStar == null || constructframe || constructingshell) return;
-            constructinglayer = new List<DysonSphereLayer>();
-            framenodeidlayer = new Dictionary<int, List<int[]>>();
-            shellnodeidlayer = new Dictionary<int, List<List<int>>>();
-            DysonSphere dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
-            if (dysonSphere == null || dysonSphere.layersIdBased == null) return;
-            foreach (DysonSphereLayer w in dysonSphere.layersIdBased)
-            {
-                framenodeid = new List<int[]>();
-                shellnodeid = new List<List<int>>();
-                if (w == null || w.nodeCount > 0 || w.orbitRadius <= 10 || (onlysinglelayer && pointlayerid != w.id) || (!onlysinglelayer && !pointlayeridlist.Contains(w.id))) continue;
-                if (constructinglayer.Contains(w)) continue;
-                Dictionary<int, List<DysonNode>> temp1 = new Dictionary<int, List<DysonNode>>();
-                Dictionary<int, List<DysonNode>> temp2 = new Dictionary<int, List<DysonNode>>();
-                for (int i = 0; i < nodepos.Count; i++)
-                {
-                    int index=w.NewDysonNode(0, nodepos[i] * w.orbitRadius);
-
-                    int y = (int)Math.Round(nodepos[i].y * 10000);
-                    if (!temp1.ContainsKey(y))
-                        temp1.Add(y, new List<DysonNode>());
-                    temp1[y].Add(w.nodePool[index]);
-                }
-                foreach (KeyValuePair<int, List<DysonNode>> wap in temp1)
-                {
-                    List<float> templist1 = new List<float>();
-                    List<float> templist2 = new List<float>();
-                    List<DysonNode> tempnodelist1 = new List<DysonNode>();
-                    List<DysonNode> tempnodelist2 = new List<DysonNode>();
-                    List<DysonNode> tempplusnodelist = new List<DysonNode>();
-                    for (int i = 0; i < wap.Value.Count; i++)
-                    {
-                        float x = wap.Value[i].pos.x;
-                        float z = wap.Value[i].pos.z;
-                        if (z >= 0)
-                        {
-                            templist1.Add(x);
-                            tempnodelist1.Add(wap.Value[i]);
-                        }
-                        else
-                        {
-                            templist2.Add(x);
-                            tempnodelist2.Add(wap.Value[i]);
-                        }
-                    }
-                    for (int i = 0; i < templist1.Count; i++)
-                    {
-                        int max = i;
-                        for (int j = i + 1; j < templist1.Count; j++)
-                            if (templist1[max] > templist1[j])
-                                max = j;
-                        if (max != i)
-                        {
-                            float tfloat = templist1[i];
-                            DysonNode tnode = tempnodelist1[i];
-                            templist1[i] = templist1[max];
-                            tempnodelist1[i] = tempnodelist1[max];
-                            templist1[max] = tfloat;
-                            tempnodelist1[max] = tnode;
-                        }
-                        tempplusnodelist.Add(tempnodelist1[i]);
-                    }
-                    for (int i = 0; i < templist2.Count; i++)
-                    {
-                        int max = i;
-                        for (int j = i + 1; j < templist2.Count; j++)
-                            if (templist2[max] < templist2[j])
-                                max = j;
-                        if (max != i)
-                        {
-                            float tfloat = templist2[i];
-                            DysonNode tnode = tempnodelist2[i];
-                            templist2[i] = templist2[max];
-                            tempnodelist2[i] = tempnodelist2[max];
-                            templist2[max] = tfloat;
-                            tempnodelist2[max] = tnode;
-                        }
-                        tempplusnodelist.Add(tempnodelist2[i]);
-                    }
-                    temp2.Add(wap.Key, tempplusnodelist);
-                    if (wap.Value.Count <= 2) continue;
-                    if (Math.Abs(wap.Key) < w.orbitRadius * 0.88 && Math.Abs(wap.Key) > w.orbitRadius * 0.7) continue;
-                    for (int i = 0; i < tempplusnodelist.Count - 1; i++)
-                    {
-                        framenodeid.Add(new int[2] { tempplusnodelist[i].id, tempplusnodelist[i + 1].id });
-                    }
-                    framenodeid.Add(new int[2] { tempplusnodelist[0].id, tempplusnodelist[tempplusnodelist.Count - 1].id });
-
-
-                }
-                List<int> ytemplist = new List<int>(temp2.Keys);
-                ytemplist.Sort();
-                for (int i = 0; i < ytemplist.Count - 1; i++)
-                {
-                    int y1 = ytemplist[i];
-                    int y2 = ytemplist[i + 1];
-                    if (i == 0 || i == 33)
-                    {
-                        if (y1 > 0)
-                        {
-                            int tempy = y1;
-                            y1 = y2;
-                            y2 = tempy;
-                        }
-                        List<int> tempnodeid;
-                        for (int j = 0; j < temp2[y2].Count; j++)
-                        {
-                            framenodeid.Add(new int[2] { temp2[y1][0].id, temp2[y2][j].id });
-                            tempnodeid = new List<int>();
-                            tempnodeid.Add(temp2[y1][0].id);
-                            tempnodeid.Add(temp2[y2][j].id);
-                            tempnodeid.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                            shellnodeid.Add(tempnodeid);
-                        }
-                    }
-                    else if (i == 1 || i == 32)
-                    {
-                        if (y1 > 0)
-                        {
-                            int tempy = y1;
-                            y1 = y2;
-                            y2 = tempy;
-                        }
-                        int index = 0;
-                        List<int> tempnodeid;
-                        for (int j = 0; j < temp2[y1].Count; j++)
-                        {
-                            if (j % 2 == 0)
-                            {
-                                tempnodeid = new List<int>();
-                                tempnodeid.Add(temp2[y1][j].id);
-                                tempnodeid.Add(temp2[y2][index % temp2[y2].Count].id);
-                                tempnodeid.Add(temp2[y2][(index + 1) % temp2[y2].Count].id);
-                                shellnodeid.Add(tempnodeid);
-                                tempnodeid = new List<int>();
-                                tempnodeid.Add(temp2[y1][j].id);
-                                tempnodeid.Add(temp2[y2][(index + 1) % temp2[y2].Count].id);
-                                tempnodeid.Add(temp2[y2][(index + 2) % temp2[y2].Count].id);
-                                shellnodeid.Add(tempnodeid);
-                                tempnodeid = new List<int>();
-                                tempnodeid.Add(temp2[y1][j].id);
-                                tempnodeid.Add(temp2[y1][(j + 1) % temp2[y1].Count].id);
-                                tempnodeid.Add(temp2[y2][(index + 2) % temp2[y2].Count].id);
-                                shellnodeid.Add(tempnodeid);
-                                for (int k = 0; k < 3 && index <= temp2[y2].Count; k++, index++)
-                                    framenodeid.Add(new int[2] { temp2[y1][j].id, temp2[y2][index % temp2[y2].Count].id });
-                            }
-                            else
-                            {
-                                tempnodeid = new List<int>();
-                                tempnodeid.Add(temp2[y1][j].id);
-                                tempnodeid.Add(temp2[y2][index % temp2[y2].Count].id);
-                                tempnodeid.Add(temp2[y2][(index + 1) % temp2[y2].Count].id);
-                                shellnodeid.Add(tempnodeid);
-                                tempnodeid = new List<int>();
-                                tempnodeid.Add(temp2[y1][j].id);
-                                tempnodeid.Add(temp2[y1][(j + 1) % temp2[y1].Count].id);
-                                tempnodeid.Add(temp2[y2][(index + 1) % temp2[y2].Count].id);
-                                shellnodeid.Add(tempnodeid);
-                                for (int k = 0; k < 2 && index < temp2[y2].Count; k++, index++)
-                                    framenodeid.Add(new int[2] { temp2[y1][j].id, temp2[y2][index].id });
-                            }
-                            index--;
-                        }
-                    }
-                    else if (i == 2 || i == 31)
-                    {
-                        if (y1 < 0)
-                        {
-                            int tempy = y1;
-                            y1 = y2;
-                            y2 = tempy;
-                        }
-                        int index = 0;
-                        List<int> tempnodeid ;
-                        for (int j = 0; j < temp2[y2].Count; j++)
-                        {
-                            if (j % 2 != 0)
-                            {
-                                tempnodeid = new List<int>();
-                                tempnodeid.Add(temp2[y2][j].id);
-                                tempnodeid.Add(temp2[y1][index % temp2[y1].Count].id);
-                                tempnodeid.Add(temp2[y1][(index + 1) % temp2[y1].Count].id);
-                                shellnodeid.Add(tempnodeid);
-                                tempnodeid = new List<int>();
-                                tempnodeid.Add(temp2[y2][j].id);
-                                tempnodeid.Add(temp2[y1][index % temp2[y1].Count].id);
-                                tempnodeid.Add(temp2[y1][(index - 1 + temp2[y1].Count) % temp2[y1].Count].id);
-                                shellnodeid.Add(tempnodeid);
-                                tempnodeid = new List<int>();
-                                tempnodeid.Add(temp2[y2][j].id);
-                                tempnodeid.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                                tempnodeid.Add(temp2[y1][(index + 1) % temp2[y1].Count].id);
-                                shellnodeid.Add(tempnodeid);
-                                tempnodeid = new List<int>();
-                                tempnodeid.Add(temp2[y2][j].id);
-                                tempnodeid.Add(temp2[y2][(j - 1 + temp2[y2].Count) % temp2[y2].Count].id);
-                                tempnodeid.Add(temp2[y1][(index - 1 + temp2[y1].Count) % temp2[y1].Count].id);
-                                shellnodeid.Add(tempnodeid);
-                                for (int k = 0; k < 3 && index <= temp2[y1].Count; k++, index++)
-                                    framenodeid.Add(new int[2] { temp2[y2][j].id, temp2[y1][(index - 1 + temp2[y1].Count) % temp2[y1].Count].id });
-                            }
-                            else
-                            {
-                                tempnodeid = new List<int>();
-                                tempnodeid.Add(temp2[y2][j].id);
-                                tempnodeid.Add(temp2[y1][index % temp2[y1].Count].id);
-                                tempnodeid.Add(temp2[y1][(index - 1 + temp2[y1].Count) % temp2[y1].Count].id);
-                                shellnodeid.Add(tempnodeid);
-                                for (int k = 0; k < 2 && index <= temp2[y1].Count; k++, index++)
-                                    framenodeid.Add(new int[2] { temp2[y2][j].id, temp2[y1][(index - 1 + temp2[y1].Count) % temp2[y1].Count].id });
-                                if (index == temp2[y1].Count)
-                                    framenodeid.Add(new int[2] { temp2[y2][j].id, temp2[y1][0].id });
-                            }
-                            index--;
-                        }
-                    }
-                    else if ((i >= 3 && i <= 9) || (i >= 24 && i <= 30))
-                    {
-                        int y3 = ytemplist[i + 2];
-                        if (temp2[y1].Count != temp2[y2].Count)
-                        {
-                            if (y1 <= 0)
-                            {
-                                int tempy = y1;
-                                y1 = y2;
-                                y2 = tempy;
-                            }
-                            List<int> tempshellnode;
-                            for (int j = 0; j < temp2[y2].Count && j * 2 < temp2[y1].Count; j++)
-                            {
-                                framenodeid.Add(new int[2] { temp2[y2][j].id, temp2[y1][j * 2].id });
-                                framenodeid.Add(new int[2] { temp2[y2][j].id, temp2[y1][(j * 2 + 1) % temp2[y1].Count].id });
-                                framenodeid.Add(new int[2] { temp2[y2][j].id, temp2[y1][(j * 2 - 1 + temp2[y1].Count) % temp2[y1].Count].id });
-                                tempshellnode = new List<int>();
-                                tempshellnode.Add(temp2[y2][j].id);
-                                tempshellnode.Add(temp2[y1][j * 2].id);
-                                tempshellnode.Add(temp2[y1][(j * 2 + 1) % temp2[y1].Count].id);
-                                shellnodeid.Add(tempshellnode);
-                                tempshellnode = new List<int>();
-                                tempshellnode.Add(temp2[y2][j].id);
-                                tempshellnode.Add(temp2[y1][j * 2].id);
-                                tempshellnode.Add(temp2[y1][(j * 2 - 1 + temp2[y1].Count) % temp2[y1].Count].id);
-                                shellnodeid.Add(tempshellnode);
-                                y3 = i > 15 ? ytemplist[26] : ytemplist[8];
-                                framenodeid.Add(new int[2] { temp2[y3][j].id, temp2[y1][(j * 2 + 1) % temp2[y1].Count].id });
-                                tempshellnode = new List<int>();
-                                tempshellnode.Add(temp2[y3][j].id);
-                                tempshellnode.Add(temp2[y2][j].id);
-                                tempshellnode.Add(temp2[y1][(j * 2 + 1) % temp2[y1].Count].id);
-                                shellnodeid.Add(tempshellnode);
-                                tempshellnode = new List<int>();
-                                tempshellnode.Add(temp2[y3][j].id);
-                                tempshellnode.Add(temp2[y1][(j * 2 + 1) % temp2[y1].Count].id);
-                                tempshellnode.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                                shellnodeid.Add(tempshellnode);
-                            }
-                        }
-
-                        else
-                        {
-                            if (i % 2 == 0)
-                            {
-                                for (int j = 0; j < temp2[y1].Count; j++)
-                                {
-                                    framenodeid.Add(new int[2] { temp2[y1][j].id, temp2[y2][j].id });
-                                    framenodeid.Add(new int[2] { temp2[y1][j].id, temp2[y2][(j + 1) % temp2[y2].Count].id });
-                                    List<int> tempshellnode ;
-                                    if (i == 26 || i == 6)
-                                    {
-                                        framenodeid.Add(new int[2] { temp2[y1][j].id, temp2[y3][j].id });
-
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        tempshellnode.Add(temp2[y2][j].id);
-                                        tempshellnode.Add(temp2[y3][j].id);
-                                        shellnodeid.Add(tempshellnode);
-
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        tempshellnode.Add(temp2[y3][j].id);
-                                        tempshellnode.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                                        shellnodeid.Add(tempshellnode);
-                                    }
-                                    else if (4 <= i && i < 30)
-                                    {
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        tempshellnode.Add(temp2[y2][j].id);
-                                        tempshellnode.Add(temp2[y3][j].id);
-                                        tempshellnode.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                                        shellnodeid.Add(tempshellnode);
-                                    }
-                                    if (i == 4)
-                                    {
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                                        tempshellnode.Add(temp2[y1][(j + 1) % temp2[y1].Count].id);
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        shellnodeid.Add(tempshellnode);
-                                    }
-                                    if (i == 30)
-                                    {
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                                        tempshellnode.Add(temp2[y1][(j + 1) % temp2[y1].Count].id);
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        shellnodeid.Add(tempshellnode);
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                                        tempshellnode.Add(temp2[y2][j].id);
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        shellnodeid.Add(tempshellnode);
-                                    }
-
-                                }
-                            }
-
-                            else
-                            {
-                                for (int j = 0; j < temp2[y1].Count; j++)
-                                {
-                                    framenodeid.Add(new int[2] { temp2[y1][j].id, temp2[y2][j].id });
-                                    framenodeid.Add(new int[2] { temp2[y1][j].id, temp2[y2][(j - 1 + temp2[y2].Count) % temp2[y2].Count].id });
-                                    List<int> tempshellnode;
-                                    if (i == 3)
-                                    {
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        tempshellnode.Add(temp2[y2][j].id);
-                                        tempshellnode.Add(temp2[y1][(j + 1) % temp2[y1].Count].id);
-                                        shellnodeid.Add(tempshellnode);
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        tempshellnode.Add(temp2[y2][j].id);
-                                        tempshellnode.Add(temp2[y2][(j - 1 + temp2[y2].Count) % temp2[y2].Count].id);
-                                        shellnodeid.Add(tempshellnode);
-                                    }
-                                    else if (i == 9)
-                                    {
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        tempshellnode.Add(temp2[y2][j].id);
-                                        tempshellnode.Add(temp2[y3][j].id);
-                                        tempshellnode.Add(temp2[y2][(j - 1 + temp2[y2].Count) % temp2[y2].Count].id);
-                                        shellnodeid.Add(tempshellnode);
-                                    }
-                                    else if (i == 25 || i == 27 || i == 5 || i == 7)
-                                    {
-                                        framenodeid.Add(new int[2] { temp2[y1][j].id, temp2[y3][j].id });
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        tempshellnode.Add(temp2[y2][j].id);
-                                        tempshellnode.Add(temp2[y3][j].id);
-                                        shellnodeid.Add(tempshellnode);
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y1][j].id);
-                                        tempshellnode.Add(temp2[y3][j].id);
-                                        tempshellnode.Add(temp2[y2][(j - 1 + temp2[y2].Count) % temp2[y2].Count].id);
-                                        shellnodeid.Add(tempshellnode);
-                                    }
-                                    else if (i == 29)
-                                    {
-                                        tempshellnode = new List<int>();
-                                        tempshellnode.Add(temp2[y1][(j + 1) % temp2[y1].Count].id);
-                                        tempshellnode.Add(temp2[y2][j].id);
-                                        tempshellnode.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                                        shellnodeid.Add(tempshellnode);
-                                    }
-                                }
-                            }
-
-                        }
-
-
-
-                    }
-                    else
-                    {
-                        for (int j = 0; j < temp2[y1].Count; j++)
-                        {
-                            List<int> tempshellnode = new List<int>();
-                            framenodeid.Add(new int[2] { temp2[y1][j].id, temp2[y2][j % temp2[y2].Count].id });
-                            framenodeid.Add(new int[2] { temp2[y1][j].id, temp2[y2][(j + 1) % temp2[y2].Count].id });
-                            tempshellnode.Add(temp2[y1][j].id);
-                            tempshellnode.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                            tempshellnode.Add(temp2[y2][j % temp2[y2].Count].id);
-                            shellnodeid.Add(tempshellnode);
-                            tempshellnode = new List<int>();
-                            tempshellnode.Add(temp2[y1][j].id);
-                            tempshellnode.Add(temp2[y1][(j + 1) % temp2[y1].Count].id);
-                            tempshellnode.Add(temp2[y2][(j + 1) % temp2[y2].Count].id);
-                            shellnodeid.Add(tempshellnode);
-                        }
-                    }
-
-                }
-
-                if (!framenodeidlayer.ContainsKey(w.id)) framenodeidlayer.Add(w.id, framenodeid);
-                else framenodeidlayer[w.id] = framenodeid;
-                if (!shellnodeidlayer.ContainsKey(w.id)) shellnodeidlayer.Add(w.id, shellnodeid);
-                else shellnodeidlayer[w.id] = shellnodeid;
-                constructinglayer.Add(w);
-            }
-            if (slowconstruct)
-            {
-                constructframe = true;
-            }
-            else
-            {
-                quickconstructframe();
-                pointlayerid = 0;
-            }
-        }
         private void StartAndStopGame()
         {
-            if (Quickstop_bool.Value&&Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Space))
+            if (Quickstop_bool.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Space))
             {
                 if (stopDysonSphere != stopfactory) stopDysonSphere = stopfactory;
                 stopDysonSphere = !stopDysonSphere;
                 stopfactory = !stopfactory;
             }
-        }
-        private void slowconstructshell()
-        {
-            if (shellnodeidlayer == null || shellnodeidlayer.Count == 0)
-            {
-                constructingshell = false;
-                pointlayerid = 0;
-                pointlayeridlist = new List<int>();
-                return;
-            }
-
-            foreach (DysonSphereLayer w in constructinglayer)
-            {
-                if (!shellnodeidlayer.ContainsKey(w.id) || shellnodeidlayer[w.id].Count == 0) continue;
-                List<List<int>> tempshell = shellnodeidlayer[w.id];
-                int index = tempshell.Count - 1;
-                w.NewDysonShell(0, tempshell[index]);
-                shellnodeidlayer[w.id].RemoveAt(index);
-                if (index == 0)
-                    shellnodeidlayer.Remove(w.id);
-            }
-        }
-        private void slowconstructframe()
-        {
-            if (framenodeidlayer == null || framenodeidlayer.Count == 0)
-            {
-                if (constructframe && constructshell)
-                {
-                    constructingshell = true;
-                }
-                constructframe = false;
-                pointlayerid = 0;
-                pointlayeridlist = new List<int>();
-                return;
-            }
-
-            foreach (DysonSphereLayer w in constructinglayer)
-            {
-                if (!framenodeidlayer.ContainsKey(w.id) || framenodeidlayer[w.id].Count == 0) continue;
-                List<int[]> tempframe = framenodeidlayer[w.id];
-                int index = tempframe.Count - 1;
-                w.NewDysonFrame(0, tempframe[index][0], tempframe[index][1], false);
-                framenodeidlayer[w.id].RemoveAt(index);
-                if (index == 0)
-                    framenodeidlayer.Remove(w.id);
-            }
-
-        }
-        private void quickdestructframeandnode(int id)
-        {
-            DysonSphere dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
-            if (dysonSphere == null || dysonSphere.layersIdBased == null) return;
-            dysonSphere.RemoveLayer(id);
-        }
-        private void quickconstructframe()
-        {
-            foreach (DysonSphereLayer w in constructinglayer)
-            {
-                List<int[]> tempframe = framenodeidlayer[w.id];
-                List<List<int>> tempshell = shellnodeidlayer[w.id];
-                for (int i = 0; i < tempframe.Count; i++)
-                    w.NewDysonFrame(0, tempframe[i][0], tempframe[i][1], false);
-                if (constructshell)
-                {
-                    for (int i = 0; i < tempshell.Count; i++)
-                        w.NewDysonShell(0, tempshell[i]);
-                }
-            }
-            constructinglayer = new List<DysonSphereLayer>();
-            framenodeidlayer = new Dictionary<int, List<int[]>>();
-            shellnodeidlayer = new Dictionary<int, List<List<int>>>();
         }
         private void TrashFunction()
         {
@@ -2517,7 +1960,7 @@ namespace Auxilaryfunction
                     {
                         if (onlygetbuildings.Value)
                         {
-                            if (LDB.items.Select(to.item)!=null&& LDB.items.Select(to.item).CanBuild)
+                            if (LDB.items.Select(to.item) != null && LDB.items.Select(to.item).CanBuild)
                                 GameMain.data.trashSystem.container.trashObjPool[index++].expire = 60;
                             else
                                 GameMain.data.trashSystem.container.RemoveTrash(index++);
@@ -2536,11 +1979,51 @@ namespace Auxilaryfunction
         {
             switch (i)
             {
-                case 0:return "仓储";
-                case 1:return "供应";
-                case 2:return "需求";
+                case 0: return "仓储";
+                case 1: return "供应";
+                case 2: return "需求";
             }
             return "";
+        }
+        private void AutoAddwarp()
+        {
+            if (GameMain.mainPlayer != null && GameMain.mainPlayer.mecha != null && GameMain.mainPlayer.mecha.thrusterLevel >= 3 && !GameMain.mainPlayer.mecha.HasWarper())
+            {
+                int itemID = 1210;
+                int count = 20;
+                GameMain.mainPlayer.package.TakeTailItems(ref itemID, ref count, out int inc);
+                if (itemID <= 0 || count <= 0)
+                {
+                    return;
+                }
+                GameMain.mainPlayer.mecha.warpStorage.AddItem(itemID, count, inc, out int remaininc);
+            }
+        }
+        private void AutoAddFuel()
+        {
+            if (GameMain.mainPlayer != null && GameMain.mainPlayer.mecha != null && GameMain.mainPlayer.mecha.reactorStorage.isEmpty)
+            {
+                foreach(var itemID in fuelItems)
+                {
+                    if (!FuelFilter[itemID] || GameMain.mainPlayer.package.GetItemCount(itemID) == 0)
+                    {
+                        continue;
+                    }
+                    var item = LDB.items.Select(itemID);
+                    int tempitemID=itemID;
+                    int count = item.StackSize;
+                    while (!GameMain.mainPlayer.mecha.reactorStorage.isFull)
+                    {
+                        GameMain.mainPlayer.package.TakeTailItems(ref tempitemID, ref count, out int inc);
+                        if (tempitemID <= 0 || count <= 0)
+                        {
+                            break ;
+                        }
+                        GameMain.mainPlayer.mecha.reactorStorage.AddItem(itemID, count, inc, out int remaininc);
+                        if (GameMain.mainPlayer.mecha.reactorStorage.isFull || GameMain.mainPlayer.mecha.reactorStorage.GetItemCount(itemID)>100000) return;
+                    }
+                }
+            }
         }
         private void ResetEjector()
         {
@@ -2557,7 +2040,7 @@ namespace Auxilaryfunction
                 FactorySystem fs = pd.factory.factorySystem;
                 foreach (int ec in temp)
                 {
-                    if (fs.ejectorPool!=null&& fs.ejectorPool.Length>ec&& fs.ejectorPool[ec].id!=0&& fs.ejectorPool[ec].targetState != EjectorComponent.ETargetState.OK && swarmorbitcursor > 1)
+                    if (fs.ejectorPool != null && fs.ejectorPool.Length > ec && fs.ejectorPool[ec].id != 0 && fs.ejectorPool[ec].targetState != EjectorComponent.ETargetState.OK && swarmorbitcursor > 1)
                     {
                         int pointorbitid = fs.ejectorPool[ec].orbitId + 1;
                         while (!swarm.OrbitEnabled(pointorbitid))
@@ -2749,7 +2232,7 @@ namespace Auxilaryfunction
             window_width = x;
             window_height = y;
         }
-        
+
 
     }
 
