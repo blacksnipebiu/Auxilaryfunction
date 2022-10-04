@@ -21,11 +21,13 @@ namespace Auxilaryfunction
         public const long AU = 40000;
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.7.4";
+        public const string VERSION = "1.7.9";
         private const string GAME_PROCESS = "DSPGAME.exe";
         public int stationindex = 4;
         public int locallogic = 0;
         public int remotelogic = 2;
+        public int[] locallogics = new int[5];
+        public int[] remotelogics = new int[5];
         public int autoaddtechid = 0;
         public int maxheight;
         public int windowmaxheight;
@@ -169,6 +171,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<float> autowarpdistance;
         public static ConfigEntry<float> DroneStartCarry;
         public static ConfigEntry<float> ShipStartCarry;
+        public static ConfigEntry<string> FuelFilterConfig;
         public static Thread autobuildThread;
 
         public static int maxCount = 0;
@@ -245,6 +248,8 @@ namespace Auxilaryfunction
             KeepBeltHeight = Config.Bind("保持传送带高度", "KeepBeltHeight", false);
             autosavetime = Config.Bind("自动保存时间", "autosavetime", 25);
             CloseUIpanel = Config.Bind("关闭面板", "CloseUIpanel", true);
+            FuelFilterConfig = Config.Bind("自动填充燃料", "FuelFilterConfig", "");
+
             maxheight = Screen.height;
             scrollPosition[0] = 0;
             pdselectscrollPosition[0] = 0;
@@ -252,6 +257,29 @@ namespace Auxilaryfunction
             for (int i = 0; i < mytexture.width; i++)
                 for (int j = 0; j < mytexture.height; j++)
                     mytexture.SetPixel(i, j, new Color(0, 0, 0, 1));
+
+            foreach (var item in LDB.items.dataArray)
+            {
+                if (item.HeatValue > 0)
+                {
+                    fuelItems.Add(item.ID);
+                    FuelFilter.Add(item.ID, false);
+                }
+            }
+            if (!string.IsNullOrEmpty(FuelFilterConfig.Value))
+            {
+                string [] temp=FuelFilterConfig.Value.Split(',');
+                foreach(var str in temp)
+                {
+                    if (str.Length > 3 && int.TryParse(str, out int itemID))
+                    {
+                        if (FuelFilter.ContainsKey(itemID))
+                        {
+                            FuelFilter[itemID] = true;
+                        }
+                    }
+                }
+            }
             mytexture.Apply();
 
             styleblue.fontStyle = FontStyle.Bold;
@@ -301,17 +329,6 @@ namespace Auxilaryfunction
                     ready = true;
                     EjectorDictionary = new Dictionary<int, List<int>>();
                     techlist = new List<TechProto>(LDB.techs.dataArray);
-                    if (fuelItems.Count == 0)
-                    {
-                        foreach (var item in LDB.items.dataArray)
-                        {
-                            if (item.HeatValue > 0)
-                            {
-                                fuelItems.Add(item.ID);
-                                FuelFilter.Add(item.ID, false);
-                            }
-                        }
-                    }
                     foreach (StarData sd in GameMain.galaxy.stars)
                     {
                         foreach (PlanetData pd in sd.planets)
@@ -676,7 +693,7 @@ namespace Auxilaryfunction
                         }
                     }
                     int tempx = recipewindowx + tempwidth * 130;
-                    int tempy = maxheight - recipewindowy + tempheight * 50;
+                    int tempy = maxheight - recipewindowy + tempheight++ * 50;
                     batchnum = (int)GUI.HorizontalSlider(new Rect(tempx, tempy, 150, 30), batchnum, 0, 100);
                     GUI.Label(new Rect(tempx, tempy + 30, 100, 30), "上限".getTranslate() + ":" + batchnum * 100);
                     if (GUI.Button(new Rect(tempx + 150, tempy, 100, 30), "第".getTranslate() + (stationindex + 1) + "格".getTranslate()))
@@ -694,8 +711,7 @@ namespace Auxilaryfunction
                         remotelogic++;
                         remotelogic %= 3;
                     }
-                    tempheight++;
-                    if (GUI.Button(new Rect(recipewindowx, maxheight - recipewindowy + tempheight * 50, 130, 50), "粘贴物流站配方".getTranslate()))
+                    if (GUI.Button(new Rect(recipewindowx, maxheight - recipewindowy + tempheight++ * 50, 130, 50), "粘贴物流站配方".getTranslate()))
                     {
                         PlanetFactory factory = GameMain.localPlanet.factory;
                         for (int j = 0; j < stationpools.Count; j++)
@@ -716,6 +732,47 @@ namespace Auxilaryfunction
                         }
                         stationpools.Clear();
                     }
+                    int heightdis = scale.Value * 2;
+                    GUILayout.BeginArea(new Rect(recipewindowx, maxheight - recipewindowy + tempheight++ * 50, heightdis*15, heightdis*10));
+                    {
+                        GUILayout.BeginVertical();
+                        GUILayout.BeginHorizontal();
+                        for (int i = 0; i < 5; i++)
+                        {
+                            GUILayout.BeginVertical();
+                            if (GUILayout.Button("本地".getTranslate() + getStationlogic(locallogics[i])))
+                            {
+                                locallogics[i]++;
+                                locallogics[i] %= 3;
+                            }
+                            if (GUILayout.Button("星际".getTranslate() + getStationlogic(locallogic)))
+                            {
+                                remotelogics[i]++;
+                                remotelogics[i] %= 3;
+                            }
+                            GUILayout.EndVertical();
+                        }
+                        GUILayout.EndHorizontal();
+                        if (GUILayout.Button("设置物流站逻辑"))
+                        {
+                            PlanetFactory factory = GameMain.localPlanet.factory;
+                            for (int j = 0; j < stationpools.Count; j++)
+                            {
+                                StationComponent sc = factory.transport.stationPool[stationpools[j]];
+                                for (int i = 0; i < sc.storage.Length && i < 5; i++)
+                                {
+                                    if (sc.storage[i].itemId > 0)
+                                    {
+                                        sc.storage[i].localLogic = (ELogisticStorage)locallogics[i];
+                                        sc.storage[i].remoteLogic = (ELogisticStorage)remotelogics[i];
+                                    }
+                                }
+                            }
+                            stationpools.Clear();
+                        }
+                        GUILayout.EndVertical();
+                    }
+                    GUILayout.EndArea();
                 }
 
             }
@@ -964,6 +1021,15 @@ namespace Auxilaryfunction
                         if (GUI.Button(new Rect(10+ iconIndex++*heightdis, heightdis * tempheight, heightdis, heightdis), LDB.items.Select(itemID).iconSprite.texture, style))
                         {
                             FuelFilter[itemID] = !FuelFilter[itemID];
+                            string result = "";
+                            foreach (var item in FuelFilter)
+                            {
+                                if (item.Value)
+                                {
+                                    result += item.Key + ",";
+                                }
+                            }
+                            FuelFilterConfig.Value = result;
                         }
                         if (iconIndex % 6 == 0)
                         {
@@ -1029,9 +1095,14 @@ namespace Auxilaryfunction
                     tempheight = 0;
                     GUILayout.BeginArea(new Rect(40 + widthlen1 + widthlen2 + oneareamaxwidth, 0, oneareamaxwidth + 10, window_height));
                     changeups = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), changeups, "启动时间流速修改".getTranslate());
-                    GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, 40), "流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix));
-                    upsfix = GUI.HorizontalSlider(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), upsfix, 0.01f, 10);
-                    if (upsfix < 0.01) upsfix = 0.01f;
+                    GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix));
+                    string tempupsfixstr = GUI.TextField(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), string.Format("{0:N2}", upsfix));
+                    if(tempupsfixstr!= string.Format("{0:N2}", upsfix) && float.TryParse(tempupsfixstr, out float tempupsfix))
+                    {
+                        if (tempupsfix < 0.01) tempupsfix = 0.01f;
+                        if (tempupsfix > 10) tempupsfix = 10;
+                        upsfix = tempupsfix;
+                    }
                     upsquickset.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), upsquickset.Value, "加速减速".getTranslate() + "(shift,'+''-')");
 
                     autosetSomevalue_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autosetSomevalue_bool.Value, "自动配置建筑".getTranslate());
@@ -1306,7 +1377,7 @@ namespace Auxilaryfunction
                             else
                             {
                                 position = pd.factory.entityPool[stationComponent.entityId].pos.normalized * (realRadius + 15f);
-                                num1 = 3;
+                                num1 = 4;
                             }
                             Vector3 rhs = position - localPosition;
                             float magnitude = rhs.magnitude;
@@ -1383,7 +1454,7 @@ namespace Auxilaryfunction
                                         }
                                         else
                                         {
-                                            tip[index1].transform.Find("icontext" + i).gameObject.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(i * 30, -5 - 30 * (string.IsNullOrEmpty(stationComponent.name) ? num1 : num1 + 1), 0);
+                                            tip[index1].transform.Find("icontext" + i).gameObject.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(i * 30, -25 - 30 * (string.IsNullOrEmpty(stationComponent.name) ? num1 : num1 + 1), 0);
                                             tip[index1].transform.Find("icontext" + i).GetComponent<Image>().sprite = LDB.items.Select(i != 2 ? 5001 + i : 1210).iconSprite;
                                             tip[index1].transform.Find("icontext" + i).Find("countText").GetComponent<Text>().color = Color.white;
                                             tip[index1].transform.Find("icontext" + i).Find("countText").GetComponent<Text>().text = i == 0 ? (stationComponent.idleDroneCount + stationComponent.workDroneCount).ToString() : (i == 1 ? (stationComponent.idleShipCount + stationComponent.workShipCount).ToString() : stationComponent.warperCount.ToString());

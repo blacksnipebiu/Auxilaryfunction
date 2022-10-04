@@ -64,6 +64,7 @@ namespace Auxilaryfunction
                     __instance.statistics.PrepareTick();
                     __instance.history.PrepareTick();
                 }
+                __instance.mainPlayer.packageUtility.Count();
                 PerformanceMonitor.EndSample(ECpuWorkEntry.Statistics);
                 if (__instance.localPlanet != null && __instance.localPlanet.factoryLoaded)
                 {
@@ -74,36 +75,45 @@ namespace Auxilaryfunction
                 }
                 PerformanceMonitor.BeginSample(ECpuWorkEntry.Scenario);
                 if (__instance.guideMission != null)
+                {
                     __instance.guideMission.GameTick();
+                }
                 PerformanceMonitor.EndSample(ECpuWorkEntry.Scenario);
                 PerformanceMonitor.BeginSample(ECpuWorkEntry.Player);
                 if (__instance.mainPlayer != null)
                     __instance.mainPlayer.GameTick(time);
                 __instance.DetermineRelative();
                 PerformanceMonitor.EndSample(ECpuWorkEntry.Player);
+                PerformanceMonitor.BeginSample(ECpuWorkEntry.DysonSphere);
                 if (!stopDysonSphere)
                 {
-                    PerformanceMonitor.BeginSample(ECpuWorkEntry.DysonSphere);
-                    for (int index = 0; index < __instance.dysonSpheres.Length; ++index)
+                    for (int i = 0; i < __instance.dysonSpheres.Length; i++)
                     {
-                        if (__instance.dysonSpheres[index] != null)
-                            __instance.dysonSpheres[index].BeforeGameTick(time);
+                        if (__instance.dysonSpheres[i] != null)
+                        {
+                            __instance.dysonSpheres[i].BeforeGameTick(time);
+                        }
                     }
-                    PerformanceMonitor.EndSample(ECpuWorkEntry.DysonSphere);
                 }
+                PerformanceMonitor.EndSample(ECpuWorkEntry.DysonSphere);
+
                 if (!stopfactory)
                 {
                     PerformanceMonitor.BeginSample(ECpuWorkEntry.Factory);
                     PerformanceMonitor.BeginSample(ECpuWorkEntry.PowerSystem);
-                    for (int index = 0; index < __instance.factoryCount; ++index)
+                    for (int j = 0; j < __instance.factoryCount; j++)
                     {
-                        Assert.NotNull((object)__instance.factories[index]);
-                        if (__instance.factories[index] != null)
-                            __instance.factories[index].BeforeGameTick(time);
+                        Assert.NotNull(__instance.factories[j]);
+                        if (__instance.factories[j] != null)
+                        {
+                            __instance.factories[j].BeforeGameTick(time);
+                        }
                     }
                     PerformanceMonitor.EndSample(ECpuWorkEntry.PowerSystem);
                     if (time == 1L)
-                        Debug.Log((object)"check point before multithread");
+                    {
+                        Debug.Log("check point before multithread");
+                    }
                     if (GameMain.multithreadSystem.multithreadSystemEnable)
                     {
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.PowerSystem);
@@ -116,21 +126,25 @@ namespace Auxilaryfunction
                         GameMain.multithreadSystem.Schedule();
                         GameMain.multithreadSystem.Complete();
                         PerformanceMonitor.EndSample(ECpuWorkEntry.PowerSystem);
-                        for (int index = 0; index < __instance.factoryCount; ++index)
+                        for (int k = 0; k < __instance.factoryCount; k++)
                         {
-                            if (__instance.factories[index].factorySystem != null)
-                                __instance.factories[index].factorySystem.CheckBeforeGameTick();
+                            if (__instance.factories[k].factorySystem != null)
+                            {
+                                __instance.factories[k].factorySystem.CheckBeforeGameTick();
+                            }
                         }
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Facility);
                         GameMain.multithreadSystem.PrepareAssemblerFactoryData(GameMain.localPlanet, __instance.factories, __instance.factoryCount, time);
                         GameMain.multithreadSystem.Schedule();
                         GameMain.multithreadSystem.Complete();
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Lab);
-                        for (int index = 0; index < __instance.factoryCount; ++index)
+                        for (int l = 0; l < __instance.factoryCount; l++)
                         {
-                            bool isActive = GameMain.localPlanet == __instance.factories[index].planet;
-                            if (__instance.factories[index].factorySystem != null)
-                                __instance.factories[index].factorySystem.GameTickLabResearchMode(time, isActive);
+                            bool isActive = GameMain.localPlanet == __instance.factories[l].planet;
+                            if (__instance.factories[l].factorySystem != null)
+                            {
+                                __instance.factories[l].factorySystem.GameTickLabResearchMode(time, isActive);
+                            }
                         }
                         GameMain.multithreadSystem.PrepareLabOutput2NextData(GameMain.localPlanet, __instance.factories, __instance.factoryCount, time);
                         GameMain.multithreadSystem.Schedule();
@@ -143,10 +157,12 @@ namespace Auxilaryfunction
                         GameMain.multithreadSystem.Complete();
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Transport);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Storage);
-                        for (int index = 0; index < __instance.factoryCount; ++index)
+                        for (int m = 0; m < __instance.factoryCount; m++)
                         {
-                            if (__instance.factories[index].transport != null)
-                                __instance.factories[index].transport.GameTick_InputFromBelt();
+                            if (__instance.factories[m].transport != null)
+                            {
+                                __instance.factories[m].transport.GameTick_InputFromBelt(time);
+                            }
                         }
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Storage);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Inserter);
@@ -155,11 +171,13 @@ namespace Auxilaryfunction
                         GameMain.multithreadSystem.Complete();
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Inserter);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Storage);
-                        for (int index = 0; index < __instance.factoryCount; ++index)
+                        for (int n = 0; n < __instance.factoryCount; n++)
                         {
-                            bool isActive = GameMain.localPlanet == __instance.factories[index].planet;
-                            if (__instance.factories[index].factoryStorage != null)
-                                __instance.factories[index].factoryStorage.GameTick(time, isActive);
+                            bool isActive2 = GameMain.localPlanet == __instance.factories[n].planet;
+                            if (__instance.factories[n].factoryStorage != null)
+                            {
+                                __instance.factories[n].factoryStorage.GameTick(time, isActive2);
+                            }
                         }
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Storage);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Belt);
@@ -168,28 +186,34 @@ namespace Auxilaryfunction
                         GameMain.multithreadSystem.Complete();
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Belt);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Splitter);
-                        for (int index = 0; index < __instance.factoryCount; ++index)
+                        for (int num = 0; num < __instance.factoryCount; num++)
                         {
-                            if (__instance.factories[index].cargoTraffic != null)
-                                __instance.factories[index].cargoTraffic.SplitterGameTick();
+                            if (__instance.factories[num].cargoTraffic != null)
+                            {
+                                __instance.factories[num].cargoTraffic.SplitterGameTick();
+                            }
                         }
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Splitter);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Belt);
-                        for (int index = 0; index < __instance.factoryCount; ++index)
+                        for (int num2 = 0; num2 < __instance.factoryCount; num2++)
                         {
-                            if (__instance.factories[index].cargoTraffic != null)
+                            if (__instance.factories[num2].cargoTraffic != null)
                             {
-                                __instance.factories[index].cargoTraffic.MonitorGameTick();
-                                __instance.factories[index].cargoTraffic.SpraycoaterGameTick();
-                                __instance.factories[index].cargoTraffic.PilerGameTick();
+                                __instance.factories[num2].cargoTraffic.MonitorGameTick();
+                                __instance.factories[num2].cargoTraffic.SpraycoaterGameTick();
+                                __instance.factories[num2].cargoTraffic.PilerGameTick();
                             }
                         }
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Belt);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Storage);
-                        for (int index = 0; index < __instance.factoryCount; ++index)
+                        int stationPilerLevel = GameMain.history.stationPilerLevel;
+                        for (int num3 = 0; num3 < __instance.factoryCount; num3++)
                         {
-                            if (__instance.factories[index].transport != null)
-                                __instance.factories[index].transport.GameTick_OutputToBelt();
+                            if (__instance.factories[num3].transport != null)
+                            {
+                                __instance.factories[num3].transport.GameTick_OutputToBelt(stationPilerLevel, time);
+                                __instance.factories[num3].transport.GameTick_SandboxMode();
+                            }
                         }
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Storage);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.LocalCargo);
@@ -198,35 +222,44 @@ namespace Auxilaryfunction
                         GameMain.multithreadSystem.Complete();
                         PerformanceMonitor.EndSample(ECpuWorkEntry.LocalCargo);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Digital);
-                        for (int index = 0; index < __instance.factoryCount; ++index)
+                        for (int num4 = 0; num4 < __instance.factoryCount; num4++)
                         {
-                            bool isActive = GameMain.localPlanet == __instance.factories[index].planet;
-                            if (__instance.factories[index].digitalSystem != null)
-                                __instance.factories[index].digitalSystem.GameTick(isActive);
+                            bool isActive3 = GameMain.localPlanet == __instance.factories[num4].planet;
+                            if (__instance.factories[num4].digitalSystem != null)
+                            {
+                                __instance.factories[num4].digitalSystem.GameTick(isActive3);
+                            }
                         }
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Digital);
                     }
                     else
                     {
-                        for (int index = 0; index < __instance.factoryCount; ++index)
-                            __instance.factories[index].GameTick(time);
+                        for (int num5 = 0; num5 < __instance.factoryCount; num5++)
+                        {
+                            __instance.factories[num5].GameTick(time);
+                        }
                     }
                     if (time == 1L)
-                        Debug.Log((object)"check point after multithread");
+                    {
+                        Debug.Log("check point after multithread");
+                    }
                     PerformanceMonitor.EndSample(ECpuWorkEntry.Factory);
                     PerformanceMonitor.BeginSample(ECpuWorkEntry.Trash);
                     __instance.trashSystem.GameTick(time);
                     PerformanceMonitor.EndSample(ECpuWorkEntry.Trash);
                 }
+
                 if (!stopDysonSphere)
                 {
                     PerformanceMonitor.BeginSample(ECpuWorkEntry.DysonSphere);
                     if (GameMain.multithreadSystem.multithreadSystemEnable)
                     {
-                        for (int index = 0; index < __instance.dysonSpheres.Length; ++index)
+                        for (int num6 = 0; num6 < __instance.dysonSpheres.Length; num6++)
                         {
-                            if (__instance.dysonSpheres[index] != null)
-                                __instance.dysonSpheres[index].GameTick(time);
+                            if (__instance.dysonSpheres[num6] != null)
+                            {
+                                __instance.dysonSpheres[num6].GameTick(time);
+                            }
                         }
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.DysonRocket);
                         GameMain.multithreadSystem.PrepareRocketFactoryData(__instance.dysonSpheres, __instance.dysonSpheres.Length);
@@ -236,13 +269,13 @@ namespace Auxilaryfunction
                     }
                     else
                     {
-                        for (int index = 0; index < __instance.dysonSpheres.Length; ++index)
+                        for (int num7 = 0; num7 < __instance.dysonSpheres.Length; num7++)
                         {
-                            if (__instance.dysonSpheres[index] != null)
+                            if (__instance.dysonSpheres[num7] != null)
                             {
-                                __instance.dysonSpheres[index].GameTick(time);
+                                __instance.dysonSpheres[num7].GameTick(time);
                                 PerformanceMonitor.BeginSample(ECpuWorkEntry.DysonRocket);
-                                __instance.dysonSpheres[index].RocketGameTick();
+                                __instance.dysonSpheres[num7].RocketGameTick();
                                 PerformanceMonitor.EndSample(ECpuWorkEntry.DysonRocket);
                             }
                         }
@@ -256,15 +289,20 @@ namespace Auxilaryfunction
                     __instance.localPlanet.audio.GameTick();
                     PerformanceMonitor.EndSample(ECpuWorkEntry.LocalAudio);
                 }
+
                 if (!stopfactory)
                 {
                     PerformanceMonitor.BeginSample(ECpuWorkEntry.Statistics);
                     if (!DSPGame.IsMenuDemo)
+                    {
                         __instance.statistics.GameTick(time);
+                    }
                     PerformanceMonitor.EndSample(ECpuWorkEntry.Statistics);
                     PerformanceMonitor.BeginSample(ECpuWorkEntry.Digital);
                     if (!DSPGame.IsMenuDemo)
+                    {
                         __instance.warningSystem.GameTick(time);
+                    }
                     PerformanceMonitor.EndSample(ECpuWorkEntry.Digital);
                     PerformanceMonitor.BeginSample(ECpuWorkEntry.Scenario);
                     __instance.milestoneSystem.GameTick(time);
