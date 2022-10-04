@@ -159,10 +159,9 @@ namespace Auxilaryfunction
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Storage);
                         for (int m = 0; m < __instance.factoryCount; m++)
                         {
-                            if (__instance.factories[m].transport != null)
-                            {
-                                __instance.factories[m].transport.GameTick_InputFromBelt(time);
-                            }
+                            PlanetTransport transport = __instance.factories[index].transport;
+                            if (transport != null)
+                                __instance.factories[index].transport.GameTick_InputFromBelt(time);
                         }
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Storage);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Inserter);
@@ -206,14 +205,11 @@ namespace Auxilaryfunction
                         }
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Belt);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Storage);
-                        int stationPilerLevel = GameMain.history.stationPilerLevel;
-                        for (int num3 = 0; num3 < __instance.factoryCount; num3++)
+                        for (int index = 0; index < __instance.factoryCount; ++index)
                         {
-                            if (__instance.factories[num3].transport != null)
-                            {
-                                __instance.factories[num3].transport.GameTick_OutputToBelt(stationPilerLevel, time);
-                                __instance.factories[num3].transport.GameTick_SandboxMode();
-                            }
+                            PlanetTransport transport = __instance.factories[index].transport;
+                            if (transport != null)
+                                transport.GameTick_OutputToBelt(GameMain.history.stationPilerLevel, time);
                         }
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Storage);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.LocalCargo);
@@ -666,7 +662,7 @@ namespace Auxilaryfunction
                     {
                         if (autobuildThread == null)
                         {
-                            autobuildThread = new Thread(delegate()
+                            autobuildThread = new Thread(delegate ()
                             {
                                 while (closecollider)
                                 {
@@ -716,7 +712,7 @@ namespace Auxilaryfunction
                                         else if (GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id != 0)
                                         {
                                             __instance.player.Order(new OrderNode() { target = GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos, type = EOrderType.Move }, false);
-                                            if((GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos - __instance.player.position).magnitude > 30)
+                                            if ((GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos - __instance.player.position).magnitude > 30)
                                             {
                                                 __instance.player.currentOrder.targetReached = true;
                                             }
@@ -784,14 +780,26 @@ namespace Auxilaryfunction
                             }
                         }
                         else
-                        {
+                        {                            
+                            VectorLF3 direction = (flyfocusPlanet.uPosition - __instance.player.uPosition).normalized;
+
+                            PlanetData currentPlanet = __instance.player.planetData;
+                            if (currentPlanet != null)
+                            {
+                                VectorLF3 diff = (__instance.player.uPosition - currentPlanet.uPosition);
+                                double altitude = diff.magnitude - currentPlanet.radius;
+                                float upFactor = Mathf.Clamp((float)((1000.0 - altitude) / 1000.0), 0.0f, 1.0f);
+                                upFactor *= upFactor * upFactor;
+                                direction = ((direction * (1.0f - upFactor)) + diff.normalized * upFactor).normalized;
+                            }
+
                             if (__instance.player.uVelocity.magnitude + __instance.actionSail.max_acc >= __instance.actionSail.maxSailSpeed)
                             {
-                                __instance.player.uVelocity = (flyfocusPlanet.uPosition - __instance.player.uPosition).normalized * __instance.actionSail.maxSailSpeed;
+                                __instance.player.uVelocity = direction * __instance.actionSail.maxSailSpeed;
                             }
                             else
                             {
-                                __instance.player.uVelocity += (flyfocusPlanet.uPosition - __instance.player.uPosition).normalized * __instance.actionSail.max_acc;
+                                __instance.player.uVelocity += direction * __instance.actionSail.max_acc;
                                 __instance.actionSail.UseSailEnergy(__instance.actionSail.max_acc);
                             }
                         }
