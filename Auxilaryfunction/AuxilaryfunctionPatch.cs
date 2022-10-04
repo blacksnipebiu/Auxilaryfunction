@@ -157,7 +157,7 @@ namespace Auxilaryfunction
                         GameMain.multithreadSystem.Complete();
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Transport);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.Storage);
-                        for (int m = 0; m < __instance.factoryCount; m++)
+                        for (int index = 0; index < __instance.factoryCount; index++)
                         {
                             PlanetTransport transport = __instance.factories[index].transport;
                             if (transport != null)
