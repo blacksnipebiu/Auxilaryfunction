@@ -21,7 +21,7 @@ namespace Auxilaryfunction
         public const long AU = 40000;
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.7.9";
+        public const string VERSION = "1.8.0";
         private const string GAME_PROCESS = "DSPGAME.exe";
         public int stationindex = 4;
         public int locallogic = 0;
@@ -30,13 +30,15 @@ namespace Auxilaryfunction
         public int[] remotelogics = new int[5];
         public int autoaddtechid = 0;
         public int maxheight;
-        public int windowmaxheight;
         public int recipewindowx;
         public int recipewindowy;
         public int pointlayerid = 0;
         public int pointsignalid = 0;
+        private TechProto techProto;
         public List<int> assemblerpools;
         public List<int> labpools;
+        public List<string> ConfigNames = new List<string>();
+        public List<float[]> boundaries = new List<float[]>();
         public List<int> fuelItems = new List<int>();
         public List<int> beltpools = new List<int>();
         public List<int> monitorpools = new List<int>();
@@ -57,8 +59,9 @@ namespace Auxilaryfunction
         public float window_x = 300;
         public float window_y = 200;
         public float batchnum = 1;
-        public float window_width = 800;
-        public float window_height = 710;
+        public float window_width = 830;
+        public float window_height = 0;
+        public float max_window_height = 710;
         public static float upsfix = 1;
         public static bool temp;
         public static bool simulatorrender;
@@ -90,7 +93,7 @@ namespace Auxilaryfunction
         public bool autoaddtech;
         public bool changename;
         public bool auto_setejector_start;
-        public bool autoAddwarp_start = false;
+        public bool autoAddwarp_start;
         public bool autoAddFuel_start;
         public static Dictionary<int, List<int>> EjectorDictionary;
         public static List<ItemProto> ItemList = new List<ItemProto>();
@@ -113,13 +116,12 @@ namespace Auxilaryfunction
         public GUIStyle buttonstyleblue = null;
         public List<TechProto> techlist = null;
         public ERecipeType pointeRecipetype = ERecipeType.None;
-        public static bool closecollider = false;
-        public static bool slowdownsail = false;
-        public static bool stopDysonSphere = false;
-        public static bool stopfactory = false;
-        public static bool fly = false;
-        public static bool changeups = false;
-        public static bool autobuildgetitem = false;
+        public static bool closecollider;
+        public static bool slowdownsail;
+        public static bool stopfactory;
+        public static bool fly;
+        public static bool changeups;
+        public static bool autobuildgetitem;
         public static PlanetData flyfocusPlanet;
         public static readonly FieldInfo _uiGridSplit_sliderImg = AccessTools.Field(typeof(UIGridSplit), "sliderImg");
         public static readonly FieldInfo _uiGridSplit_valueText = AccessTools.Field(typeof(UIGridSplit), "valueText");
@@ -158,6 +160,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<Boolean> autoAddwarp;
         public static ConfigEntry<double> stationwarpdist;
         public static ConfigEntry<KeyboardShortcut> QuickKey;
+        public static ConfigEntry<int> auto_supply_Courier;
         public static ConfigEntry<int> stationdronedist;
         public static ConfigEntry<int> autosavetime;
         public static ConfigEntry<int> scale;
@@ -198,6 +201,7 @@ namespace Auxilaryfunction
             auto_setejector_bool = Config.Bind("自动配置太阳帆弹射器", "auto_setejector_bool", false);
 
             auto_supply_station = Config.Bind("自动配置新运输站", "auto_supply_station", false);
+            auto_supply_Courier = Config.Bind("自动填充配送机", "auto_supply_Courier", 10);
             auto_supply_drone = Config.Bind("自动填充飞机数量", "auto_supply_drone", 10);
             auto_supply_ship = Config.Bind("自动填充飞船数量", "auto_supply_ship", 5);
             stationmaxpowerpertick = Config.Bind("自动设置最大充电功率", "autowarpdistance", 30f);
@@ -258,6 +262,28 @@ namespace Auxilaryfunction
                 for (int j = 0; j < mytexture.height; j++)
                     mytexture.SetPixel(i, j, new Color(0, 0, 0, 1));
 
+            ConfigNames.Add("填充配送机数量");
+            boundaries.Add(new float[] { 0, 10 });
+            ConfigNames.Add("填充飞机数量");
+            boundaries.Add(new float[] { 0, 100 });
+            ConfigNames.Add("填充飞船数量");
+            boundaries.Add(new float[] { 0, 10 });
+            ConfigNames.Add("最大充电功率");
+            boundaries.Add(new float[] { 30, 300 });
+            ConfigNames.Add("运输机最远路程");
+            boundaries.Add(new float[] { 20, 180 });
+            ConfigNames.Add("运输船最远路程");
+            boundaries.Add(new float[] { 1, 61 });
+            ConfigNames.Add("曲速启用路程");
+            boundaries.Add(new float[] { 0.5f, 60 });
+            ConfigNames.Add("运输机起送量");
+            boundaries.Add(new float[] { 0.01f, 1 });
+            ConfigNames.Add("运输船起送量");
+            boundaries.Add(new float[] { 0.1f, 1 });
+            ConfigNames.Add("翘曲填充数量");
+            boundaries.Add(new float[] { 0, 50 });
+            ConfigNames.Add("大型采矿机采矿速率");
+            boundaries.Add(new float[] { 10, 30 });
             foreach (var item in LDB.items.dataArray)
             {
                 if (item.HeatValue > 0)
@@ -295,10 +321,10 @@ namespace Auxilaryfunction
             ChangeQuickKeyMethod();
             StartAndStopGame();
             StationinfoUpdate();
-            if (Input.GetKeyDown(KeyCode.F9))
-            {
-                //temp = !temp;
-            }
+            //if (Input.GetKeyDown(KeyCode.F9))
+            //{
+            //    temp = !temp;
+            //}
             if (GameMain.instance != null)
             {
                 if (autosavetimechange.Value && UIAutoSave.autoSaveTime != autosavetime.Value)
@@ -405,8 +431,8 @@ namespace Auxilaryfunction
             }
             if (showwindow && Input.GetKey(KeyCode.LeftControl))
             {
-                if (Input.GetKeyDown(KeyCode.UpArrow)) { scale.Value++; changescale = true; }
-                if (Input.GetKeyDown(KeyCode.DownArrow)) { scale.Value--; changescale = true; }
+                if (Input.GetKeyDown(KeyCode.UpArrow)) { scale.Value++; changescale = true; window_height = 52 * scale.Value; }
+                if (Input.GetKeyDown(KeyCode.DownArrow)) { scale.Value--; changescale = true; window_height = 52 * scale.Value; }
                 if (scale.Value < 5) scale.Value = 5;
                 if (scale.Value > 35) scale.Value = 35;
             }
@@ -810,22 +836,22 @@ namespace Auxilaryfunction
         {
             int tempheight = 0;
             int heightdis = scale.Value * 2;
-            int widthlen1 = 75 * scale.Value / 8;
-            int widthlen2 = Localization.language != Language.zhCN ? 15 * scale.Value : 25 * scale.Value / 2;
-            int oneareamaxwidth = Localization.language != Language.zhCN ? widthlen1 + widthlen2 : widthlen2;
-            GUILayout.BeginArea(new Rect(10, 20, window_width + 100, window_height));
+            if(window_height==0) window_height = 26 * heightdis;
             if (TextTech)
             {
-                scrollPosition = GUI.BeginScrollView(new Rect(0, 0, window_width - 10, window_height - heightdis), scrollPosition, new Rect(0, 0, 37 * heightdis, windowmaxheight), true, true);
+                scrollPosition = GUI.BeginScrollView(new Rect(10, 20, window_width - 20, window_height - 30), scrollPosition, new Rect(0, 0, window_width - 20, max_window_height ));
 
-                GUI.Label(new Rect(0, 0, heightdis * 3, heightdis), "准备研究".getTranslate());
+                int buttonwidth = heightdis * 5;
+                int colnum = (int)window_width / buttonwidth;
+                var propertyicon= UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture;
+                GUI.Label(new Rect(0, 0, heightdis * 10, heightdis), "准备研究".getTranslate());
                 int i = 0;
                 tempheight += heightdis;
                 for (; i < readyresearch.Count; i++)
                 {
                     TechProto tp = LDB.techs.Select(readyresearch[i]);
-                    if (i != 0 && i % 7 == 0) tempheight += heightdis * 4;
-                    if (GUI.Button(new Rect(i % 7 * heightdis * 5, tempheight, heightdis * 5, heightdis * 2), tp.ID < 2000 ? tp.name : (tp.name + tp.Level)))
+                    if (i != 0 && i % colnum == 0) tempheight += heightdis * 4;
+                    if (GUI.Button(new Rect(i % colnum * buttonwidth, tempheight, buttonwidth, heightdis * 2), tp.ID < 2000 ? tp.name : (tp.name + tp.Level)))
                     {
                         if (GameMain.history.TechInQueue(readyresearch[i]))
                         {
@@ -841,16 +867,20 @@ namespace Auxilaryfunction
                     int k = 0;
                     foreach (ItemProto ip in tp.itemArray)
                     {
-                        GUI.Button(new Rect(i % 7 * heightdis * 5 + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
+                        GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
                     }
                     k = 0;
                     foreach (RecipeProto rp in tp.unlockRecipeArray)
                     {
-                        GUI.Button(new Rect(i % 7 * heightdis * 5 + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
+                        GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
+                    }
+                    if(GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), propertyicon))
+                    {
+                        BuyoutTech(tp);
                     }
                 }
                 tempheight += heightdis * 4;
-                GUI.Label(new Rect(0, tempheight, heightdis * 3, heightdis), "科技".getTranslate());
+                GUI.Label(new Rect(0, tempheight, heightdis * 10, heightdis), "科技".getTranslate());
                 tempheight += heightdis;
                 i = 0;
                 foreach (TechProto tp in LDB.techs.dataArray)
@@ -868,25 +898,29 @@ namespace Auxilaryfunction
                         }
                         if (!condition) continue;
                     }
-                    if (i != 0 && i % 5 == 0) tempheight += heightdis * 4;
-                    if (GUI.Button(new Rect(i % 5 * heightdis * 5, tempheight, heightdis * 5, heightdis * 2), tp.name))
+                    if (i != 0 && i % colnum == 0) tempheight += heightdis * 4;
+                    if (GUI.Button(new Rect(i % colnum * buttonwidth, tempheight, buttonwidth, heightdis * 2), tp.name))
                     {
                         readyresearch.Add(tp.ID);
                     }
                     int k = 0;
                     foreach (ItemProto ip in tp.itemArray)
                     {
-                        GUI.Button(new Rect(i % 5 * heightdis * 5 + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
+                        GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
                     }
                     k = 0;
                     foreach (RecipeProto rp in tp.unlockRecipeArray)
                     {
-                        GUI.Button(new Rect(i % 5 * heightdis * 5 + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
+                        GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
+                    }
+                    if(GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture))
+                    {
+                        BuyoutTech(tp);
                     }
                     i++;
                 }
                 tempheight += heightdis * 4;
-                GUI.Label(new Rect(0, tempheight, heightdis * 4, heightdis), "升级".getTranslate());
+                GUI.Label(new Rect(0, tempheight, heightdis * 10, heightdis), "升级".getTranslate());
                 i = 0;
                 tempheight += heightdis;
                 foreach (TechProto tp in LDB.techs.dataArray)
@@ -903,94 +937,132 @@ namespace Auxilaryfunction
                         }
                         if (!condition) continue;
                     }
-                    if (i != 0 && i % 5 == 0) tempheight += heightdis * 3;
-                    if (GUI.Button(new Rect(i % 5 * heightdis * 5, tempheight, heightdis * 5, heightdis * 2), tp.name + tp.Level))
+                    if (i != 0 && i % colnum == 0) tempheight += heightdis * 4;
+                    if (GUI.Button(new Rect(i % colnum * buttonwidth, tempheight, buttonwidth, heightdis * 2), tp.name + tp.Level))
                     {
                         readyresearch.Add(tp.ID);
                     }
                     int k = 0;
                     foreach (ItemProto ip in tp.itemArray)
                     {
-                        GUI.Button(new Rect(i % 5 * heightdis * 5 + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
+                        GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
+                    }
+                    if (GUI.Button(new Rect(i % colnum * buttonwidth+4*heightdis, heightdis * 3 + tempheight, heightdis, heightdis), UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture))
+                    {
+                        BuyoutTech(tp);
                     }
                     i++;
                 }
-                windowmaxheight = tempheight + heightdis * 4;
+                max_window_height = heightdis * 5 + tempheight;
                 GUI.EndScrollView();
             }
             else
             {
-                int finalheight = 0;
-                oneareamaxwidth = widthlen1 + widthlen2;
+                GUILayout.BeginArea(new Rect(10, 20, window_width, window_height));
+                GUILayout.Space(20);
+                scrollPosition = GUILayout.BeginScrollView(scrollPosition, new[] { GUILayout.Width(window_width), GUILayout.Height(window_height) });
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(false));
+                GUILayoutOption[] HorizontalSlideroptions = new[] { GUILayout.ExpandWidth(false), GUILayout.Height(heightdis / 2), GUILayout.Width(heightdis * 5) };
+                GUILayoutOption[] buttonoptions = new[] { GUILayout.Height(heightdis), GUILayout.ExpandWidth(false) };
+                GUILayout.Space(20);
+                GUILayout.BeginVertical();
                 {
-                    GUILayout.BeginArea(new Rect(10, 0, 20 + widthlen1 + widthlen2, window_height));
-                    auto_supply_station.Value = GUI.Toggle(new Rect(10, heightdis * tempheight, widthlen1, heightdis), auto_supply_station.Value, "自动配置新运输站".getTranslate());
-                    autosetstationconfig = GUI.Toggle(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), autosetstationconfig, "配置参数".getTranslate());
-                    if (autosetstationconfig)
+                    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(false));
+                    auto_supply_station.Value = GUILayout.Toggle(auto_supply_station.Value, "自动配置新运输站".getTranslate(), buttonoptions);
+                    autosetstationconfig = GUILayout.Toggle(autosetstationconfig, "配置参数".getTranslate(), buttonoptions);
+                    GUILayout.EndHorizontal();
+                    if (autosetstationconfig && auto_supply_station.Value)
                     {
-                        auto_supply_drone.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), auto_supply_drone.Value, 0, 100);
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), auto_supply_drone.Value + " " + "填充飞机数量".getTranslate());
-                        auto_supply_ship.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), auto_supply_ship.Value, 0, 10);
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), auto_supply_ship.Value + " " + "填充飞船数量".getTranslate());
-                        stationmaxpowerpertick.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), stationmaxpowerpertick.Value, 30, 300);
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, 30), (int)stationmaxpowerpertick.Value + "MW " + "最大充电功率".getTranslate());
-
-                        stationdronedist.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), (float)stationdronedist.Value, 20, 180);
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), stationdronedist.Value + "° " + "运输机最远路程".getTranslate());
-                        stationshipdist.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), (float)stationshipdist.Value, 1, 61);
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), (stationshipdist.Value == 61 ? "∞ " : stationshipdist.Value + "ly ") + "运输船最远路程".getTranslate());
-                        stationwarpdist.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), (float)stationwarpdist.Value, 0.5f, 60);
-                        if (stationwarpdist.Value == 0) stationwarpdist.Value = 0.5;
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), stationwarpdist.Value + "AU " + "曲速启用路程".getTranslate());
-                        DroneStartCarry.Value = GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), DroneStartCarry.Value, 0.01f, 1);
-                        DroneStartCarry.Value = DroneStartCarry.Value == 0 ? 0.01f : DroneStartCarry.Value;
-
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), ((int)(DroneStartCarry.Value * 10) * 10 == 0 ? "1" : "" + (int)(DroneStartCarry.Value * 10) * 10) + "% " + "运输机起送量".getTranslate());
-                        ShipStartCarry.Value = GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), ShipStartCarry.Value, 0.1f, 1);
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), (int)(ShipStartCarry.Value * 10) * 10 + "% " + "运输船起送量".getTranslate());
-                        auto_supply_warp.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), auto_supply_warp.Value, 0, 50);
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis), auto_supply_warp.Value + " " + "翘曲填充数量".getTranslate());
-                        veincollectorspeed.Value = (int)GUI.HorizontalSlider(new Rect(10, 5 + heightdis * tempheight, widthlen1, heightdis), veincollectorspeed.Value, 10, 30);
-                        GUI.Label(new Rect(20 + widthlen1, heightdis * tempheight++, widthlen2, heightdis * 2), veincollectorspeed.Value / 10.0f + " " + "大型采矿机采矿速率".getTranslate());
+                        for (int i = 0; i < ConfigNames.Count; i++)
+                        {
+                            GUILayout.BeginHorizontal();
+                            string showinfo = "";
+                            switch (i)
+                            {
+                                case 0:
+                                    auto_supply_Courier.Value = (int)GUILayout.HorizontalSlider(auto_supply_Courier.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    showinfo = auto_supply_Courier.Value + " ";
+                                    break;
+                                case 1:
+                                    auto_supply_drone.Value = (int)GUILayout.HorizontalSlider(auto_supply_drone.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    showinfo = auto_supply_drone.Value + " ";
+                                    break;
+                                case 2:
+                                    auto_supply_ship.Value = (int)GUILayout.HorizontalSlider(auto_supply_ship.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    showinfo = auto_supply_ship.Value + " ";
+                                    break;
+                                case 3:
+                                    stationmaxpowerpertick.Value = (int)GUILayout.HorizontalSlider(stationmaxpowerpertick.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    showinfo = (int)stationmaxpowerpertick.Value + "MW ";
+                                    break;
+                                case 4:
+                                    stationdronedist.Value = (int)GUILayout.HorizontalSlider(stationdronedist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    showinfo = stationdronedist.Value + "° ";
+                                    break;
+                                case 5:
+                                    stationshipdist.Value = (int)GUILayout.HorizontalSlider(stationshipdist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    showinfo = (stationshipdist.Value == 61 ? "∞ " : stationshipdist.Value + "ly ");
+                                    break;
+                                case 6:
+                                    stationwarpdist.Value = (int)GUILayout.HorizontalSlider((float)stationwarpdist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    if (stationwarpdist.Value == 0) stationwarpdist.Value = 0.5;
+                                    showinfo = stationwarpdist.Value + "AU ";
+                                    break;
+                                case 7:
+                                    DroneStartCarry.Value = GUILayout.HorizontalSlider(DroneStartCarry.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    DroneStartCarry.Value = DroneStartCarry.Value == 0 ? 0.01f : DroneStartCarry.Value;
+                                    showinfo = ((int)(DroneStartCarry.Value * 10) * 10 == 0 ? "1" : "" + (int)(DroneStartCarry.Value * 10) * 10) + "% ";
+                                    break;
+                                case 8:
+                                    ShipStartCarry.Value = (int)GUILayout.HorizontalSlider(ShipStartCarry.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    showinfo = (int)(ShipStartCarry.Value * 10) * 10 + "% ";
+                                    break;
+                                case 9:
+                                    auto_supply_warp.Value = (int)GUILayout.HorizontalSlider(auto_supply_warp.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    showinfo = auto_supply_warp.Value + " ";
+                                    break;
+                                case 10:
+                                    veincollectorspeed.Value = (int)GUILayout.HorizontalSlider(veincollectorspeed.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    showinfo = veincollectorspeed.Value / 10.0f + " ";
+                                    break;
+                            }
+                            GUIStyle labelstyle = new GUIStyle(GUI.skin.label);
+                            labelstyle.fontSize = scale.Value - 3;
+                            labelstyle.normal.textColor = GUI.skin.toggle.normal.textColor;
+                            GUILayout.Label(showinfo + ConfigNames[i].getTranslate(), labelstyle, buttonoptions);
+                            GUILayout.EndHorizontal();
+                        }
                     }
-                    tempheight += Localization.language != Language.zhCN ? 1 : 0;
-                    if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "铺满轨道采集器".getTranslate())) setgasstation();
-                    if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "填充当前星球飞机飞船、翘曲器".getTranslate())) addDroneShiptooldstation();
-                    if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "批量配置当前星球物流站".getTranslate())) changeallstationconfig();
-                    if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "批量配置当前星球大型采矿机采矿速率".getTranslate())) changeallveincollectorspeedconfig();
-
-                    norender_dysonshell_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_dysonshell_bool.Value, "不渲染戴森壳".getTranslate());
-                    norender_dysonswarm_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_dysonswarm_bool.Value, "不渲染戴森云".getTranslate());
-                    norender_lab_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_lab_bool.Value, "不渲染研究站".getTranslate());
-                    norender_beltitem.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_beltitem.Value, "不渲染传送带货物".getTranslate());
-                    norender_shipdrone_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_shipdrone_bool.Value, "不渲染运输船和飞机".getTranslate());
-                    norender_entity_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_entity_bool.Value, "不渲染实体".getTranslate());
-                    if (simulatorrender != GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), simulatorrender, "不渲染全部".getTranslate()))
+                    if (GUILayout.Button("铺满轨道采集器".getTranslate(), buttonoptions)) setgasstation();
+                    if (GUILayout.Button("批量配置当前星球物流站".getTranslate(), buttonoptions)) changeallstationconfig();
+                    if (GUILayout.Button("填充当前星球配送机飞机飞船、翘曲器".getTranslate(), buttonoptions)) addDroneShiptooldstation();
+                    if (GUILayout.Button("批量配置当前星球大型采矿机采矿速率".getTranslate(), buttonoptions)) changeallveincollectorspeedconfig();
+                    norender_dysonshell_bool.Value = GUILayout.Toggle(norender_dysonshell_bool.Value, "不渲染戴森壳".getTranslate());
+                    norender_dysonswarm_bool.Value = GUILayout.Toggle(norender_dysonswarm_bool.Value, "不渲染戴森云".getTranslate());
+                    norender_lab_bool.Value = GUILayout.Toggle(norender_lab_bool.Value, "不渲染研究站".getTranslate());
+                    norender_beltitem.Value = GUILayout.Toggle(norender_beltitem.Value, "不渲染传送带货物".getTranslate());
+                    norender_shipdrone_bool.Value = GUILayout.Toggle(norender_shipdrone_bool.Value, "不渲染运输船和飞机".getTranslate());
+                    norender_entity_bool.Value = GUILayout.Toggle(norender_entity_bool.Value, "不渲染实体".getTranslate());
+                    if (simulatorrender != GUILayout.Toggle(simulatorrender, "不渲染全部".getTranslate()))
                     {
                         simulatorrender = !simulatorrender;
                         simulatorchanging = true;
                     }
-                    norender_powerdisk_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), norender_powerdisk_bool.Value, "不渲染电网覆盖".getTranslate());
-                    closeplayerflyaudio.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), closeplayerflyaudio.Value, "关闭玩家走路飞行声音".getTranslate());
-
-                    finalheight = heightdis * (tempheight + 1);
-                    GUILayout.EndArea();
-
+                    norender_powerdisk_bool.Value = GUILayout.Toggle(norender_powerdisk_bool.Value, "不渲染电网覆盖".getTranslate());
+                    closeplayerflyaudio.Value = GUILayout.Toggle(closeplayerflyaudio.Value, "关闭玩家走路飞行声音".getTranslate());
                 }
+                GUILayout.EndVertical();
 
-                oneareamaxwidth = Localization.language != Language.zhCN ? widthlen1 + widthlen2 : widthlen2;
+                GUILayout.BeginVertical();
                 {
-                    tempheight = 0;
-                    GUILayout.BeginArea(new Rect(30 + widthlen1 + widthlen2, 0, oneareamaxwidth + 10, window_height));
-
-                    if (autoaddtech_bool.Value != GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autoaddtech_bool.Value, "自动添加科技队列".getTranslate()))
+                    if (autoaddtech_bool.Value != GUILayout.Toggle(autoaddtech_bool.Value, "自动添加科技队列".getTranslate(), buttonoptions))
                     {
                         autoaddtech_bool.Value = !autoaddtech_bool.Value;
                         if (!autoaddtech_bool.Value) autoaddtechid = 0;
                     }
                     if (autoaddtech_bool.Value)
                     {
-                        if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), LDB.techs.Select(autoaddtechid) == null ? "未选择".getTranslate() : LDB.techs.Select(autoaddtechid).name))
+                        if (GUILayout.Button(LDB.techs.Select(autoaddtechid) == null ? "未选择".getTranslate() : LDB.techs.Select(autoaddtechid).name, buttonoptions))
                         {
                             selectautoaddtechid = !selectautoaddtechid;
                         }
@@ -1001,58 +1073,57 @@ namespace Auxilaryfunction
                                 TechState techstate = GameMain.history.techStates[techlist[i].ID];
                                 if (techstate.curLevel < techstate.maxLevel && techstate.maxLevel > 10)
                                 {
-                                    if (GUI.Button(new Rect(10, heightdis * tempheight++, widthlen2, heightdis), techlist[i].name + " " + techstate.curLevel + " " + techstate.maxLevel))
+                                    if (GUILayout.Button(techlist[i].name + " " + techstate.curLevel + " " + techstate.maxLevel, buttonoptions))
                                     {
                                         autoaddtechid = techlist[i].ID;
                                     }
                                 }
                             }
                         }
-
                     }
-                    autoAddwarp.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autoAddwarp.Value, "自动添加翘曲器");
-                    autoAddFuel.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autoAddFuel.Value, "自动添加燃料");
-                    int iconIndex=0;
-                    foreach(var itemID in fuelItems)
+                    autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器", buttonoptions);
+                    autoAddFuel.Value = GUILayout.Toggle(autoAddFuel.Value, "自动添加燃料", buttonoptions);
+                    if (autoAddFuel.Value)
                     {
-                        GUIStyle style = new GUIStyle();
-                        if (FuelFilter[itemID])
-                            style.normal.background = Texture2D.whiteTexture;
-                        if (GUI.Button(new Rect(10+ iconIndex++*heightdis, heightdis * tempheight, heightdis, heightdis), LDB.items.Select(itemID).iconSprite.texture, style))
+                        int rownum = fuelItems.Count / 6;
+                        rownum = fuelItems.Count % 6 > 0 ? rownum + 1 : rownum;
+                        int index = 0;
+                        for (int i = 0; i < rownum; i++)
                         {
-                            FuelFilter[itemID] = !FuelFilter[itemID];
-                            string result = "";
-                            foreach (var item in FuelFilter)
+                            GUILayout.BeginHorizontal();
+                            for (int j = 0; j < 6 && index < fuelItems.Count; j++, index++)
                             {
-                                if (item.Value)
+                                int itemID = fuelItems[index];
+                                GUIStyle style = new GUIStyle();
+                                if (FuelFilter[itemID])
+                                    style.normal.background = Texture2D.whiteTexture;
+                                if (GUILayout.Button(LDB.items.Select(itemID).iconSprite.texture, style, new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis) }))
                                 {
-                                    result += item.Key + ",";
+                                    FuelFilter[itemID] = !FuelFilter[itemID];
+                                    string result = "";
+                                    foreach (var item in FuelFilter)
+                                    {
+                                        if (item.Value)
+                                        {
+                                            result += item.Key + ",";
+                                        }
+                                    }
+                                    FuelFilterConfig.Value = result;
                                 }
                             }
-                            FuelFilterConfig.Value = result;
-                        }
-                        if (iconIndex % 6 == 0)
-                        {
-                            iconIndex = 0;
-                            tempheight++;
+                            GUILayout.EndHorizontal();
                         }
                     }
-                    tempheight++;
-                    auto_setejector_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate());
-                    autonavigation_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autonavigation_bool.Value, "自动导航".getTranslate());
-                    autowarpcommand.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autowarpcommand.Value, "自动导航使用曲速".getTranslate());
-                    GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "自动使用翘曲器距离".getTranslate() + ":");
-                    autowarpdistance.Value = GUI.HorizontalSlider(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autowarpdistance.Value, 0, 30);
-                    GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), String.Format("{0:N2}", autowarpdistance.Value) + "光年".getTranslate() + "\n");
-                    automovetounbuilt.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate());
-                    close_alltip_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), close_alltip_bool.Value, "一键闭嘴".getTranslate());
-                    noscaleuitech_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), noscaleuitech_bool.Value, "科技面板选中不缩放".getTranslate());
-                    blueprintdelete_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintdelete_bool.Value, "蓝图删除".getTranslate() + "(ctrl+X）");
-                    blueprintrevoke_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintrevoke_bool.Value, "蓝图撤销".getTranslate() + "(ctrl+Z)");
-                    blueprintsetrecipe_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintsetrecipe_bool.Value, "蓝图设置配方".getTranslate() + "(ctrl+F)");
-                    blueprintcopytopaste_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), blueprintcopytopaste_bool.Value, "蓝图复制直接粘贴".getTranslate());
-                    bool temp = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), ShowStationInfo.Value, "物流站信息显示".getTranslate());
-                    stationcopyItem_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), stationcopyItem_bool.Value, "物流站物品设置复制粘贴".getTranslate());
+                    auto_setejector_bool.Value = GUILayout.Toggle(auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate(), buttonoptions);
+                    automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate(), buttonoptions);
+                    close_alltip_bool.Value = GUILayout.Toggle(close_alltip_bool.Value, "一键闭嘴".getTranslate(), buttonoptions);
+                    noscaleuitech_bool.Value = GUILayout.Toggle(noscaleuitech_bool.Value, "科技面板选中不缩放".getTranslate(), buttonoptions);
+                    blueprintdelete_bool.Value = GUILayout.Toggle(blueprintdelete_bool.Value, "蓝图删除".getTranslate() + "(ctrl+X）", buttonoptions);
+                    blueprintrevoke_bool.Value = GUILayout.Toggle(blueprintrevoke_bool.Value, "蓝图撤销".getTranslate() + "(ctrl+Z)", buttonoptions);
+                    blueprintsetrecipe_bool.Value = GUILayout.Toggle(blueprintsetrecipe_bool.Value, "蓝图设置配方".getTranslate() + "(ctrl+F)", buttonoptions);
+                    blueprintcopytopaste_bool.Value = GUILayout.Toggle(blueprintcopytopaste_bool.Value, "蓝图复制直接粘贴".getTranslate(), buttonoptions);
+                    bool temp = GUILayout.Toggle(ShowStationInfo.Value, "物流站信息显示".getTranslate(), buttonoptions);
+                    stationcopyItem_bool.Value = GUILayout.Toggle(stationcopyItem_bool.Value, "物流站物品设置复制粘贴".getTranslate(), buttonoptions);
                     if (temp != ShowStationInfo.Value)
                     {
                         ShowStationInfo.Value = temp;
@@ -1060,7 +1131,7 @@ namespace Auxilaryfunction
                             for (int index = 0; index < maxCount; ++index)
                                 tip[index].SetActive(false);
                     }
-                    if (autoabsorttrash_bool.Value != GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autoabsorttrash_bool.Value, "30s间隔自动吸收垃圾".getTranslate()))
+                    if (autoabsorttrash_bool.Value != GUILayout.Toggle(autoabsorttrash_bool.Value, "30s间隔自动吸收垃圾".getTranslate(), buttonoptions))
                     {
                         autoabsorttrash_bool.Value = !autoabsorttrash_bool.Value;
                         if (autoabsorttrash_bool.Value)
@@ -1070,9 +1141,9 @@ namespace Auxilaryfunction
                     }
                     if (autoabsorttrash_bool.Value)
                     {
-                        onlygetbuildings.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), onlygetbuildings.Value, "只回收建筑".getTranslate());
+                        onlygetbuildings.Value = GUILayout.Toggle(onlygetbuildings.Value, "只回收建筑".getTranslate(), buttonoptions);
                     }
-                    if (autocleartrash_bool.Value != GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autocleartrash_bool.Value, "30s间隔自动清除垃圾".getTranslate()))
+                    if (autocleartrash_bool.Value != GUILayout.Toggle(autocleartrash_bool.Value, "30s间隔自动清除垃圾".getTranslate(), buttonoptions))
                     {
                         autocleartrash_bool.Value = !autocleartrash_bool.Value;
                         if (autocleartrash_bool.Value)
@@ -1081,65 +1152,76 @@ namespace Auxilaryfunction
                             onlygetbuildings.Value = false;
                         }
                     }
-
-
-
-                    ChangeQuickKey = GUI.Toggle(new Rect(10, heightdis * tempheight++, widthlen2, heightdis), ChangeQuickKey, !ChangeQuickKey ? "改变窗口快捷键".getTranslate() : "点击确认".getTranslate());
-                    GUI.TextArea(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), tempShowWindow.ToString());
-                    finalheight = Math.Max(finalheight, heightdis * (tempheight + 1));
-                    GUILayout.EndArea();
-
+                    ChangeQuickKey = GUILayout.Toggle(ChangeQuickKey, !ChangeQuickKey ? "改变窗口快捷键".getTranslate() : "点击确认".getTranslate(), buttonoptions);
+                    if (ChangeQuickKey)
+                    {
+                        GUILayout.TextArea(tempShowWindow.ToString(), new[] { GUILayout.Height(heightdis), GUILayout.Width(6 * heightdis) });
+                    }
                 }
+                GUILayout.EndVertical();
 
+                GUILayout.BeginVertical();
                 {
-                    tempheight = 0;
-                    GUILayout.BeginArea(new Rect(40 + widthlen1 + widthlen2 + oneareamaxwidth, 0, oneareamaxwidth + 10, window_height));
-                    changeups = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), changeups, "启动时间流速修改".getTranslate());
-                    GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix));
-                    string tempupsfixstr = GUI.TextField(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), string.Format("{0:N2}", upsfix));
-                    if(tempupsfixstr!= string.Format("{0:N2}", upsfix) && float.TryParse(tempupsfixstr, out float tempupsfix))
+                    changeups = GUILayout.Toggle(changeups, "启动时间流速修改".getTranslate(), buttonoptions);
+                    if (changeups)
                     {
-                        if (tempupsfix < 0.01) tempupsfix = 0.01f;
-                        if (tempupsfix > 10) tempupsfix = 10;
-                        upsfix = tempupsfix;
+                        GUILayout.Label("流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix), buttonoptions);
+                        string tempupsfixstr = GUILayout.TextField(string.Format("{0:N2}", upsfix), new[] { GUILayout.Height(heightdis), GUILayout.Width(5 * heightdis) });
+                        if (tempupsfixstr != string.Format("{0:N2}", upsfix) && float.TryParse(tempupsfixstr, out float tempupsfix))
+                        {
+                            if (tempupsfix < 0.01) tempupsfix = 0.01f;
+                            if (tempupsfix > 10) tempupsfix = 10;
+                            upsfix = tempupsfix;
+                        }
+                        upsquickset.Value = GUILayout.Toggle(upsquickset.Value, "加速减速".getTranslate() + "(shift,'+''-')", buttonoptions);
                     }
-                    upsquickset.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), upsquickset.Value, "加速减速".getTranslate() + "(shift,'+''-')");
 
-                    autosetSomevalue_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autosetSomevalue_bool.Value, "自动配置建筑".getTranslate());
-                    GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "人造恒星燃料数量".getTranslate() + "：" + auto_supply_starfuel.Value);
-                    auto_supply_starfuel.Value = (int)GUI.HorizontalSlider(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), auto_supply_starfuel.Value, 4, 100);
-                    if (GUI.Button(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "填充当前星球人造恒星".getTranslate())) addfueltoallStar();
+                    autosetSomevalue_bool.Value = GUILayout.Toggle(autosetSomevalue_bool.Value, "自动配置建筑".getTranslate(), buttonoptions);
+                    GUILayout.Label("人造恒星燃料数量".getTranslate() + "：" + auto_supply_starfuel.Value, buttonoptions);
+                    auto_supply_starfuel.Value = (int)GUILayout.HorizontalSlider(auto_supply_starfuel.Value, 4, 100, HorizontalSlideroptions);
+                    if (GUILayout.Button("填充当前星球人造恒星".getTranslate(), buttonoptions)) addfueltoallStar();
 
-                    autosavetimechange.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), autosavetimechange.Value, "自动保存".getTranslate());
-                    GUI.Label(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), "自动保存时间".getTranslate() + "/min：");
-                    int tempint = autosavetime.Value / 60;
-                    if (int.TryParse(Regex.Replace(GUI.TextField(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), tempint + ""), @"[^0-9]", ""), out tempint))
+                    autosavetimechange.Value = GUILayout.Toggle(autosavetimechange.Value, "自动保存".getTranslate(), buttonoptions);
+                    if (autosavetimechange.Value)
                     {
-                        if (tempint < 1) tempint = 1;
-                        if (tempint > 10000) tempint = 10000;
-                        autosavetime.Value = tempint * 60;
+                        GUILayout.Label("自动保存时间".getTranslate() + "/min：", buttonoptions);
+                        int tempint = autosavetime.Value / 60;
+                        if (int.TryParse(Regex.Replace(GUILayout.TextField(tempint + "", new[] { GUILayout.Height(heightdis), GUILayout.Width(5 * heightdis) }), @"[^0-9]", ""), out tempint))
+                        {
+                            if (tempint < 1) tempint = 1;
+                            if (tempint > 10000) tempint = 10000;
+                            autosavetime.Value = tempint * 60;
+                        }
                     }
-                    finalheight = Math.Max(finalheight, heightdis * (tempheight + 1));
-                    if (CloseUIpanel.Value != GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), CloseUIpanel.Value, "关闭白色面板".getTranslate()))
+                    if (CloseUIpanel.Value != GUILayout.Toggle(CloseUIpanel.Value, "关闭白色面板".getTranslate(), buttonoptions))
                     {
                         CloseUIpanel.Value = !CloseUIpanel.Value;
                         ui_AuxilaryPanelPanel.SetActive(!CloseUIpanel.Value);
                     }
-                    KeepBeltHeight.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), KeepBeltHeight.Value, "保持传送带高度".getTranslate());
-                    Quickstop_bool.Value = GUI.Toggle(new Rect(10, heightdis * tempheight++, oneareamaxwidth, heightdis), Quickstop_bool.Value, "ctrl+空格快速开关".getTranslate());
-                    stopfactory = GUI.Toggle(new Rect(20, heightdis * tempheight++, oneareamaxwidth, heightdis), stopfactory, "停止工厂".getTranslate());
-                    stopDysonSphere = GUI.Toggle(new Rect(20, heightdis * tempheight++, oneareamaxwidth, heightdis), stopDysonSphere, "停止戴森球".getTranslate());
-                    GUILayout.EndArea();
+                    KeepBeltHeight.Value = GUILayout.Toggle(KeepBeltHeight.Value, "保持传送带高度(shift)".getTranslate(), buttonoptions);
+                    Quickstop_bool.Value = GUILayout.Toggle(Quickstop_bool.Value, "ctrl+空格快速开关".getTranslate(), buttonoptions);
+                    stopfactory = GUILayout.Toggle(stopfactory, "     停止工厂".getTranslate(), buttonoptions);
+                    autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate(), buttonoptions);
+                    if (autonavigation_bool.Value)
+                    {
+                        autowarpcommand.Value = GUILayout.Toggle(autowarpcommand.Value, "自动导航使用曲速".getTranslate(), buttonoptions);
+                        GUILayout.Label("自动使用翘曲器距离".getTranslate() + ":", buttonoptions);
+                        autowarpdistance.Value = GUILayout.HorizontalSlider(autowarpdistance.Value, 0, 30, HorizontalSlideroptions);
+                        GUILayout.Label(string.Format("{0:N2}", autowarpdistance.Value) + "光年".getTranslate() + "\n", buttonoptions);
+                    }
                 }
-                window_height = finalheight;
+                GUILayout.EndVertical();
+
+                GUILayout.EndHorizontal();
+                GUI.EndScrollView();
+                GUILayout.EndArea();
+                
             }
-            window_width = 70 + widthlen1 + widthlen2 + oneareamaxwidth * 2 < window_width ? window_width : 70 + widthlen1 + widthlen2 + oneareamaxwidth * 2;
-            GUILayout.EndArea();
         }
         void StationinfoStart()
         {
             # region BeltWindow
-            testitem = Instantiate<GameObject>(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Belt Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Blueprint Copy Mode").transform);
+            testitem = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Belt Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Blueprint Copy Mode").transform);
             testitem.GetComponent<RectTransform>().position = new Vector3(7.5f, 50, 20);
             testitem.name = "test";
             Vector3 item_sign_localposition = testitem.transform.Find("item-sign").GetComponent<RectTransform>().localPosition;
@@ -1574,6 +1656,14 @@ namespace Auxilaryfunction
         {
             if (GameMain.localPlanet == null || GameMain.localPlanet.type == EPlanetType.Gas) return;
             int inc;
+            foreach(var dc in GameMain.localPlanet.factory.transport.dispenserPool)
+            {
+                if (dc == null) continue;
+                if(dc.idleCourierCount + dc.workCourierCount < auto_supply_Courier.Value)
+                {
+                    dc.idleCourierCount += GameMain.mainPlayer.package.TakeItem(5003, auto_supply_Courier.Value- dc.idleCourierCount + dc.workCourierCount, out _);
+                }
+            }
             foreach (StationComponent sc in GameMain.localPlanet.factory.transport.stationPool)
             {
                 if (sc == null || sc.isVeinCollector) continue;
@@ -2014,8 +2104,6 @@ namespace Auxilaryfunction
         {
             if (Quickstop_bool.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Space))
             {
-                if (stopDysonSphere != stopfactory) stopDysonSphere = stopfactory;
-                stopDysonSphere = !stopDysonSphere;
                 stopfactory = !stopfactory;
             }
         }
@@ -2184,6 +2272,41 @@ namespace Auxilaryfunction
                 int keynum = Math.Max(result[0], result[1]);
                 tempShowWindow = new KeyboardShortcut((KeyCode)keynum);
             }
+        }
+        private void BuyoutTech(TechProto tp)
+        {
+            techProto = tp;
+            if (!GameMain.data.history.HasPreTechUnlocked(tp.ID))
+            {
+                UIRealtimeTip.Popup("存在未解锁的前置科技".Translate(), true, 0);
+                return;
+            }
+            if (!GameMain.data.history.CheckPropertyAdequateForBuyout(tp.ID))
+            {
+                UIRealtimeTip.Popup("元数据不足".Translate(), true, 0);
+                return;
+            }
+            if (!GameMain.data.history.propertyData.hasUsedProperty)
+            {
+                UIMessageBox.Show("初次使用元数据标题".Translate(), "初次使用元数据描述".Translate(), "取消".Translate(), "确定".Translate(), 2, null, new UIMessageBox.Response(DoBuyoutTech));
+                return;
+            }
+            else
+            {
+                DoBuyoutTech();
+            }
+        }
+        private void DoBuyoutTech()
+        {
+            if (techProto.ID == 1)
+            {
+                return;
+            }
+            if (techProto == null)
+            {
+                return;
+            }
+            GameMain.history.BuyoutTech(techProto.ID);
         }
         private string Translate(string s)
         {

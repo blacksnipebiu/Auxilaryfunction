@@ -27,20 +27,20 @@ namespace Auxilaryfunction
             TranslateDict.Add("大型采矿机采矿速率", "Advanced mining machine gathering Speed");
             TranslateDict.Add("批量配置当前星球大型采矿机采矿速率", "set all advanced mining machine gathering Speed");
             TranslateDict.Add("铺满轨道采集器","Full orbital Collector this planet(gas)");
-            TranslateDict.Add("填充当前星球飞机飞船、翘曲器","Fill all stations with vessels,drones,warpers");
+            TranslateDict.Add("填充当前星球配送机飞机飞船、翘曲器", "Fill all stations with courier,vessels,drones,warpers");
             TranslateDict.Add("批量配置当前星球物流站","set all stations");
             TranslateDict.Add("不渲染戴森壳","Don't render Dyson shell");
             TranslateDict.Add("不渲染戴森云", "Don't render Dyson swarm");
             TranslateDict.Add("不渲染研究站", "Don't render lab");
+            TranslateDict.Add("不渲染传送带货物", "Don't render belt item");
             TranslateDict.Add("不渲染运输船和飞机", "Don't render vessels,drones");
             TranslateDict.Add("不渲染实体", "Don't render entity"); 
             TranslateDict.Add("不渲染全部", "Don't render at all"); 
             TranslateDict.Add("不渲染电网覆盖", "Don't render power grid");
             TranslateDict.Add("关闭玩家走路飞行声音", "Turn off the player's walking and flying sound");
-            TranslateDict.Add("自动向右飞","auto fly to right");
-            TranslateDict.Add("自动向上飞","auto fly to up");
-            TranslateDict.Add("停止工厂","stop factory");
-            TranslateDict.Add("停止戴森球","stop DysonSphere");
+            TranslateDict.Add("自动添加翘曲器", "Auto add Warp");
+            TranslateDict.Add("自动添加燃料", "Auto add fuel");
+            TranslateDict.Add("     停止工厂","     stop factory");
             TranslateDict.Add("ctrl+空格快速开关","quick start and stop(ctrl+space)");
 
             TranslateDict.Add("自动飞向未完成建筑", "auto fly to unfinished buildings");
@@ -85,6 +85,7 @@ namespace Auxilaryfunction
             TranslateDict.Add("自动配置建筑", "Automatic configuration of buildings");
             TranslateDict.Add("人造恒星燃料数量", "Artificial Star fuel quantity");
             TranslateDict.Add("填充当前星球人造恒星", "Fill the current planet with artificial stars");
+            TranslateDict.Add("保持传送带高度(shift)", "Keep belt height(shift)");
             TranslateDict.Add("自动保存","Autosave");
             TranslateDict.Add("自动保存时间","Autosavetime");
 

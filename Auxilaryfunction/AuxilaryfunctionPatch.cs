@@ -56,7 +56,7 @@ namespace Auxilaryfunction
         {
             public static bool Prefix(ref long time, GameData __instance)
             {
-                if (!stopDysonSphere && !stopfactory)
+                if (!stopfactory)
                     return true;
                 PerformanceMonitor.BeginSample(ECpuWorkEntry.Statistics);
                 if (!DSPGame.IsMenuDemo)
@@ -85,7 +85,7 @@ namespace Auxilaryfunction
                 __instance.DetermineRelative();
                 PerformanceMonitor.EndSample(ECpuWorkEntry.Player);
                 PerformanceMonitor.BeginSample(ECpuWorkEntry.DysonSphere);
-                if (!stopDysonSphere)
+                if (!stopfactory)
                 {
                     for (int i = 0; i < __instance.dysonSpheres.Length; i++)
                     {
@@ -245,7 +245,7 @@ namespace Auxilaryfunction
                     PerformanceMonitor.EndSample(ECpuWorkEntry.Trash);
                 }
 
-                if (!stopDysonSphere)
+                if (!stopfactory)
                 {
                     PerformanceMonitor.BeginSample(ECpuWorkEntry.DysonSphere);
                     if (GameMain.multithreadSystem.multithreadSystemEnable)
@@ -312,7 +312,17 @@ namespace Auxilaryfunction
                 return false;
             }
         }
-
+        [HarmonyPatch(typeof(PlanetTransport), "NewDispenserComponent")]
+        class NewDispenserComponentPatch
+        {
+            public static void Postfix(int __result, PlanetTransport __instance)
+            {
+                if (auto_supply_station.Value)
+                {
+                    __instance.dispenserPool[__result].idleCourierCount = GameMain.mainPlayer.package.TakeItem(5003, auto_supply_Courier.Value, out _);
+                }
+            }
+        }
         [HarmonyPatch(typeof(PlanetTransport), "NewStationComponent")]
         class NewStationComponentPatch
         {
@@ -320,8 +330,7 @@ namespace Auxilaryfunction
             {
                 if (auto_supply_station.Value && !__result.isCollector && !__result.isVeinCollector)
                 {
-                    int inc;
-                    __result.idleDroneCount = GameMain.mainPlayer.package.TakeItem(5001, __result.isStellar ? auto_supply_drone.Value : (auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value), out inc);
+                    __result.idleDroneCount = GameMain.mainPlayer.package.TakeItem(5001, __result.isStellar ? auto_supply_drone.Value : (auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value), out _);
                     __result.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
                     __instance.planet.factory.powerSystem.consumerPool[__result.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
                     if (stationmaxpowerpertick.Value > 60 && !__result.isStellar)
@@ -331,12 +340,12 @@ namespace Auxilaryfunction
                     __result.deliveryDrones = (int)(DroneStartCarry.Value * 10) * 10;
                     if (__result.isStellar)
                     {
-                        __result.warperCount = GameMain.mainPlayer.package.TakeItem(1210, auto_supply_warp.Value, out inc);
+                        __result.warperCount = GameMain.mainPlayer.package.TakeItem(1210, auto_supply_warp.Value, out _);
                         __result.warpEnableDist = stationwarpdist.Value * AU;
                         __result.deliveryShips = (int)(ShipStartCarry.Value * 10) * 10;
-                        __result.idleShipCount = GameMain.mainPlayer.package.TakeItem(5002, auto_supply_ship.Value, out inc);
+                        __result.idleShipCount = GameMain.mainPlayer.package.TakeItem(5002, auto_supply_ship.Value, out _);
                         __result.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
-                        if (GameMain.data.history.TechUnlocked(3404)) __result.warperCount = GameMain.mainPlayer.package.TakeItem(1210, auto_supply_warp.Value, out inc);
+                        if (GameMain.data.history.TechUnlocked(3404)) __result.warperCount = GameMain.mainPlayer.package.TakeItem(1210, auto_supply_warp.Value, out _);
                     }
                 }
                 if (auto_supply_station.Value && __result.isVeinCollector)
