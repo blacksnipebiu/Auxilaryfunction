@@ -15,13 +15,12 @@ using System.IO;
 namespace Auxilaryfunction
 {
     [BepInPlugin(GUID, NAME, VERSION)]
-    [BepInProcess(GAME_PROCESS)]
     public class Auxilaryfunction : BaseUnityPlugin
     {
         public const long AU = 40000;
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.8.0";
+        public const string VERSION = "1.8.4";
         private const string GAME_PROCESS = "DSPGAME.exe";
         public int stationindex = 4;
         public int locallogic = 0;
@@ -958,6 +957,7 @@ namespace Auxilaryfunction
             }
             else
             {
+                Debug.Log(window_width);
                 GUILayout.BeginArea(new Rect(10, 20, window_width, window_height));
                 GUILayout.Space(20);
                 scrollPosition = GUILayout.BeginScrollView(scrollPosition, new[] { GUILayout.Width(window_width), GUILayout.Height(window_height) });
@@ -1014,7 +1014,7 @@ namespace Auxilaryfunction
                                     showinfo = ((int)(DroneStartCarry.Value * 10) * 10 == 0 ? "1" : "" + (int)(DroneStartCarry.Value * 10) * 10) + "% ";
                                     break;
                                 case 8:
-                                    ShipStartCarry.Value = (int)GUILayout.HorizontalSlider(ShipStartCarry.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                    ShipStartCarry.Value = GUILayout.HorizontalSlider(ShipStartCarry.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
                                     showinfo = (int)(ShipStartCarry.Value * 10) * 10 + "% ";
                                     break;
                                 case 9:
@@ -1163,18 +1163,17 @@ namespace Auxilaryfunction
                 GUILayout.BeginVertical();
                 {
                     changeups = GUILayout.Toggle(changeups, "启动时间流速修改".getTranslate(), buttonoptions);
-                    if (changeups)
+                    GUILayout.Label("流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix), buttonoptions);
+                    string tempupsfixstr = GUILayout.TextField(string.Format("{0:N2}", upsfix), new[] { GUILayout.Height(heightdis), GUILayout.Width(5 * heightdis) });
+                    
+                    if (tempupsfixstr != string.Format("{0:N2}", upsfix) && float.TryParse(tempupsfixstr, out float tempupsfix))
                     {
-                        GUILayout.Label("流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix), buttonoptions);
-                        string tempupsfixstr = GUILayout.TextField(string.Format("{0:N2}", upsfix), new[] { GUILayout.Height(heightdis), GUILayout.Width(5 * heightdis) });
-                        if (tempupsfixstr != string.Format("{0:N2}", upsfix) && float.TryParse(tempupsfixstr, out float tempupsfix))
-                        {
-                            if (tempupsfix < 0.01) tempupsfix = 0.01f;
-                            if (tempupsfix > 10) tempupsfix = 10;
-                            upsfix = tempupsfix;
-                        }
-                        upsquickset.Value = GUILayout.Toggle(upsquickset.Value, "加速减速".getTranslate() + "(shift,'+''-')", buttonoptions);
+                        if (tempupsfix < 0.01) tempupsfix = 0.01f;
+                        if (tempupsfix > 10) tempupsfix = 10;
+                        upsfix = tempupsfix;
                     }
+                    upsfix = GUILayout.HorizontalSlider(upsfix, 0.01f, 10, HorizontalSlideroptions);
+                    upsquickset.Value = GUILayout.Toggle(upsquickset.Value, "加速减速".getTranslate() + "(shift,'+''-')", buttonoptions);
 
                     autosetSomevalue_bool.Value = GUILayout.Toggle(autosetSomevalue_bool.Value, "自动配置建筑".getTranslate(), buttonoptions);
                     GUILayout.Label("人造恒星燃料数量".getTranslate() + "：" + auto_supply_starfuel.Value, buttonoptions);

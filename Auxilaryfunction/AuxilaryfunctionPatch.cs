@@ -664,85 +664,83 @@ namespace Auxilaryfunction
             public static float t = 20;
             public static void Postfix(PlayerController __instance)
             {
-                if (GameMain.localPlanet != null)
+                #region 寻找建筑
+                if (automovetounbuilt.Value && GameMain.localPlanet != null && closecollider)
                 {
-                    #region
-                    if (automovetounbuilt.Value && closecollider)
+                    if (autobuildThread == null)
                     {
-                        if (autobuildThread == null)
+                        autobuildThread = new Thread(delegate ()
                         {
-                            autobuildThread = new Thread(delegate ()
+                            while (closecollider)
                             {
-                                while (closecollider)
+                                try
                                 {
-                                    try
+                                    float mindistance = 3000;
+                                    int lasthasitempd = -1;
+                                    foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
                                     {
-                                        float mindistance = 3000;
-                                        int lasthasitempd = -1;
+                                        if (pd.id == 0 || pd.itemRequired > 0) continue;
+                                        if (lasthasitempd == -1 || mindistance > (pd.pos - GameMain.mainPlayer.position).magnitude)
+                                        {
+                                            lasthasitempd = pd.id;
+                                            mindistance = (pd.pos - GameMain.mainPlayer.position).magnitude;
+                                        }
+                                    }
+                                    if (lasthasitempd == -1)
+                                    {
+                                        bool getitem = true;
                                         foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
                                         {
-                                            if (pd.id == 0 || pd.itemRequired > 0) continue;
-                                            if (lasthasitempd == -1 || mindistance > (pd.pos - GameMain.mainPlayer.position).magnitude)
+                                            if (pd.id == 0) continue;
+                                            if (__instance.player.package.GetItemCount(pd.protoId) > 0)
                                             {
-                                                lasthasitempd = pd.id;
-                                                mindistance = (pd.pos - GameMain.mainPlayer.position).magnitude;
+                                                __instance.player.Order(new OrderNode() { target = pd.pos, type = EOrderType.Move }, false);
+                                                getitem = false;
+                                                break;
                                             }
                                         }
-                                        if (lasthasitempd == -1)
+                                        if (getitem && autobuildgetitem)
                                         {
-                                            bool getitem = true;
-                                            foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
+                                            int[] warningCounts = GameMain.data.warningSystem.warningCounts;
+                                            WarningData[] warningpools = GameMain.data.warningSystem.warningPool;
+                                            List<int> getItem = new List<int>();
+                                            int stackSize = 0;
+                                            int packageGridLen = GameMain.mainPlayer.package.grids.Length;
+                                            for (int j = packageGridLen - 1; j >= 0 && GameMain.mainPlayer.package.grids[j].count == 0; j--, stackSize++) { }
+                                            for (int i = 1; i < GameMain.data.warningSystem.warningCursor && stackSize > 0; i++)
                                             {
-                                                if (pd.id == 0) continue;
-                                                if (__instance.player.package.GetItemCount(pd.protoId) > 0)
-                                                {
-                                                    __instance.player.Order(new OrderNode() { target = pd.pos, type = EOrderType.Move }, false);
-                                                    getitem = false;
-                                                    break;
-                                                }
-                                            }
-                                            if (getitem && autobuildgetitem)
-                                            {
-                                                int[] warningCounts = GameMain.data.warningSystem.warningCounts;
-                                                WarningData[] warningpools = GameMain.data.warningSystem.warningPool;
-                                                List<int> getItem = new List<int>();
-                                                int stackSize = 0;
-                                                int packageGridLen = GameMain.mainPlayer.package.grids.Length;
-                                                for (int j = packageGridLen - 1; j >= 0 && GameMain.mainPlayer.package.grids[j].count == 0; j--, stackSize++) { }
-                                                for (int i = 1; i < GameMain.data.warningSystem.warningCursor && stackSize > 0; i++)
-                                                {
-                                                    if (getItem.Contains(warningpools[i].detailId)) continue;
-                                                    if (GameMain.mainPlayer.package.GetItemCount(warningpools[i].detailId) > 0) break;
-                                                    getItem.Add(warningpools[i].detailId);
-                                                    FindItemAndMove(warningpools[i].detailId, warningCounts[warningpools[i].signalId]);
-                                                }
+                                                if (getItem.Contains(warningpools[i].detailId)) continue;
+                                                if (GameMain.mainPlayer.package.GetItemCount(warningpools[i].detailId) > 0) break;
+                                                getItem.Add(warningpools[i].detailId);
+                                                FindItemAndMove(warningpools[i].detailId, warningCounts[warningpools[i].signalId]);
                                             }
                                         }
-                                        else if (GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id != 0)
-                                        {
-                                            __instance.player.Order(new OrderNode() { target = GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos, type = EOrderType.Move }, false);
-                                            if ((GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos - __instance.player.position).magnitude > 30)
-                                            {
-                                                __instance.player.currentOrder.targetReached = true;
-                                            }
-                                        }
-                                        Thread.Sleep(2000);
                                     }
-                                    catch
+                                    else if (GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id != 0)
                                     {
-                                        if (autobuildThread.ThreadState == ThreadState.WaitSleepJoin)
-                                            autobuildThread.Interrupt();
-                                        else
-                                            autobuildThread.Abort();
+                                        __instance.player.Order(new OrderNode() { target = GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos, type = EOrderType.Move }, false);
+                                        if ((GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos - __instance.player.position).magnitude > 30)
+                                        {
+                                            __instance.player.currentOrder.targetReached = true;
+                                        }
                                     }
+                                    Thread.Sleep(2000);
                                 }
-                            });
-                            autobuildThread.Start();
-                            autobuildThread.IsBackground = true;
-                        }
+                                catch
+                                {
+                                    if (autobuildThread.ThreadState == ThreadState.WaitSleepJoin)
+                                        autobuildThread.Interrupt();
+                                    else
+                                        autobuildThread.Abort();
+                                }
+                            }
+                        });
+                        autobuildThread.Start();
+                        autobuildThread.IsBackground = true;
                     }
-                    #endregion
                 }
+                #endregion
+
                 if (fly && autonavigation_bool.Value && GameMain.mainPlayer != null && GameMain.mainPlayer.navigation != null && GameMain.mainPlayer.navigation._indicatorAstroId != 0)
                 {
                     flyfocusPlanet = GameMain.galaxy.PlanetById(GameMain.mainPlayer.navigation._indicatorAstroId);
@@ -765,7 +763,7 @@ namespace Auxilaryfunction
                     else if (__instance.player.sailing)
                     {
                         double distance = (__instance.player.uPosition - flyfocusPlanet.uPosition).magnitude;
-                        if (distance < flyfocusPlanet.radius + 100 && flyfocusPlanet.factoryLoaded)
+                        if (distance < flyfocusPlanet.radius + 500 && flyfocusPlanet.factoryLoaded)
                         {
                             if (GameMain.mainPlayer.navigation._indicatorAstroId != 0 && GameMain.mainPlayer.navigation._indicatorAstroId == flyfocusPlanet.id)
                                 GameMain.mainPlayer.navigation._indicatorAstroId = 0;
