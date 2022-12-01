@@ -189,7 +189,7 @@ namespace Auxilaryfunction
                         {
                             if (__instance.factories[num].cargoTraffic != null)
                             {
-                                __instance.factories[num].cargoTraffic.SplitterGameTick();
+                                __instance.factories[num].cargoTraffic.SplitterGameTick(time);
                             }
                         }
                         PerformanceMonitor.EndSample(ECpuWorkEntry.Splitter);

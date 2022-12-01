@@ -20,7 +20,7 @@ namespace Auxilaryfunction
         public const long AU = 40000;
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.8.4";
+        public const string VERSION = "1.8.7";
         private const string GAME_PROCESS = "DSPGAME.exe";
         public int stationindex = 4;
         public int locallogic = 0;
@@ -957,7 +957,6 @@ namespace Auxilaryfunction
             }
             else
             {
-                Debug.Log(window_width);
                 GUILayout.BeginArea(new Rect(10, 20, window_width, window_height));
                 GUILayout.Space(20);
                 scrollPosition = GUILayout.BeginScrollView(scrollPosition, new[] { GUILayout.Width(window_width), GUILayout.Height(window_height) });
@@ -2112,20 +2111,24 @@ namespace Auxilaryfunction
             if (autoabsorttrash_bool.Value && Time.time - trashlasttime > 30)
             {
                 trashlasttime = Time.time;
-                int index = 0;
-                foreach (TrashObject to in GameMain.data.trashSystem.container.trashObjPool)
-                    if (to.expire != 0)
+                for (int i = 0; i < GameMain.data.trashSystem.container.trashCursor; i++)
+                {
+                    if (GameMain.data.trashSystem.container.trashObjPool[i].item > 0)
                     {
-                        if (onlygetbuildings.Value)
+                        if (GameMain.data.trashSystem.container.trashObjPool[i].expire < 0)
                         {
-                            if (LDB.items.Select(to.item) != null && LDB.items.Select(to.item).CanBuild)
-                                GameMain.data.trashSystem.container.trashObjPool[index++].expire = 60;
+                            if (onlygetbuildings.Value)
+                            {
+                                if (LDB.items.Select(GameMain.data.trashSystem.container.trashObjPool[i].item) != null && LDB.items.Select(GameMain.data.trashSystem.container.trashObjPool[i].item).CanBuild)
+                                    GameMain.data.trashSystem.container.trashObjPool[i].expire = 35;
+                                else
+                                    GameMain.data.trashSystem.container.RemoveTrash(i);
+                            }
                             else
-                                GameMain.data.trashSystem.container.RemoveTrash(index++);
+                                GameMain.data.trashSystem.container.trashObjPool[i].expire = 35;
                         }
-                        else
-                            GameMain.data.trashSystem.container.trashObjPool[index++].expire = 60;
                     }
+                }
             }
             if (autocleartrash_bool.Value && Time.time - trashlasttime > 30 && GameMain.data.trashSystem != null)
             {
