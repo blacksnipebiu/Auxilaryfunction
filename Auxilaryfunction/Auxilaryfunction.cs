@@ -20,7 +20,7 @@ namespace Auxilaryfunction
         public const long AU = 40000;
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.8.7";
+        public const string VERSION = "1.8.8";
         private const string GAME_PROCESS = "DSPGAME.exe";
         public int stationindex = 4;
         public int locallogic = 0;

@@ -854,12 +854,31 @@ namespace Auxilaryfunction
                 if (simulatorchanging)
                 {
                     int num = 0;
-                    __instance.gameObject.SetActive(!simulatorrender);
+                    __instance.backgroundStars.gameObject.SetActive(!simulatorrender);
                     while (__instance.planetSimulators != null && num < __instance.planetSimulators.Length)
                     {
                         if (__instance.planetSimulators[num] != null)
                         {
                             __instance.planetSimulators[num].gameObject.SetActive(!simulatorrender);
+                        }
+                        num++;
+                    }
+                    num = 0;
+                    while (__instance.starSimulators != null && num < __instance.starSimulators.Length)
+                    {
+                        //if (__instance.starSimulators[num].starData.type == EStarType.NeutronStar)
+                        //{
+                        //    num++;
+                        //    continue;
+                        //}
+                        if (__instance.starSimulators[num] != null)
+                        {
+                            if (__instance.starSimulators[num].starData.type == EStarType.NeutronStar && Configs.builtin.neutronStarPrefab.streamRenderer != null)
+                            {
+                                num++;
+                                continue;
+                            }
+                            __instance.starSimulators[num].gameObject.SetActive(!simulatorrender);
                         }
                         num++;
                     }
