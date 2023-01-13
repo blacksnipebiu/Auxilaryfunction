@@ -14,6 +14,8 @@ namespace Auxilaryfunction
 {
     public static class AuxilaryfunctionPatch
     {
+        private static Player Player => GameMain.mainPlayer;
+        private static PlanetData LocalPlanet => GameMain.localPlanet;
         [HarmonyPatch(typeof(FactorySystem), "NewMinerComponent")]
         class NewMinerComponentPatch
         {
@@ -122,7 +124,7 @@ namespace Auxilaryfunction
                         GameMain.multithreadSystem.Complete();
                         PerformanceMonitor.EndSample(ECpuWorkEntry.PowerSystem);
                         PerformanceMonitor.BeginSample(ECpuWorkEntry.PowerSystem);
-                        GameMain.multithreadSystem.PreparePowerSystemFactoryData(GameMain.localPlanet, __instance.factories, __instance.factoryCount, time, GameMain.mainPlayer);
+                        GameMain.multithreadSystem.PreparePowerSystemFactoryData(GameMain.localPlanet, __instance.factories, __instance.factoryCount, time, Player);
                         GameMain.multithreadSystem.Schedule();
                         GameMain.multithreadSystem.Complete();
                         PerformanceMonitor.EndSample(ECpuWorkEntry.PowerSystem);
@@ -319,7 +321,7 @@ namespace Auxilaryfunction
             {
                 if (auto_supply_station.Value)
                 {
-                    __instance.dispenserPool[__result].idleCourierCount = GameMain.mainPlayer.package.TakeItem(5003, auto_supply_Courier.Value, out _);
+                    __instance.dispenserPool[__result].idleCourierCount = Player.package.TakeItem(5003, auto_supply_Courier.Value, out _);
                 }
             }
         }
@@ -330,7 +332,7 @@ namespace Auxilaryfunction
             {
                 if (auto_supply_station.Value && !__result.isCollector && !__result.isVeinCollector)
                 {
-                    __result.idleDroneCount = GameMain.mainPlayer.package.TakeItem(5001, __result.isStellar ? auto_supply_drone.Value : (auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value), out _);
+                    __result.idleDroneCount = Player.package.TakeItem(5001, __result.isStellar ? auto_supply_drone.Value : (auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value), out _);
                     __result.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
                     __instance.planet.factory.powerSystem.consumerPool[__result.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
                     if (stationmaxpowerpertick.Value > 60 && !__result.isStellar)
@@ -340,12 +342,12 @@ namespace Auxilaryfunction
                     __result.deliveryDrones = (int)(DroneStartCarry.Value * 10) * 10;
                     if (__result.isStellar)
                     {
-                        __result.warperCount = GameMain.mainPlayer.package.TakeItem(1210, auto_supply_warp.Value, out _);
+                        __result.warperCount = Player.package.TakeItem(1210, auto_supply_warp.Value, out _);
                         __result.warpEnableDist = stationwarpdist.Value * AU;
                         __result.deliveryShips = (int)(ShipStartCarry.Value * 10) * 10;
-                        __result.idleShipCount = GameMain.mainPlayer.package.TakeItem(5002, auto_supply_ship.Value, out _);
+                        __result.idleShipCount = Player.package.TakeItem(5002, auto_supply_ship.Value, out _);
                         __result.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
-                        if (GameMain.data.history.TechUnlocked(3404)) __result.warperCount = GameMain.mainPlayer.package.TakeItem(1210, auto_supply_warp.Value, out _);
+                        if (GameMain.data.history.TechUnlocked(3404)) __result.warperCount = Player.package.TakeItem(1210, auto_supply_warp.Value, out _);
                     }
                 }
                 if (auto_supply_station.Value && __result.isVeinCollector)
@@ -462,9 +464,9 @@ namespace Auxilaryfunction
             {
                 if (stationcopyItem_bool.Value)
                 {
-                    if (GameMain.mainPlayer != null && GameMain.mainPlayer.controller != null && GameMain.mainPlayer.controller.actionBuild != null)
+                    if (Player != null && Player.controller != null && Player.controller.actionBuild != null)
                     {
-                        PlayerAction_Build build = GameMain.mainPlayer.controller.actionBuild;
+                        PlayerAction_Build build = Player.controller.actionBuild;
                         if (build.blueprintCopyTool != null || build.blueprintPasteTool != null)
                         {
                             if (build.blueprintPasteTool.active || build.blueprintCopyTool.active)
@@ -508,7 +510,7 @@ namespace Auxilaryfunction
                 if (!KeepBeltHeight.Value) return;
                 if (Input.GetKey(KeyCode.LeftShift))
                 {
-                    PlanetAuxData planetAux = GameMain.mainPlayer.controller.actionBuild.planetAux;
+                    PlanetAuxData planetAux = Player.controller.actionBuild.planetAux;
                     if (planetAux == null) return;
                     if(__instance.altitude == 0)
                     {
@@ -564,12 +566,12 @@ namespace Auxilaryfunction
                         if (stationcopyItem[i, 0] > 0)
                         {
                             if (sc.storage[i].count > 0 && sc.storage[i].itemId != stationcopyItem[i, 0])
-                                GameMain.mainPlayer.TryAddItemToPackage(sc.storage[i].itemId, sc.storage[i].count, 0, false);
+                                Player.TryAddItemToPackage(sc.storage[i].itemId, sc.storage[i].count, 0, false);
                             factory.transport.SetStationStorage(stationId, i, stationcopyItem[i, 0], stationcopyItem[i, 1], (ELogisticStorage)stationcopyItem[i, 2]
-                                , (ELogisticStorage)stationcopyItem[i, 3], GameMain.mainPlayer);
+                                , (ELogisticStorage)stationcopyItem[i, 3], Player);
                         }
                         else
-                            factory.transport.SetStationStorage(stationId, i, 0, 0, ELogisticStorage.None, ELogisticStorage.None, GameMain.mainPlayer);
+                            factory.transport.SetStationStorage(stationId, i, 0, 0, ELogisticStorage.None, ELogisticStorage.None, Player);
 
                     }
                 }
@@ -582,11 +584,17 @@ namespace Auxilaryfunction
         {
             public static void Prefix(UIStarmap __instance)
             {
-                if (__instance.focusPlanet != null && autonavigation_bool.Value)
+                if (autonavigation_bool.Value)
                 {
-                    flyfocusPlanet = __instance.focusPlanet.planet;
-                    fly = true;
-                    slowdownsail = false;
+                    if(__instance.focusPlanet!=null && __instance.focusPlanet.planet.id!=GameMain.localPlanet?.id)
+                        PlayerOperation.fly = true;
+                    else if (__instance.focusStar != null && __instance.focusStar.star.id != GameMain.localStar?    .id)
+                        PlayerOperation.fly = true;
+                    if (PlayerOperation.fly)
+                    {
+                        PlayerOperation.flyfocusPlanet = null;
+                        PlayerOperation.flyfocusStar = null;
+                    }
                 }
             }
         }
@@ -632,7 +640,7 @@ namespace Auxilaryfunction
                     if (autosetSomevalue_bool.Value)
                     {
                         int inc;
-                        short fuelcount = (short)GameMain.mainPlayer.package.TakeItem(1803, auto_supply_starfuel.Value, out inc);
+                        short fuelcount = (short)Player.package.TakeItem(1803, auto_supply_starfuel.Value, out inc);
                         if (fuelcount > 0)
                         {
                             __instance.genPool[__result].SetNewFuel(1803, fuelcount, (short)inc);
@@ -659,13 +667,25 @@ namespace Auxilaryfunction
         }
         //操纵人物
         [HarmonyPatch(typeof(PlayerController), "GetInput")]
-        class PlayerOperation
+        public class PlayerOperation
         {
             public static float t = 20;
+            public static bool fly;
+            public static PlanetData flyfocusPlanet = null;
+            public static StarData flyfocusStar = null;
+            private static StarData LocalStar=> GameMain.localStar;
+            private static Mecha mecha=>Player.mecha;
+
+            private static double max_acc => Player.controller.actionSail.max_acc;
+            private static float maxSailSpeed => Player.controller.actionSail.maxSailSpeed;
+            private static float maxWarpSpeed => Player.controller.actionSail.maxWarpSpeed;
+            private static int indicatorAstroId => Player.navigation.indicatorAstroId;
+            private static bool CanWarp => LocalPlanet == null && autowarpcommand.Value && !Player.warping && mecha.coreEnergy > mecha.warpStartPowerPerSpeed * maxWarpSpeed;
+            
             public static void Postfix(PlayerController __instance)
             {
                 #region 寻找建筑
-                if (automovetounbuilt.Value && GameMain.localPlanet != null && closecollider)
+                if (automovetounbuilt.Value && LocalPlanet != null && closecollider)
                 {
                     if (autobuildThread == null)
                     {
@@ -680,10 +700,10 @@ namespace Auxilaryfunction
                                     foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
                                     {
                                         if (pd.id == 0 || pd.itemRequired > 0) continue;
-                                        if (lasthasitempd == -1 || mindistance > (pd.pos - GameMain.mainPlayer.position).magnitude)
+                                        if (lasthasitempd == -1 || mindistance > (pd.pos - Player.position).magnitude)
                                         {
                                             lasthasitempd = pd.id;
-                                            mindistance = (pd.pos - GameMain.mainPlayer.position).magnitude;
+                                            mindistance = (pd.pos - Player.position).magnitude;
                                         }
                                     }
                                     if (lasthasitempd == -1)
@@ -705,12 +725,12 @@ namespace Auxilaryfunction
                                             WarningData[] warningpools = GameMain.data.warningSystem.warningPool;
                                             List<int> getItem = new List<int>();
                                             int stackSize = 0;
-                                            int packageGridLen = GameMain.mainPlayer.package.grids.Length;
-                                            for (int j = packageGridLen - 1; j >= 0 && GameMain.mainPlayer.package.grids[j].count == 0; j--, stackSize++) { }
+                                            int packageGridLen = Player.package.grids.Length;
+                                            for (int j = packageGridLen - 1; j >= 0 && Player.package.grids[j].count == 0; j--, stackSize++) { }
                                             for (int i = 1; i < GameMain.data.warningSystem.warningCursor && stackSize > 0; i++)
                                             {
                                                 if (getItem.Contains(warningpools[i].detailId)) continue;
-                                                if (GameMain.mainPlayer.package.GetItemCount(warningpools[i].detailId) > 0) break;
+                                                if (Player.package.GetItemCount(warningpools[i].detailId) > 0) break;
                                                 getItem.Add(warningpools[i].detailId);
                                                 FindItemAndMove(warningpools[i].detailId, warningCounts[warningpools[i].signalId]);
                                             }
@@ -741,89 +761,118 @@ namespace Auxilaryfunction
                 }
                 #endregion
 
-                if (fly && autonavigation_bool.Value && GameMain.mainPlayer != null && GameMain.mainPlayer.navigation != null && GameMain.mainPlayer.navigation._indicatorAstroId != 0)
+                #region 自动导航
+                if (fly && autonavigation_bool.Value && indicatorAstroId != 0)
                 {
-                    flyfocusPlanet = GameMain.galaxy.PlanetById(GameMain.mainPlayer.navigation._indicatorAstroId);
-                    if (flyfocusPlanet == null) return;
-                    if (!__instance.player.sailing)
+                    if (indicatorAstroId == LocalStar?.id / 100 || indicatorAstroId == LocalPlanet?.id)
+                        fly = false;
+                    if (!Player.sailing)
+                        FlyAwayPlanet();
+                    else
                     {
-                        if (flyfocusPlanet != GameMain.mainPlayer.planetData)
+                        //如果是100的整数倍，根据id生成规则，一定是星系
+                        if (indicatorAstroId % 100 == 0)
                         {
-                            __instance.input0.z = 1;
-                            __instance.input1.y += 1;
-                            if (__instance.actionFly.currentAltitude > 49)
+                            flyfocusStar = flyfocusStar ?? GameMain.galaxy.StarById(indicatorAstroId / 100);
+                            var uPosition = flyfocusStar.uPosition;
+                            if ((Player.uPosition - uPosition).magnitude < 100_000)
                             {
-                                if (__instance.horzSpeed < 12.5)
+                                fly = false;
+                                if (Player.warping)
                                 {
-                                    __instance.velocity = (__instance.player.uPosition - GameMain.mainPlayer.planetData.uPosition).normalized * t++;
+                                    Player.warpCommand = false;
                                 }
-                            }
-                        }
-                    }
-                    else if (__instance.player.sailing)
-                    {
-                        double distance = (__instance.player.uPosition - flyfocusPlanet.uPosition).magnitude;
-                        if (distance < flyfocusPlanet.radius + 500 && flyfocusPlanet.factoryLoaded)
-                        {
-                            if (GameMain.mainPlayer.navigation._indicatorAstroId != 0 && GameMain.mainPlayer.navigation._indicatorAstroId == flyfocusPlanet.id)
-                                GameMain.mainPlayer.navigation._indicatorAstroId = 0;
-                            fly = false;
-                            slowdownsail = false;
-                            t = 20;
-                        }
-                        else if (distance < flyfocusPlanet.radius + 1000 && !flyfocusPlanet.factoryLoaded)
-                        {
-                            if (Vector3.Angle(__instance.player.uVelocity.normalized, (flyfocusPlanet.uPosition - __instance.player.uPosition).normalized) < 10)
-                            {
-                                __instance.player.uVelocity = (flyfocusPlanet.uPosition - __instance.player.uPosition).normalized * (distance - flyfocusPlanet.radius);
                             }
                             else
                             {
-                                if (__instance.player.uVelocity.magnitude < 1000)
+                                FlyTo(uPosition);
+                                if (CanWarp && mecha.UseWarper())
                                 {
-                                    __instance.player.uVelocity += (flyfocusPlanet.uPosition - __instance.player.uPosition).normalized * (__instance.actionSail.max_acc);
-                                    __instance.actionSail.UseSailEnergy(__instance.actionSail.max_acc);
+                                    Player.warpCommand = true;
                                 }
                             }
                         }
                         else
-                        {                            
-                            VectorLF3 direction = (flyfocusPlanet.uPosition - __instance.player.uPosition).normalized;
-
-                            PlanetData currentPlanet = __instance.player.planetData;
-                            if (currentPlanet != null)
+                        {
+                            flyfocusPlanet = flyfocusPlanet ?? GameMain.galaxy.PlanetById(indicatorAstroId);
+                            var uPosition = flyfocusPlanet.uPosition;
+                            var radius = flyfocusPlanet.radius;
+                            var factoryLoaded = flyfocusPlanet.factoryLoaded;
+                            double distance = (Player.uPosition - uPosition).magnitude;
+                            if (distance < radius + 500 && factoryLoaded)
                             {
-                                VectorLF3 diff = (__instance.player.uPosition - currentPlanet.uPosition);
-                                double altitude = diff.magnitude - currentPlanet.radius;
-                                float upFactor = Mathf.Clamp((float)((1000.0 - altitude) / 1000.0), 0.0f, 1.0f);
-                                upFactor *= upFactor * upFactor;
-                                direction = ((direction * (1.0f - upFactor)) + diff.normalized * upFactor).normalized;
+                                fly = false;
                             }
-
-                            if (__instance.player.uVelocity.magnitude + __instance.actionSail.max_acc >= __instance.actionSail.maxSailSpeed)
+                            else if (distance < radius + 1000 && !factoryLoaded)
                             {
-                                __instance.player.uVelocity = direction * __instance.actionSail.maxSailSpeed;
+                                var directVector = (uPosition - Player.uPosition).normalized;
+                                if (Vector3.Angle(Player.uVelocity.normalized, directVector) < 10)
+                                {
+                                    Player.uVelocity = directVector * (distance - radius);
+                                }
+                                else if(Player.uVelocity.magnitude < 1000)
+                                {
+                                    Player.uVelocity += directVector * (max_acc);
+                                    __instance.actionSail.UseSailEnergy(max_acc);
+                                }
                             }
                             else
                             {
-                                __instance.player.uVelocity += direction * __instance.actionSail.max_acc;
-                                __instance.actionSail.UseSailEnergy(__instance.actionSail.max_acc);
+                                FlyTo(uPosition);
+                                if (Player.warping && distance < 10_000)
+                                {
+                                    Player.warpCommand = false;
+                                }
+                                if (CanWarp && distance > autowarpdistance.Value * 2_400_000 && distance > 10_000 && mecha.UseWarper())
+                                {
+                                    Player.warpCommand = true;
+                                }
                             }
-                        }
-                        if (__instance.player.warping)
-                        {
-                            if (distance < 10000)
-                            {
-                                __instance.player.warpCommand = false;
-                            }
-                        }
-                        if (__instance.player.planetData == null && autowarpcommand.Value && !__instance.player.warping && __instance.mecha.coreEnergy > __instance.mecha.warpStartPowerPerSpeed * __instance.actionSail.maxWarpSpeed && distance > autowarpdistance.Value * 2400000 && distance > 10000 && __instance.player.mecha.UseWarper())
-                        {
-                            __instance.player.warpCommand = true;
                         }
                     }
                 }
+                if(!fly && (flyfocusPlanet!=null || flyfocusStar!=null))
+                {
+                    flyfocusPlanet = null;
+                    flyfocusStar = null;
+                    t = 20;
+                }
+                #endregion
+            }
 
+            private static void FlyTo(VectorLF3 uPosition)
+            {
+                VectorLF3 direction = (uPosition - Player.uPosition).normalized;
+
+                if (LocalPlanet != null)
+                {
+                    VectorLF3 diff = Player.uPosition - LocalPlanet.uPosition;
+                    double altitude = diff.magnitude - LocalPlanet.radius;
+                    float upFactor = Mathf.Clamp((float)((1000.0 - altitude) / 1000.0), 0.0f, 1.0f);
+                    upFactor *= upFactor * upFactor;
+                    direction = ((direction * (1.0f - upFactor)) + diff.normalized * upFactor).normalized;
+                }
+
+                if (Player.uVelocity.magnitude + max_acc >= maxSailSpeed)
+                {
+                    Player.uVelocity = direction * maxSailSpeed;
+                }
+                else
+                {
+                    Player.uVelocity += direction * max_acc;
+                    Player.controller.actionSail.UseSailEnergy(max_acc);
+                }
+            }
+
+            private static void FlyAwayPlanet()
+            {
+                PlayerController controller = Player.controller;
+                controller.input0.z = 1;
+                controller.input1.y += 1;
+                if (controller.actionFly.currentAltitude > 49 && controller.horzSpeed < 12.5)
+                {
+                    controller.velocity = (Player.uPosition - LocalPlanet.uPosition).normalized * t++;
+                }
             }
         }
         [HarmonyPatch(typeof(UITechTree), "UpdateScale")]

@@ -43,19 +43,20 @@ namespace Auxilaryfunction
             TranslateDict.Add("     停止工厂","     stop factory");
             TranslateDict.Add("ctrl+空格快速开关","quick start and stop(ctrl+space)");
 
-            TranslateDict.Add("自动飞向未完成建筑", "auto fly to unfinished buildings");
-            TranslateDict.Add("自动添加科技队列","auto add tech queue");
+            TranslateDict.Add("自动飞向未完成建筑", "Auto fly to unfinished buildings");
+            TranslateDict.Add("自动添加科技队列","Auto add tech queue");
             TranslateDict.Add("未选择","no selected");
-            TranslateDict.Add("自动配置太阳帆弹射器","auto set Ejector");
-            TranslateDict.Add("自动导航","auto navigation");
-            TranslateDict.Add("自动导航使用曲速","auto use warper");
-            TranslateDict.Add("自动使用翘曲器距离","auto use warper distance");
+            TranslateDict.Add("自动配置太阳帆弹射器","Auto set Ejector");
+            TranslateDict.Add("自动导航","Auto navigation");
+            TranslateDict.Add("自动导航使用曲速","Auto use warper");
+            TranslateDict.Add("自动使用翘曲器距离","Auto use warper distance");
             TranslateDict.Add("光年","light-years");
             TranslateDict.Add("精准拿取","Accurately take");
             TranslateDict.Add("建筑计数","Building count");
             TranslateDict.Add("一键闭嘴","One key to shut up");
             TranslateDict.Add("科技面板选中不缩放","Technologies panel no scale");
-            TranslateDict.Add("蓝图删除","Blueprint delete");
+            TranslateDict.Add("蓝图全选", "Blueprint SelectAll");
+            TranslateDict.Add("蓝图删除","Blueprint Delete");
             TranslateDict.Add("蓝图撤销", "Blueprint Revocation");
             TranslateDict.Add("蓝图设置配方", "Blueprint setting recipe");
             TranslateDict.Add("蓝图复制直接粘贴", "Blueprint copy and paste directly"); 
@@ -91,7 +92,7 @@ namespace Auxilaryfunction
 
             TranslateDict.Add("文字科技树", "Text technology tree");
             TranslateDict.Add("限制材料", "Restricted material");
-            TranslateDict.Add("自动乱点", "auto random select");
+            TranslateDict.Add("自动乱点", "Auto random select");
             TranslateDict.Add("停止导航", "stop navigation");
             TranslateDict.Add("继续导航", "continue navigation");
             TranslateDict.Add("取消方向指示", "cacel Indicatior");
@@ -106,7 +107,9 @@ namespace Auxilaryfunction
             TranslateDict.Add("准备研究", "Research Queue");
             TranslateDict.Add("科技", "Technologies");
             TranslateDict.Add("关闭白色面板", "ClosePanel");
-            TranslateDict.Add("升级", "Upgrades"); 
+            TranslateDict.Add("升级", "Upgrades");
+            TranslateDict.Add("光子生成", "Photon Generation");
+            TranslateDict.Add("直接发电", "Power Generation"); 
         }
     }
 }
