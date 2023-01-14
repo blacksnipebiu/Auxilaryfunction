@@ -22,7 +22,7 @@ namespace Auxilaryfunction
         public const long AU = 40000;
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.8.9";
+        public const string VERSION = "1.9.0";
         private const string GAME_PROCESS = "DSPGAME.exe";
         public int stationindex = 4;
         public int locallogic = 0;
@@ -36,16 +36,16 @@ namespace Auxilaryfunction
         public int pointlayerid = 0;
         public int pointsignalid = 0;
         private TechProto techProto;
-        public List<int> assemblerpools;
-        public List<int> labpools;
         public List<string> ConfigNames = new List<string>();
         public List<float[]> boundaries = new List<float[]>();
         public List<int> fuelItems = new List<int>();
+        public List<int> assemblerpools = new List<int>();
+        public List<int> labpools = new List<int>();
         public List<int> beltpools = new List<int>();
         public List<int> monitorpools = new List<int>();
         public List<int> ejectorpools = new List<int>();
+        public List<int> powergenGammapools = new List<int>();
         public List<int> pointlayeridlist = new List<int>();
-        public List<int> powergenGammapools=new List<int>();
         public List<int> stationpools = new List<int>();
         public List<int> readyresearch = new List<int>();
         private static Dictionary<int, bool> FuelFilter = new Dictionary<int, bool>();
@@ -323,10 +323,6 @@ namespace Auxilaryfunction
             ChangeQuickKeyMethod();
             StartAndStopGame();
             BeltWindowUpdate();
-            //if (Input.GetKeyDown(KeyCode.F9))
-            //{
-            //    temp = !temp;
-            //}
             if (GameMain.instance != null)
             {
                 if (autosavetimechange.Value && UIAutoSave.autoSaveTime != autosavetime.Value)
@@ -2123,7 +2119,7 @@ namespace Auxilaryfunction
                 if (BluePrintCopyToPaste.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.C))
                     blue_copy.UseToPasteNow();
             }
-            else
+            else if (stationpools.Count + labpools.Count + assemblerpools.Count + beltpools.Count + monitorpools.Count + ejectorpools.Count + powergenGammapools.Count > 0)
             {
                 InitBluePrintData();
             }

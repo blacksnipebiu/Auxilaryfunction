@@ -579,6 +579,15 @@ namespace Auxilaryfunction
         }
 
         //星图方向指引启动自动导航
+        [HarmonyPatch(typeof(BuildTool_Click), "CheckBuildConditions")]
+        class BuildTool_ClickCheckBuildConditions
+        {
+            public static void Postfix(BuildTool_Click __instance)
+            {
+
+            }
+        }
+        //星图方向指引启动自动导航
         [HarmonyPatch(typeof(UIStarmap), "OnCursorFunction3Click")]
         class AutonavigationPatch
         {
