@@ -13,6 +13,7 @@ using System.Reflection;
 using System.Threading;
 using System.IO;
 using static Auxilaryfunction.AuxilaryfunctionPatch;
+using System.Text;
 
 namespace Auxilaryfunction
 {
@@ -20,10 +21,10 @@ namespace Auxilaryfunction
     public class Auxilaryfunction : BaseUnityPlugin
     {
         public const long AU = 40000;
+        public const string ErrorTitle = "辅助面板错误提示";
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.9.0";
-        private const string GAME_PROCESS = "DSPGAME.exe";
+        public const string VERSION = "1.9.1";
         public int stationindex = 4;
         public int locallogic = 0;
         public int remotelogic = 2;
@@ -36,6 +37,7 @@ namespace Auxilaryfunction
         public int pointlayerid = 0;
         public int pointsignalid = 0;
         private TechProto techProto;
+        private TempDysonBlueprintData selectDysonBlueprintData = new TempDysonBlueprintData();
         public List<string> ConfigNames = new List<string>();
         public List<float[]> boundaries = new List<float[]>();
         public List<int> fuelItems = new List<int>();
@@ -48,6 +50,7 @@ namespace Auxilaryfunction
         public List<int> pointlayeridlist = new List<int>();
         public List<int> stationpools = new List<int>();
         public List<int> readyresearch = new List<int>();
+        private List<TempDysonBlueprintData> tempDysonBlueprintData = new List<TempDysonBlueprintData>();
         private static Dictionary<int, bool> FuelFilter = new Dictionary<int, bool>();
         public string[] stationname = new string[6] { "星球矿机", "垃圾站", "星球无限供货机", "星球量子传输站", "星系量子传输站", "设置翘曲需求" };
         public float slowconstructspeed = 1;
@@ -96,6 +99,8 @@ namespace Auxilaryfunction
         public bool auto_setejector_start;
         public bool autoAddwarp_start;
         public bool autoAddFuel_start;
+        private bool DysonPanel;
+        private bool DeleteDysonLayer;
         public static Dictionary<int, List<int>> EjectorDictionary;
         public static List<ItemProto> ItemList = new List<ItemProto>();
         public static Player Player => GameMain.mainPlayer;
@@ -139,7 +144,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<bool> BluePrintRevoke;
         public static ConfigEntry<bool> BluePrintSetRecipe;
         public static ConfigEntry<bool> BluePrintSelectAll;
-        public static ConfigEntry<bool> norender_shipdrone_bool; 
+        public static ConfigEntry<bool> norender_shipdrone_bool;
         public static ConfigEntry<bool> norender_lab_bool;
         public static ConfigEntry<bool> norender_beltitem;
         public static ConfigEntry<bool> norender_dysonshell_bool;
@@ -191,9 +196,9 @@ namespace Auxilaryfunction
         void Start()
         {
             new Harmony(GUID).PatchAll();
-            AssetBundle assetBundle = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.auxilarypanel"));
             //AssetBundle assetBundle = AssetBundle.LoadFromFile("E:/game/game1/New Unity Project (4)/AssetBundles/StandaloneWindows64/panel");
-            AuxilaryPanel = assetBundle.LoadAsset<GameObject>("AuxilaryPanel");
+
+            AuxilaryPanel = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.auxilarypanel")).LoadAsset<GameObject>("AuxilaryPanel");
             trashlasttime = Time.time;
             drawdysonlasttime = Time.time;
             QuickKey = Config.Bind("打开窗口快捷键", "Key", new KeyboardShortcut(KeyCode.Alpha2, KeyCode.LeftAlt));
@@ -296,8 +301,8 @@ namespace Auxilaryfunction
             }
             if (!string.IsNullOrEmpty(FuelFilterConfig.Value))
             {
-                string [] temp=FuelFilterConfig.Value.Split(',');
-                foreach(var str in temp)
+                string[] temp = FuelFilterConfig.Value.Split(',');
+                foreach (var str in temp)
                 {
                     if (str.Length > 3 && int.TryParse(str, out int itemID))
                     {
@@ -317,6 +322,37 @@ namespace Auxilaryfunction
             styleyellow.fontSize = 20;
             styleyellow.normal.textColor = new Color32(240, 191, 103, 255);
             BeltMonitorWindowOpen();
+
+            ThreadPool.QueueUserWorkItem(o =>
+            {
+                LoadDysonBluePrintData();
+            });
+        }
+        private void LoadDysonBluePrintData()
+        {
+            tempDysonBlueprintData = new List<TempDysonBlueprintData>();
+            string path = new StringBuilder(GameConfig.overrideDocumentFolder).Append(GameConfig.gameName).Append("/DysonBluePrint/").ToString();
+            if (!Directory.Exists(path))
+            {
+                Directory.CreateDirectory(path);
+            }
+            var filesPath = Directory.GetFiles(path);
+            for (int i = 0; i < filesPath.Length; i++)
+            {
+                if (!filesPath[i].Contains(".txt")) continue;
+                string str64Data = File.ReadAllText(filesPath[i]);
+                var data = new TempDysonBlueprintData()
+                {
+                    name = Path.GetFileName(filesPath[i]),
+                    path = filesPath[i],
+                };
+                data.ReadDysonSphereBluePrint(str64Data);
+                if (data.type != EDysonBlueprintType.None)
+                {
+                    tempDysonBlueprintData.Add(data);
+                }
+            }
+
         }
         void Update()
         {
@@ -756,7 +792,7 @@ namespace Auxilaryfunction
                         stationpools.Clear();
                     }
                     int heightdis = scale.Value * 2;
-                    GUILayout.BeginArea(new Rect(recipewindowx, maxheight - recipewindowy + tempheight++ * 50, heightdis*15, heightdis*10));
+                    GUILayout.BeginArea(new Rect(recipewindowx, maxheight - recipewindowy + tempheight++ * 50, heightdis * 15, heightdis * 10));
                     {
                         GUILayout.BeginVertical();
                         GUILayout.BeginHorizontal();
@@ -768,7 +804,7 @@ namespace Auxilaryfunction
                                 locallogics[i]++;
                                 locallogics[i] %= 3;
                             }
-                            if (GUILayout.Button("星际".getTranslate() + GetStationlogic(locallogic)))
+                            if (GUILayout.Button("星际".getTranslate() + GetStationlogic(remotelogics[i])))
                             {
                                 remotelogics[i]++;
                                 remotelogics[i] %= 3;
@@ -791,17 +827,17 @@ namespace Auxilaryfunction
                                     }
                                 }
                             }
-                            stationpools.Clear();
+                            InitBluePrintData();
                         }
                         GUILayout.EndVertical();
                     }
                     GUILayout.EndArea();
                 }
-                else if (powergenGammapools.Count>0)
+                else if (powergenGammapools.Count > 0)
                 {
                     PlanetFactory factory = LocalPlanet.factory;
                     tempwidth = 0;
-                    GUILayout.BeginArea(new Rect(recipewindowx, maxheight - recipewindowy, scale.Value *10, scale.Value*10));
+                    GUILayout.BeginArea(new Rect(recipewindowx, maxheight - recipewindowy, scale.Value * 10, scale.Value * 10));
                     GUILayout.BeginVertical();
                     if (GUILayout.Button("直接发电".getTranslate()))
                     {
@@ -863,6 +899,7 @@ namespace Auxilaryfunction
             if (TextTech != GUI.Toggle(new Rect(0, 10, widthlen2, heightdis), TextTech, "文字科技树".getTranslate()))
             {
                 TextTech = !TextTech;
+                if (TextTech) DysonPanel = false;
             }
             if (limitmaterial != GUI.Toggle(new Rect(heightdis / 2, 10 + heightdis, widthlen2, heightdis), limitmaterial, "限制材料".getTranslate()))
             {
@@ -873,6 +910,11 @@ namespace Auxilaryfunction
             {
                 autoaddtech = !autoaddtech;
             }
+            if (DysonPanel != GUI.Toggle(new Rect(0, 10 + heightdis * 3, widthlen2, heightdis), DysonPanel, "戴森球面板".getTranslate()))
+            {
+                DysonPanel = !DysonPanel;
+                if (DysonPanel) TextTech = false;
+            }
 
             GUILayout.EndArea();
 
@@ -881,14 +923,14 @@ namespace Auxilaryfunction
         {
             int tempheight = 0;
             int heightdis = scale.Value * 2;
-            if(window_height==0) window_height = 26 * heightdis;
+            if (window_height == 0) window_height = 26 * heightdis;
             if (TextTech)
             {
-                scrollPosition = GUI.BeginScrollView(new Rect(10, 20, window_width - 20, window_height - 30), scrollPosition, new Rect(0, 0, window_width - 20, max_window_height ));
+                scrollPosition = GUI.BeginScrollView(new Rect(10, 20, window_width - 20, window_height - 30), scrollPosition, new Rect(0, 0, window_width - 20, max_window_height));
 
                 int buttonwidth = heightdis * 5;
                 int colnum = (int)window_width / buttonwidth;
-                var propertyicon= UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture;
+                var propertyicon = UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture;
                 GUI.Label(new Rect(0, 0, heightdis * 10, heightdis), "准备研究".getTranslate());
                 int i = 0;
                 tempheight += heightdis;
@@ -919,7 +961,7 @@ namespace Auxilaryfunction
                     {
                         GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
                     }
-                    if(GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), propertyicon))
+                    if (GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), propertyicon))
                     {
                         BuyoutTech(tp);
                     }
@@ -958,7 +1000,7 @@ namespace Auxilaryfunction
                     {
                         GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
                     }
-                    if(GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture))
+                    if (GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture))
                     {
                         BuyoutTech(tp);
                     }
@@ -992,7 +1034,7 @@ namespace Auxilaryfunction
                     {
                         GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
                     }
-                    if (GUI.Button(new Rect(i % colnum * buttonwidth+4*heightdis, heightdis * 3 + tempheight, heightdis, heightdis), UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture))
+                    if (GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture))
                     {
                         BuyoutTech(tp);
                     }
@@ -1000,6 +1042,194 @@ namespace Auxilaryfunction
                 }
                 max_window_height = heightdis * 5 + tempheight;
                 GUI.EndScrollView();
+            }
+            else if (DysonPanel)
+            {
+                bool[] dysonlayers = new bool[11];
+                if (GameMain.localStar != null)
+                {
+                    var dyson = GameMain.data.dysonSpheres[GameMain.localStar.index];
+                    if (dyson != null)
+                    {
+                        for (int i = 1; i <= 10; i++)
+                        {
+                            if (dyson.layersIdBased[i] != null && dyson.layersIdBased[i].id !=0 && dyson.layersIdBased[i].nodeCount==0)
+                            {
+                                dysonlayers[dyson.layersIdBased[i].id] = true;
+                            }
+                        }
+                    }
+                }
+                GUILayout.BeginArea(new Rect(10, 20, window_width, window_height));
+
+                GUILayout.BeginArea(new Rect(10, 0, window_width / 2, window_height));
+                GUILayout.BeginVertical();
+                GUILayout.Label("选择一个蓝图后，点击右侧的层级可以自动导入".getTranslate());
+                if (GUILayout.Button("打开戴森球蓝图文件夹".getTranslate(), new[] {GUILayout.Height(heightdis),GUILayout.Width(heightdis*10)}))
+                {
+                    string path = new StringBuilder(GameConfig.overrideDocumentFolder).Append(GameConfig.gameName).Append("/DysonBluePrint/").ToString();
+                    if (!Directory.Exists(path))
+                    {
+                        Directory.CreateDirectory(path);
+                    }
+                    Application.OpenURL(path);
+                }
+                if (GUILayout.Button("刷新文件".getTranslate(), new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 10) }))
+                {
+                    selectDysonBlueprintData.path = "";
+                    LoadDysonBluePrintData();
+                }
+                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.SingleLayer))
+                {
+                    GUILayout.Label("单层壳".getTranslate());
+                    var templist = tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.SingleLayer).ToList();
+                    for (int i = 0; i < templist.Count; i++)
+                    {
+                        bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name);
+                        if (temp != (templist[i].path == selectDysonBlueprintData.path))
+                        {
+                            selectDysonBlueprintData = templist[i];
+                        }
+                    }
+                }
+                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.Layers))
+                {
+                    GUILayout.Label("多层壳".getTranslate());
+                    var templist=tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.Layers).ToList();
+                    for (int i = 0; i < templist.Count; i++)
+                    {
+                        bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name);
+                        if (temp != (templist[i].path == selectDysonBlueprintData.path))
+                        {
+                            selectDysonBlueprintData = templist[i];
+                        }
+                    }
+                }
+                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.SwarmOrbits))
+                {
+                    GUILayout.Label("戴森云".getTranslate());
+                    var templist = tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.SwarmOrbits).ToList();
+                    for (int i = 0; i < templist.Count; i++)
+                    {
+                        bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name);
+                        if (temp != (templist[i].path == selectDysonBlueprintData.path))
+                        {
+                            selectDysonBlueprintData = templist[i];
+                        }
+                    }
+                }
+                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.DysonSphere))
+                {
+                    GUILayout.Label("戴森球(包括壳、云)".getTranslate());
+                    var templist = tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.DysonSphere).ToList();
+                    for (int i = 0; i < templist.Count; i++)
+                    {
+                        bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name);
+                        if (temp != (templist[i].path == selectDysonBlueprintData.path))
+                        {
+                            selectDysonBlueprintData = templist[i];
+                        }
+                    }
+                }
+                GUILayout.EndVertical();
+                GUILayout.EndArea();
+                GUILayout.BeginArea(new Rect(10 + window_width / 2, 0, window_width / 2, window_height));
+                int lineIndex = 0;
+                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "复制选中文件代码".getTranslate()))
+                {
+                    string data = ReaddataFromFile(selectDysonBlueprintData.path);
+                    GUIUtility.systemCopyBuffer = data;
+                    ThreadPool.QueueUserWorkItem(o =>
+                    {
+                        Thread.Sleep(10000);
+                        GUIUtility.systemCopyBuffer = "";
+                    });
+                }
+                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "清除剪贴板".getTranslate()))
+                {
+                    GUIUtility.systemCopyBuffer = "";
+                }
+                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "应用蓝图".getTranslate()))
+                {
+                    string data = ReaddataFromFile(selectDysonBlueprintData.path);
+                    ApplyDysonBlueprintManage(data,selectDysonBlueprintData.type);
+                }
+                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "自动生成最大半径戴森壳".getTranslate()))
+                {
+                    if (GameMain.localStar != null)
+                    {
+                        var dyson = GameMain.data.dysonSpheres[GameMain.localStar.index];
+                        if (dyson != null)
+                        {
+                            for(int i =0;i<10;i++)
+                            {
+                                float radius = dyson.maxOrbitRadius;
+                                while (radius > dyson.minOrbitRadius)
+                                {
+                                    if (dyson.QueryLayerRadius(ref radius, out float orbitAngularSpeed))
+                                    {
+                                        dyson.AddLayer(radius, Quaternion.identity, orbitAngularSpeed);
+                                        break;
+                                    }
+                                    radius -= 100;
+                                }
+                                if (dyson.layerCount == 10) break;
+                            }
+                        }
+                    }
+                }
+                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "删除全部空壳".getTranslate()))
+                {
+                    if (GameMain.localStar != null)
+                    {
+                        var dyson = GameMain.data.dysonSpheres[GameMain.localStar.index];
+                        if (dyson != null)
+                        {
+                            for (int i = 1; i <= 10; i++)
+                            {
+                                if (dyson.layersIdBased[i] != null && dyson.layersIdBased[i].nodeCount==0)
+                                {
+                                    dyson.RemoveLayer(dyson.layersIdBased[i]);
+                                }
+                            }
+                        }
+                    }
+                }
+                GUI.Label(new Rect(0, lineIndex++ * heightdis, heightdis * 5, heightdis), "可用戴森壳层级:".getTranslate());
+                for (int i = 1; i <= 10; i++)
+                {
+                    if(GUI.Button(new Rect((i - 1) % 5 * heightdis, lineIndex * heightdis, heightdis, heightdis), dysonlayers[i]? i.ToString(): ""))
+                    {
+                        if (dysonlayers[i])
+                        {
+                            string data = ReaddataFromFile(selectDysonBlueprintData.path);
+                            ApplyDysonBlueprintManage(data, EDysonBlueprintType.SingleLayer, i);
+                        }
+                    }
+                    if (i % 5 == 0)
+                    {
+                        lineIndex++;
+                    }
+                }
+                DeleteDysonLayer=GUI.Toggle(new Rect(heightdis * 5, lineIndex * heightdis, heightdis * 5, heightdis), DeleteDysonLayer, "勾选即可点击删除");
+                GUI.Label(new Rect(0, lineIndex++ * heightdis, heightdis * 5, heightdis), "不可用戴森壳层级:".getTranslate());
+                for (int i = 1; i <= 10; i++)
+                {
+
+                    if(GUI.Button(new Rect((i - 1) % 5 * heightdis, lineIndex * heightdis, heightdis, heightdis), !dysonlayers[i] ? i.ToString() : ""))
+                    {
+                        if (DeleteDysonLayer)
+                        {
+                            RemoveLayerById(i);
+                        }
+                    }
+                    if (i % 5 == 0)
+                    {
+                        lineIndex++;
+                    }
+                }
+                GUILayout.EndArea();
+                GUILayout.EndArea();
             }
             else
             {
@@ -1211,7 +1441,7 @@ namespace Auxilaryfunction
                     changeups = GUILayout.Toggle(changeups, "启动时间流速修改".getTranslate(), buttonoptions);
                     GUILayout.Label("流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix), buttonoptions);
                     string tempupsfixstr = GUILayout.TextField(string.Format("{0:N2}", upsfix), new[] { GUILayout.Height(heightdis), GUILayout.Width(5 * heightdis) });
-                    
+
                     if (tempupsfixstr != string.Format("{0:N2}", upsfix) && float.TryParse(tempupsfixstr, out float tempupsfix))
                     {
                         if (tempupsfix < 0.01) tempupsfix = 0.01f;
@@ -1260,7 +1490,7 @@ namespace Auxilaryfunction
                 GUILayout.EndHorizontal();
                 GUI.EndScrollView();
                 GUILayout.EndArea();
-                
+
             }
         }
 
@@ -1706,12 +1936,12 @@ namespace Auxilaryfunction
         {
             if (LocalPlanet == null || LocalPlanet.type == EPlanetType.Gas) return;
             int inc;
-            foreach(var dc in LocalPlanet.factory.transport.dispenserPool)
+            foreach (var dc in LocalPlanet.factory.transport.dispenserPool)
             {
                 if (dc == null) continue;
-                if(dc.idleCourierCount + dc.workCourierCount < auto_supply_Courier.Value)
+                if (dc.idleCourierCount + dc.workCourierCount < auto_supply_Courier.Value)
                 {
-                    dc.idleCourierCount += Player.package.TakeItem(5003, auto_supply_Courier.Value- dc.idleCourierCount + dc.workCourierCount, out _);
+                    dc.idleCourierCount += Player.package.TakeItem(5003, auto_supply_Courier.Value - dc.idleCourierCount + dc.workCourierCount, out _);
                 }
             }
             foreach (StationComponent sc in LocalPlanet.factory.transport.stationPool)
@@ -1936,9 +2166,9 @@ namespace Auxilaryfunction
             {
                 blueprintopen = true;
                 BuildTool_BlueprintCopy blue_copy = build.blueprintCopyTool;
-                if(BluePrintSelectAll.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.A))
+                if (BluePrintSelectAll.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.A))
                 {
-                    foreach(var et in LocalPlanet.factory.entityPool)
+                    foreach (var et in LocalPlanet.factory.entityPool)
                     {
                         if (et.id == 0) continue;
                         blue_copy.preSelectObjIds.Add(et.id);
@@ -1965,17 +2195,16 @@ namespace Auxilaryfunction
                 {
                     recipewindowx = (int)Input.mousePosition.x;
                     recipewindowy = (int)Input.mousePosition.y;
-                    bool init = false;
-                    var assemblerPreviewpools=new List<int>();
+                    var assemblerPreviewpools = new List<int>();
 
                     if (stationpools.Count + labpools.Count + assemblerpools.Count + beltpools.Count + monitorpools.Count + ejectorpools.Count + powergenGammapools.Count > 0)
                     {
-                        init = true;
+                        InitBluePrintData();
+                        return;
                     }
-                    BuildingType type = BuildingType.None;
+                    //检索全部需要设置配方的建筑
                     foreach (BuildPreview bp in blue_copy.bpPool)
                     {
-                        if (init) break;
                         if (bp != null && bp.item != null && bp.objId > 0)
                         {
                             var prefabDesc = bp.item.prefabDesc;
@@ -1983,110 +2212,94 @@ namespace Auxilaryfunction
                             {
                                 if (build.factory.entityPool[bp.objId].minerId > 0) continue;
                                 stationpools.Add(build.factory.entityPool[bp.objId].stationId);
-                                type = type == BuildingType.None || type == BuildingType.Station ? BuildingType.Station : BuildingType.Other;
                             }
                             else if (prefabDesc.isAssembler)
                             {
                                 assemblerPreviewpools.Add(bp.previewIndex);
-                                type = type == BuildingType.None || type == BuildingType.Assembler ? BuildingType.Assembler : BuildingType.Other;
                             }
                             else if (prefabDesc.isLab)
                             {
                                 labpools.Add(build.factory.entityPool[bp.objId].labId);
-                                type = type == BuildingType.None || type == BuildingType.Lab ? BuildingType.Lab : BuildingType.Other;
                             }
                             else if (prefabDesc.isMonitor && build.factory.entityPool[bp.objId].monitorId > 0)
                             {
                                 monitorpools.Add(build.factory.entityPool[bp.objId].monitorId);
-                                type = type == BuildingType.None || type == BuildingType.Monitor ? BuildingType.Monitor : BuildingType.Other;
                             }
                             else if (prefabDesc.isBelt && LocalPlanet.factory.entitySignPool[bp.objId].iconId0 > 0)
                             {
                                 beltpools.Add(build.factory.entityPool[bp.objId].id);
-                                type = type == BuildingType.None || type == BuildingType.Belt ? BuildingType.Belt : BuildingType.Other;
                             }
                             else if (prefabDesc.isEjector)
                             {
                                 ejectorpools.Add(build.factory.entityPool[bp.objId].ejectorId);
-                                type = type == BuildingType.None || type == BuildingType.Ejector ? BuildingType.Ejector : BuildingType.Other;
                             }
                             else if (prefabDesc.isPowerGen)
                             {
                                 powergenGammapools.Add(build.factory.entityPool[bp.objId].powerGenId);
-                                type = type == BuildingType.None || type == BuildingType.Gamma ? BuildingType.Gamma : BuildingType.Other;
                             }
                         }
-                        if (type == BuildingType.Other)
+                    }
+                    //组装机优先，其他次之，传送带再次之，检测器最后
+                    if (assemblerPreviewpools.Count > 0)
+                    {
+                        foreach (var previewIndex in assemblerPreviewpools)
                         {
-                            init = true;
+                            var bp = blue_copy.bpPool[previewIndex];
+                            if (bp.item.prefabDesc.assemblerRecipeType != ERecipeType.None)
+                            {
+                                if (pointeRecipetype == ERecipeType.None) pointeRecipetype = bp.item.prefabDesc.assemblerRecipeType;
+                                if (pointeRecipetype != bp.item.prefabDesc.assemblerRecipeType)
+                                {
+                                    pointeRecipetype = ERecipeType.None;
+                                    assemblerpools = new List<int>();
+                                    break;
+                                }
+                                assemblerpools.Add(build.factory.entityPool[bp.objId].assemblerId);
+                            }
                         }
                     }
-                    if (init)
+                    else if(labpools.Count>0 || ejectorpools.Count>0 || stationpools.Count>0 || powergenGammapools.Count > 0)
                     {
-                        InitBluePrintData();
-                        return;
+                        //无需操作
                     }
-                    switch (type)
+                    else if(beltpools.Count>0)
                     {
-                        case BuildingType.Station:
-                            break;
-                        case BuildingType.Gamma:
+                        if (!beltWindow.gameObject.activeSelf)
+                        {
+                            int tempsignaliconid = (int)LocalPlanet.factory.entitySignPool[beltpools[0]].iconId0;
+                            int tempnumberinput = (int)LocalPlanet.factory.entitySignPool[beltpools[0]].count0;
+                            beltWindow.gameObject.SetActive(true);
+                            pointsignalid = tempsignaliconid;
+                            beltWindow.transform.Find("item-sign").GetComponent<Image>().sprite = LDB.signals.IconSprite(tempsignaliconid);
+                            beltWindow.transform.Find("number-input").GetComponent<InputField>().text = tempnumberinput + "";
+                        }
+                        else
+                        {
+                            beltpools.Clear();
+                            beltWindow.gameObject.SetActive(false);
+                            if (UISignalPicker.isOpened)
+                                UISignalPicker.Close();
+                        }
+                    }
+                    else if (monitorpools.Count > 0)
+                    {
+                        if (!SpeakerPanel.gameObject.activeSelf)
+                        {
+                            int speakerId = LocalPlanet.factory.cargoTraffic.monitorPool[monitorpools[0]].speakerId;
+                            SpeakerComponent speakerComponent = LocalPlanet.factory.digitalSystem.speakerPool[speakerId];
+                            SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().pitchSlider.value = speakerComponent.pitch;
+                            SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().volumeSlider.value = speakerComponent.volume;
+                            SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().toneCombo.itemIndex = speakerComponent.tone > 0 ? SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().toneCombo.ItemsData.IndexOf(speakerComponent.tone) : 0;
 
-                            break;
-                        case BuildingType.Assembler:
-                            foreach (var previewIndex in assemblerPreviewpools)
-                            {
-                                var bp = blue_copy.bpPool[previewIndex];
-                                if (bp.item.prefabDesc.assemblerRecipeType != ERecipeType.None)
-                                {
-                                    if (pointeRecipetype == ERecipeType.None) pointeRecipetype = bp.item.prefabDesc.assemblerRecipeType;
-                                    if (pointeRecipetype != bp.item.prefabDesc.assemblerRecipeType)
-                                    {
-                                        pointeRecipetype = ERecipeType.None;
-                                        assemblerpools = new List<int>();
-                                        break;
-                                    }
-                                    assemblerpools.Add(build.factory.entityPool[bp.objId].assemblerId);
-                                }
-                            }
-                            break;
-                        case BuildingType.Belt:
-                            if (!beltWindow.gameObject.activeSelf)
-                            {
-                                int tempsignaliconid = (int)LocalPlanet.factory.entitySignPool[beltpools[0]].iconId0;
-                                int tempnumberinput = (int)LocalPlanet.factory.entitySignPool[beltpools[0]].count0;
-                                beltWindow.gameObject.SetActive(true);
-                                pointsignalid = tempsignaliconid;
-                                beltWindow.transform.Find("item-sign").GetComponent<Image>().sprite = LDB.signals.IconSprite(tempsignaliconid);
-                                beltWindow.transform.Find("number-input").GetComponent<InputField>().text = tempnumberinput + "";
-                            }
-                            else
-                            {
-                                beltpools.Clear();
-                                beltWindow.gameObject.SetActive(false);
-                                if (UISignalPicker.isOpened)
-                                    UISignalPicker.Close();
-                            }
-                            break;
-                        case BuildingType.Monitor:
-                            if (!SpeakerPanel.gameObject.activeSelf)
-                            {
-                                int speakerId = LocalPlanet.factory.cargoTraffic.monitorPool[monitorpools[0]].speakerId;
-                                SpeakerComponent speakerComponent = LocalPlanet.factory.digitalSystem.speakerPool[speakerId];
-                                SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().pitchSlider.value = speakerComponent.pitch;
-                                SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().volumeSlider.value = speakerComponent.volume;
-                                SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().toneCombo.itemIndex = speakerComponent.tone > 0 ? SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().toneCombo.ItemsData.IndexOf(speakerComponent.tone) : 0;
-
-                                SpeakerPanel.gameObject.SetActive(true);
-                                SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(true);
-                            }
-                            else
-                            {
-                                monitorpools.Clear();
-                                SpeakerPanel.gameObject.SetActive(false);
-                                SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(false);
-                            }
-                            break;
+                            SpeakerPanel.gameObject.SetActive(true);
+                            SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(true);
+                        }
+                        else
+                        {
+                            monitorpools.Clear();
+                            SpeakerPanel.gameObject.SetActive(false);
+                            SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(false);
+                        }
                     }
                 }
                 if (BluePrintDelete.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.X))
@@ -2247,24 +2460,24 @@ namespace Auxilaryfunction
         {
             if (Player != null && Player.mecha != null && Player.mecha.reactorStorage.isEmpty)
             {
-                foreach(var itemID in fuelItems)
+                foreach (var itemID in fuelItems)
                 {
                     if (!FuelFilter[itemID] || Player.package.GetItemCount(itemID) == 0)
                     {
                         continue;
                     }
                     var item = LDB.items.Select(itemID);
-                    int tempitemID=itemID;
+                    int tempitemID = itemID;
                     int count = item.StackSize;
                     while (!Player.mecha.reactorStorage.isFull)
                     {
                         Player.package.TakeTailItems(ref tempitemID, ref count, out int inc);
                         if (tempitemID <= 0 || count <= 0)
                         {
-                            break ;
+                            break;
                         }
                         Player.mecha.reactorStorage.AddItem(itemID, count, inc, out int remaininc);
-                        if (Player.mecha.reactorStorage.isFull || Player.mecha.reactorStorage.GetItemCount(itemID)>100000) return;
+                        if (Player.mecha.reactorStorage.isFull || Player.mecha.reactorStorage.GetItemCount(itemID) > 100000) return;
                     }
                 }
             }
@@ -2452,7 +2665,7 @@ namespace Auxilaryfunction
                 y = y_move + (maxheight - temp.y) - tempy;
             }
         }
-        
+
         public void scaling_window(float x, float y, ref float x_move, ref float y_move)
         {
             Vector2 temp = Input.mousePosition;
@@ -2497,8 +2710,285 @@ namespace Auxilaryfunction
             window_height = y;
         }
 
+        #region 应用戴森球蓝图
+        public string ReaddataFromFile(string path)
+        {
+            if (selectDysonBlueprintData.path == "")
+            {
+                UIMessageBox.Show(ErrorTitle.getTranslate(), "路径为空，请重新选择".getTranslate(), "确定".Translate(), 3, null);
+                return "";
+            }
+            if (File.Exists(path))
+            {
+                try
+                {
+                    string data = File.ReadAllText(path);
+                    return data;
+                }catch
+                {
+                    UIMessageBox.Show(ErrorTitle.getTranslate(), "文件读取失败".getTranslate(), "确定".Translate(), 3, null);
+                }
+            }
+            UIMessageBox.Show(ErrorTitle.getTranslate(), "文件不存在".getTranslate(), "确定".Translate(), 3, null);
+            return "";
 
+        }
+        private void RemoveLayerById(int Id)
+        {
+            if (GameMain.localStar == null)
+                return;
+            var dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
+            var layer = dysonSphere.layersIdBased[Id];
+            if (layer != null)
+            {
+                if (layer.nodeCount > 0 || layer.frameCount > 0 || layer.shellCount > 0)
+                {
+                    UIMessageBox.Show("删除层级非空标题".Translate(), "删除层级非空描述".Translate(), "取消".Translate(), "确定".Translate(), 1, null, new UIMessageBox.Response(()=>{
+                        layer.RemoveAllStructure();
+                        dysonSphere.RemoveLayer(layer);
+                    }));
+                    VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+                    return;
+                }
+                dysonSphere.RemoveLayer(layer);
+            }
+        }
+        public void ApplySingleLayerBlueprint(string data,int id)
+        {
+            if (GameMain.localStar == null)
+                return;
+            var dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
+            DysonBlueprintDataIOError dysonBlueprintDataIOError = new DysonBlueprintData().FromBase64String(data, EDysonBlueprintType.SingleLayer, dysonSphere, dysonSphere.layersIdBased[id]);
+            if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.OK)
+            {
+                VFAudio.Create("ui-click-1", null, Vector3.zero, true, 1, -1, -1L);
+                return;
+            }
+            if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.StressExceed)
+            {
+                UIMessageBox.Show("戴森球蓝图纬度过高标题".Translate(), "戴森球蓝图纬度过高描述".Translate(), "确定".Translate(), 3, null);
+                VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+                return;
+            }
+            if (dysonBlueprintDataIOError >= DysonBlueprintDataIOError.TypeMismatchSphere)
+            {
+                string arg = "";
+                switch (dysonBlueprintDataIOError)
+                {
+                    case DysonBlueprintDataIOError.TypeMismatchSphere:
+                        arg = "戴森球".Translate();
+                        break;
+                    case DysonBlueprintDataIOError.TypeMismatchSwarm:
+                        arg = "戴森云".Translate();
+                        break;
+                    case DysonBlueprintDataIOError.TypeMismatchLayers:
+                        arg = "戴森壳".Translate();
+                        break;
+                }
+                string message = string.Format("戴森球蓝图类型不匹配描述".Translate(), arg, "戴森层级".Translate());
+                UIMessageBox.Show("戴森球蓝图类型不匹配标题".Translate(), message, "确定".Translate(), 3, null);
+                VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+                return;
+            }
+            UIMessageBox.Show("戴森球蓝图错误标题".Translate(), "戴森球蓝图错误描述".Translate(), "确定".Translate(), 3, null);
+            VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+        }
+        public void ApplyDysonLayersBlueprint(string data)
+        {
+            if (GameMain.localStar == null)
+                return;
+            var dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
+            DysonBlueprintDataIOError dysonBlueprintDataIOError = new DysonBlueprintData().FromBase64String(data, EDysonBlueprintType.Layers, dysonSphere, null);
+            if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.OK)
+            {
+                VFAudio.Create("ui-click-1", null, Vector3.zero, true, 1, -1, -1L);
+                return;
+            }
+            if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.StressExceed)
+            {
+                UIMessageBox.Show("戴森球蓝图纬度过高标题".Translate(), "戴森球蓝图纬度过高描述".Translate(), "确定".Translate(), 3, null);
+                VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+                return;
+            }
+            if (dysonBlueprintDataIOError >= DysonBlueprintDataIOError.TypeMismatchSphere)
+            {
+                string arg = "";
+                if (dysonBlueprintDataIOError != DysonBlueprintDataIOError.TypeMismatchSwarm)
+                {
+                    if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.TypeMismatchSingleLayer)
+                    {
+                        arg = "戴森层级".Translate();
+                    }
+                }
+                else
+                {
+                    arg = "戴森云".Translate();
+                }
+                string message = string.Format("戴森球蓝图类型不匹配描述".Translate(), arg, "戴森壳".Translate());
+                UIMessageBox.Show("戴森球蓝图类型不匹配标题".Translate(), message, "确定".Translate(), 3, null);
+                VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+                return;
+            }
+            UIMessageBox.Show("戴森球蓝图错误标题".Translate(), "戴森球蓝图错误描述".Translate(), "确定".Translate(), 3, null);
+            VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+        }
+        public void ApplyDysonBlueprint(string data)
+        {
+            if (GameMain.localStar == null)
+                return;
+            var dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
+            DysonBlueprintDataIOError dysonBlueprintDataIOError = new DysonBlueprintData().FromBase64String(data, EDysonBlueprintType.DysonSphere, dysonSphere, null);
+            if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.OK)
+            {
+                VFAudio.Create("ui-click-1", null, Vector3.zero, true, 1, -1, -1L);
+            }
+            else if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.StressExceed)
+            {
+                UIMessageBox.Show("戴森球蓝图纬度过高标题".Translate(), "戴森球蓝图纬度过高描述".Translate(), "确定".Translate(), 3, null);
+                VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+            }
+            else if (dysonBlueprintDataIOError >= DysonBlueprintDataIOError.TypeMismatchSphere)
+            {
+                string arg = "";
+                switch (dysonBlueprintDataIOError)
+                {
+                    case DysonBlueprintDataIOError.TypeMismatchSwarm:
+                        arg = "戴森云".Translate();
+                        break;
+                    case DysonBlueprintDataIOError.TypeMismatchLayers:
+                        arg = "戴森壳".Translate();
+                        break;
+                    case DysonBlueprintDataIOError.TypeMismatchSingleLayer:
+                        arg = "戴森层级".Translate();
+                        break;
+                }
+                string message = string.Format("戴森球蓝图类型不匹配描述".Translate(), arg, "戴森球无空格".Translate());
+                UIMessageBox.Show("戴森球蓝图类型不匹配标题".Translate(), message, "确定".Translate(), 3, null);
+                VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+            }
+            else
+            {
+                UIMessageBox.Show("戴森球蓝图错误标题".Translate(), "戴森球蓝图错误描述".Translate(), "确定".Translate(), 3, null);
+                VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+            }
+        }
+        public void ApplySwarmBlueprint(string data)
+        {
+            if (GameMain.localStar == null)
+                return;
+            var dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
+            DysonBlueprintDataIOError dysonBlueprintDataIOError = new DysonBlueprintData().FromBase64String(data, EDysonBlueprintType.SwarmOrbits, dysonSphere, null);
+            if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.OK)
+            {
+                VFAudio.Create("ui-click-1", null, Vector3.zero, true, 1, -1, -1L);
+            }
+            else if (dysonBlueprintDataIOError >= DysonBlueprintDataIOError.TypeMismatchSphere)
+            {
+                string arg = "";
+                if (dysonBlueprintDataIOError != DysonBlueprintDataIOError.TypeMismatchLayers)
+                {
+                    if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.TypeMismatchSingleLayer)
+                    {
+                        arg = "戴森层级".Translate();
+                    }
+                }
+                else
+                {
+                    arg = "戴森壳".Translate();
+                }
+                string message = string.Format("戴森球蓝图类型不匹配描述".Translate(), arg, "戴森云".Translate());
+                UIMessageBox.Show("戴森球蓝图类型不匹配标题".Translate(), message, "确定".Translate(), 3, null);
+                VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+            }
+            else
+            {
+                UIMessageBox.Show("戴森球蓝图错误标题".Translate(), "戴森球蓝图错误描述".Translate(), "确定".Translate(), 3, null);
+                VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+            }
+        }
+        public void ApplyDysonBlueprintManage(string data,EDysonBlueprintType type, int id = -1)
+        {
+            if (data == "") return;
+            switch (type)
+            {
+                case EDysonBlueprintType.SingleLayer:
+                    if (id == -1)
+                    {
+                        UIMessageBox.Show(ErrorTitle.getTranslate(), "单层壳蓝图请选择层级".Translate(), "确定".Translate(), 3, null);
+                        VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+                        return;
+                    }
+                    ApplySingleLayerBlueprint(data, id);
+                    break;
+                case EDysonBlueprintType.Layers:
+                    ApplyDysonLayersBlueprint(data);
+                    break;
+                case EDysonBlueprintType.SwarmOrbits:
+                    ApplySwarmBlueprint(data);
+                    break;
+                case EDysonBlueprintType.DysonSphere:
+                    ApplyDysonBlueprint(data);
+                    break;
+            }
+        }
+        #endregion
     }
 
+    public class TempDysonBlueprintData
+    {
+        public string path="";
+        public string name="";
+        public EDysonBlueprintType type;
+        public string TypeName="";
+
+        private bool VerifyDysonBluePrintData(string Content)
+        {
+            if (Content.Length < 23 || Content.Substring(0, 5) != "DYBP:")
+            {
+                return false;
+            }
+
+            int firstindex = Content.IndexOf('"');
+            int lastIndex = Content.LastIndexOf('"');
+            if (firstindex == -1 || lastIndex == -1 || lastIndex < firstindex + 32)
+            {
+                return false;
+            }
+            string[] array = Content.Substring(5, firstindex - 5).Split(',');
+            //Signature
+            if (array.Length < 3 || Math.Max(Content.Length - 36, 0) > lastIndex && !MD5F.Compute(Content.Substring(0, lastIndex)).Equals(Content.Substring(lastIndex + 1, 32), StringComparison.Ordinal))
+            {
+                return false;
+            }
+            return true;
+        }
+
+
+        public void ReadDysonSphereBluePrint(string Content, float Radius = 0, float DysonLumino = 1)
+        {
+            if (!VerifyDysonBluePrintData(Content))
+            {
+                return;
+            }
+            int firstindex = Content.IndexOf('"');
+            string[] array = Content.Substring(5, firstindex - 5).Split(',');
+            type = (EDysonBlueprintType)int.Parse(array[3]);
+            switch (type)
+            {
+                case EDysonBlueprintType.SingleLayer:
+                    TypeName = "单层壳";
+                    break;
+                case EDysonBlueprintType.Layers:
+                    TypeName = "多层壳";
+                    break;
+                case EDysonBlueprintType.SwarmOrbits:
+                    TypeName = "戴森云";
+                    break;
+                case EDysonBlueprintType.DysonSphere:
+                    TypeName = "戴森球(包括壳、云)";
+                    break;
+            }
+        }
+    }
 
 }

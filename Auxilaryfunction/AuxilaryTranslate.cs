@@ -13,6 +13,15 @@ namespace Auxilaryfunction
         public static void regallTranslate()
         {
             TranslateDict.Clear();
+            TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
+            #region 戴森球面板
+            TranslateDict.Add("戴森球面板", "Dyson Sphere Panel");
+            TranslateDict.Add("选择一个蓝图后，点击右侧的层级可以自动导入", "Auxilaryfunction Error");
+            TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
+            TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
+            TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
+            TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
+            #endregion
             TranslateDict.Add("自动配置新运输站", "AutoStation");
             TranslateDict.Add("配置参数", "Configurations");
             TranslateDict.Add("填充飞机数量", "Fill the number of drones");
