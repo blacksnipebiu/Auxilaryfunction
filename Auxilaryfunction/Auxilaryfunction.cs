@@ -24,18 +24,19 @@ namespace Auxilaryfunction
         public const string ErrorTitle = "辅助面板错误提示";
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.9.1";
+        public const string VERSION = "1.9.6";
         public int stationindex = 4;
-        public int locallogic = 0;
+        public int locallogic;
         public int remotelogic = 2;
         public int[] locallogics = new int[5];
         public int[] remotelogics = new int[5];
-        public int autoaddtechid = 0;
+        public int autoaddtechid;
         public int maxheight;
         public int recipewindowx;
         public int recipewindowy;
-        public int pointlayerid = 0;
-        public int pointsignalid = 0;
+        public int pointlayerid;
+        public int pointsignalid;
+        private int DysonPanelBluePrintNum;
         private TechProto techProto;
         private TempDysonBlueprintData selectDysonBlueprintData = new TempDysonBlueprintData();
         public List<string> ConfigNames = new List<string>();
@@ -71,6 +72,7 @@ namespace Auxilaryfunction
         public static bool temp;
         public static bool simulatorrender;
         public static bool simulatorchanging;
+        public static bool ready;
         public bool firstopen = true;
         public bool TextTech;
         public bool DysonBluePrint;
@@ -84,7 +86,6 @@ namespace Auxilaryfunction
         public bool limitmaterial;
         public bool blueprintopen;
         public bool autosetstationconfig = true;
-        public bool ready;
         public bool firstStart = true;
         public bool moving;
         public bool leftscaling;
@@ -130,6 +131,7 @@ namespace Auxilaryfunction
         public static bool autobuildgetitem;
         public static readonly FieldInfo _uiGridSplit_sliderImg = AccessTools.Field(typeof(UIGridSplit), "sliderImg");
         public static readonly FieldInfo _uiGridSplit_valueText = AccessTools.Field(typeof(UIGridSplit), "valueText");
+        public static ConfigEntry<bool> autoClearEmptyDyson;
         public static ConfigEntry<bool> closeplayerflyaudio;
         public static ConfigEntry<bool> autosetSomevalue_bool;
         public static ConfigEntry<bool> noscaleuitech_bool;
@@ -165,6 +167,10 @@ namespace Auxilaryfunction
         public static ConfigEntry<bool> autoAddFuel;
         public static ConfigEntry<bool> autoAddwarp;
         public static ConfigEntry<double> stationwarpdist;
+        public static ConfigEntry<bool> DysonPanelSingleLayer;
+        public static ConfigEntry<bool> DysonPanelLayers;
+        public static ConfigEntry<bool> DysonPanelSwarm;
+        public static ConfigEntry<bool> DysonPanelDysonSphere;
         public static ConfigEntry<KeyboardShortcut> QuickKey;
         public static ConfigEntry<int> auto_supply_Courier;
         public static ConfigEntry<int> stationdronedist;
@@ -193,10 +199,15 @@ namespace Auxilaryfunction
         private GameObject AuxilaryPanel;
         private GameObject ui_AuxilaryPanelPanel;
 
-        void Start()
+        void Awake()
         {
             new Harmony(GUID).PatchAll();
+        }
+
+        void Start()
+        {
             //AssetBundle assetBundle = AssetBundle.LoadFromFile("E:/game/game1/New Unity Project (4)/AssetBundles/StandaloneWindows64/panel");
+
 
             AuxilaryPanel = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.auxilarypanel")).LoadAsset<GameObject>("AuxilaryPanel");
             trashlasttime = Time.time;
@@ -260,7 +271,17 @@ namespace Auxilaryfunction
             autosavetime = Config.Bind("自动保存时间", "autosavetime", 25);
             CloseUIpanel = Config.Bind("关闭面板", "CloseUIpanel", true);
             FuelFilterConfig = Config.Bind("自动填充燃料", "FuelFilterConfig", "");
+            autoClearEmptyDyson = Config.Bind("自动清除空戴森球", "autoClearEmptyDyson", false);
+            DysonPanelSingleLayer = Config.Bind("单层壳列表", "DysonPanelSingleLayer", true);
+            DysonPanelLayers = Config.Bind("多层壳列表", "DysonPanelLayers", true);
+            DysonPanelSwarm = Config.Bind("戴森云列表", "DysonPanelSwarm", true);
+            DysonPanelDysonSphere = Config.Bind("戴森壳列表", "DysonPanelDysonSphere", true);
 
+
+            
+            
+        
+        
             maxheight = Screen.height;
             scrollPosition[0] = 0;
             pdselectscrollPosition[0] = 0;
@@ -327,32 +348,6 @@ namespace Auxilaryfunction
             {
                 LoadDysonBluePrintData();
             });
-        }
-        private void LoadDysonBluePrintData()
-        {
-            tempDysonBlueprintData = new List<TempDysonBlueprintData>();
-            string path = new StringBuilder(GameConfig.overrideDocumentFolder).Append(GameConfig.gameName).Append("/DysonBluePrint/").ToString();
-            if (!Directory.Exists(path))
-            {
-                Directory.CreateDirectory(path);
-            }
-            var filesPath = Directory.GetFiles(path);
-            for (int i = 0; i < filesPath.Length; i++)
-            {
-                if (!filesPath[i].Contains(".txt")) continue;
-                string str64Data = File.ReadAllText(filesPath[i]);
-                var data = new TempDysonBlueprintData()
-                {
-                    name = Path.GetFileName(filesPath[i]),
-                    path = filesPath[i],
-                };
-                data.ReadDysonSphereBluePrint(str64Data);
-                if (data.type != EDysonBlueprintType.None)
-                {
-                    tempDysonBlueprintData.Add(data);
-                }
-            }
-
         }
         void Update()
         {
@@ -921,315 +916,15 @@ namespace Auxilaryfunction
         }
         public void DoMyWindow1(int winId)
         {
-            int tempheight = 0;
             int heightdis = scale.Value * 2;
             if (window_height == 0) window_height = 26 * heightdis;
             if (TextTech)
             {
-                scrollPosition = GUI.BeginScrollView(new Rect(10, 20, window_width - 20, window_height - 30), scrollPosition, new Rect(0, 0, window_width - 20, max_window_height));
-
-                int buttonwidth = heightdis * 5;
-                int colnum = (int)window_width / buttonwidth;
-                var propertyicon = UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture;
-                GUI.Label(new Rect(0, 0, heightdis * 10, heightdis), "准备研究".getTranslate());
-                int i = 0;
-                tempheight += heightdis;
-                for (; i < readyresearch.Count; i++)
-                {
-                    TechProto tp = LDB.techs.Select(readyresearch[i]);
-                    if (i != 0 && i % colnum == 0) tempheight += heightdis * 4;
-                    if (GUI.Button(new Rect(i % colnum * buttonwidth, tempheight, buttonwidth, heightdis * 2), tp.ID < 2000 ? tp.name : (tp.name + tp.Level)))
-                    {
-                        if (GameMain.history.TechInQueue(readyresearch[i]))
-                        {
-                            for (int j = 0; j < GameMain.history.techQueue.Length; j++)
-                            {
-                                if (GameMain.history.techQueue[j] != readyresearch[i]) continue;
-                                GameMain.history.RemoveTechInQueue(j);
-                                break;
-                            }
-                        }
-                        readyresearch.RemoveAt(i);
-                    }
-                    int k = 0;
-                    foreach (ItemProto ip in tp.itemArray)
-                    {
-                        GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
-                    }
-                    k = 0;
-                    foreach (RecipeProto rp in tp.unlockRecipeArray)
-                    {
-                        GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
-                    }
-                    if (GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), propertyicon))
-                    {
-                        BuyoutTech(tp);
-                    }
-                }
-                tempheight += heightdis * 4;
-                GUI.Label(new Rect(0, tempheight, heightdis * 10, heightdis), "科技".getTranslate());
-                tempheight += heightdis;
-                i = 0;
-                foreach (TechProto tp in LDB.techs.dataArray)
-                {
-                    if (tp.ID > 2000) break;
-                    if (readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || GameMain.history.TechUnlocked(tp.ID)) continue;
-                    if (limitmaterial)
-                    {
-                        bool condition = true;
-                        foreach (int ip in tp.Items)
-                        {
-                            if (GameMain.history.ItemUnlocked(ip)) continue;
-                            condition = false;
-                            break;
-                        }
-                        if (!condition) continue;
-                    }
-                    if (i != 0 && i % colnum == 0) tempheight += heightdis * 4;
-                    if (GUI.Button(new Rect(i % colnum * buttonwidth, tempheight, buttonwidth, heightdis * 2), tp.name))
-                    {
-                        readyresearch.Add(tp.ID);
-                    }
-                    int k = 0;
-                    foreach (ItemProto ip in tp.itemArray)
-                    {
-                        GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
-                    }
-                    k = 0;
-                    foreach (RecipeProto rp in tp.unlockRecipeArray)
-                    {
-                        GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
-                    }
-                    if (GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture))
-                    {
-                        BuyoutTech(tp);
-                    }
-                    i++;
-                }
-                tempheight += heightdis * 4;
-                GUI.Label(new Rect(0, tempheight, heightdis * 10, heightdis), "升级".getTranslate());
-                i = 0;
-                tempheight += heightdis;
-                foreach (TechProto tp in LDB.techs.dataArray)
-                {
-                    if (tp.ID < 2000 || readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || tp.MaxLevel > 100 || GameMain.history.TechUnlocked(tp.ID)) continue;
-                    if (limitmaterial)
-                    {
-                        bool condition = true;
-                        foreach (int ip in tp.Items)
-                        {
-                            if (GameMain.history.ItemUnlocked(ip)) continue;
-                            condition = false;
-                            break;
-                        }
-                        if (!condition) continue;
-                    }
-                    if (i != 0 && i % colnum == 0) tempheight += heightdis * 4;
-                    if (GUI.Button(new Rect(i % colnum * buttonwidth, tempheight, buttonwidth, heightdis * 2), tp.name + tp.Level))
-                    {
-                        readyresearch.Add(tp.ID);
-                    }
-                    int k = 0;
-                    foreach (ItemProto ip in tp.itemArray)
-                    {
-                        GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
-                    }
-                    if (GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture))
-                    {
-                        BuyoutTech(tp);
-                    }
-                    i++;
-                }
-                max_window_height = heightdis * 5 + tempheight;
-                GUI.EndScrollView();
+                TextTechPanelGUI(heightdis);
             }
             else if (DysonPanel)
             {
-                bool[] dysonlayers = new bool[11];
-                if (GameMain.localStar != null)
-                {
-                    var dyson = GameMain.data.dysonSpheres[GameMain.localStar.index];
-                    if (dyson != null)
-                    {
-                        for (int i = 1; i <= 10; i++)
-                        {
-                            if (dyson.layersIdBased[i] != null && dyson.layersIdBased[i].id !=0 && dyson.layersIdBased[i].nodeCount==0)
-                            {
-                                dysonlayers[dyson.layersIdBased[i].id] = true;
-                            }
-                        }
-                    }
-                }
-                GUILayout.BeginArea(new Rect(10, 20, window_width, window_height));
-
-                GUILayout.BeginArea(new Rect(10, 0, window_width / 2, window_height));
-                GUILayout.BeginVertical();
-                GUILayout.Label("选择一个蓝图后，点击右侧的层级可以自动导入".getTranslate());
-                if (GUILayout.Button("打开戴森球蓝图文件夹".getTranslate(), new[] {GUILayout.Height(heightdis),GUILayout.Width(heightdis*10)}))
-                {
-                    string path = new StringBuilder(GameConfig.overrideDocumentFolder).Append(GameConfig.gameName).Append("/DysonBluePrint/").ToString();
-                    if (!Directory.Exists(path))
-                    {
-                        Directory.CreateDirectory(path);
-                    }
-                    Application.OpenURL(path);
-                }
-                if (GUILayout.Button("刷新文件".getTranslate(), new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 10) }))
-                {
-                    selectDysonBlueprintData.path = "";
-                    LoadDysonBluePrintData();
-                }
-                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.SingleLayer))
-                {
-                    GUILayout.Label("单层壳".getTranslate());
-                    var templist = tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.SingleLayer).ToList();
-                    for (int i = 0; i < templist.Count; i++)
-                    {
-                        bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name);
-                        if (temp != (templist[i].path == selectDysonBlueprintData.path))
-                        {
-                            selectDysonBlueprintData = templist[i];
-                        }
-                    }
-                }
-                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.Layers))
-                {
-                    GUILayout.Label("多层壳".getTranslate());
-                    var templist=tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.Layers).ToList();
-                    for (int i = 0; i < templist.Count; i++)
-                    {
-                        bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name);
-                        if (temp != (templist[i].path == selectDysonBlueprintData.path))
-                        {
-                            selectDysonBlueprintData = templist[i];
-                        }
-                    }
-                }
-                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.SwarmOrbits))
-                {
-                    GUILayout.Label("戴森云".getTranslate());
-                    var templist = tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.SwarmOrbits).ToList();
-                    for (int i = 0; i < templist.Count; i++)
-                    {
-                        bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name);
-                        if (temp != (templist[i].path == selectDysonBlueprintData.path))
-                        {
-                            selectDysonBlueprintData = templist[i];
-                        }
-                    }
-                }
-                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.DysonSphere))
-                {
-                    GUILayout.Label("戴森球(包括壳、云)".getTranslate());
-                    var templist = tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.DysonSphere).ToList();
-                    for (int i = 0; i < templist.Count; i++)
-                    {
-                        bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name);
-                        if (temp != (templist[i].path == selectDysonBlueprintData.path))
-                        {
-                            selectDysonBlueprintData = templist[i];
-                        }
-                    }
-                }
-                GUILayout.EndVertical();
-                GUILayout.EndArea();
-                GUILayout.BeginArea(new Rect(10 + window_width / 2, 0, window_width / 2, window_height));
-                int lineIndex = 0;
-                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "复制选中文件代码".getTranslate()))
-                {
-                    string data = ReaddataFromFile(selectDysonBlueprintData.path);
-                    GUIUtility.systemCopyBuffer = data;
-                    ThreadPool.QueueUserWorkItem(o =>
-                    {
-                        Thread.Sleep(10000);
-                        GUIUtility.systemCopyBuffer = "";
-                    });
-                }
-                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "清除剪贴板".getTranslate()))
-                {
-                    GUIUtility.systemCopyBuffer = "";
-                }
-                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "应用蓝图".getTranslate()))
-                {
-                    string data = ReaddataFromFile(selectDysonBlueprintData.path);
-                    ApplyDysonBlueprintManage(data,selectDysonBlueprintData.type);
-                }
-                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "自动生成最大半径戴森壳".getTranslate()))
-                {
-                    if (GameMain.localStar != null)
-                    {
-                        var dyson = GameMain.data.dysonSpheres[GameMain.localStar.index];
-                        if (dyson != null)
-                        {
-                            for(int i =0;i<10;i++)
-                            {
-                                float radius = dyson.maxOrbitRadius;
-                                while (radius > dyson.minOrbitRadius)
-                                {
-                                    if (dyson.QueryLayerRadius(ref radius, out float orbitAngularSpeed))
-                                    {
-                                        dyson.AddLayer(radius, Quaternion.identity, orbitAngularSpeed);
-                                        break;
-                                    }
-                                    radius -= 100;
-                                }
-                                if (dyson.layerCount == 10) break;
-                            }
-                        }
-                    }
-                }
-                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "删除全部空壳".getTranslate()))
-                {
-                    if (GameMain.localStar != null)
-                    {
-                        var dyson = GameMain.data.dysonSpheres[GameMain.localStar.index];
-                        if (dyson != null)
-                        {
-                            for (int i = 1; i <= 10; i++)
-                            {
-                                if (dyson.layersIdBased[i] != null && dyson.layersIdBased[i].nodeCount==0)
-                                {
-                                    dyson.RemoveLayer(dyson.layersIdBased[i]);
-                                }
-                            }
-                        }
-                    }
-                }
-                GUI.Label(new Rect(0, lineIndex++ * heightdis, heightdis * 5, heightdis), "可用戴森壳层级:".getTranslate());
-                for (int i = 1; i <= 10; i++)
-                {
-                    if(GUI.Button(new Rect((i - 1) % 5 * heightdis, lineIndex * heightdis, heightdis, heightdis), dysonlayers[i]? i.ToString(): ""))
-                    {
-                        if (dysonlayers[i])
-                        {
-                            string data = ReaddataFromFile(selectDysonBlueprintData.path);
-                            ApplyDysonBlueprintManage(data, EDysonBlueprintType.SingleLayer, i);
-                        }
-                    }
-                    if (i % 5 == 0)
-                    {
-                        lineIndex++;
-                    }
-                }
-                DeleteDysonLayer=GUI.Toggle(new Rect(heightdis * 5, lineIndex * heightdis, heightdis * 5, heightdis), DeleteDysonLayer, "勾选即可点击删除");
-                GUI.Label(new Rect(0, lineIndex++ * heightdis, heightdis * 5, heightdis), "不可用戴森壳层级:".getTranslate());
-                for (int i = 1; i <= 10; i++)
-                {
-
-                    if(GUI.Button(new Rect((i - 1) % 5 * heightdis, lineIndex * heightdis, heightdis, heightdis), !dysonlayers[i] ? i.ToString() : ""))
-                    {
-                        if (DeleteDysonLayer)
-                        {
-                            RemoveLayerById(i);
-                        }
-                    }
-                    if (i % 5 == 0)
-                    {
-                        lineIndex++;
-                    }
-                }
-                GUILayout.EndArea();
-                GUILayout.EndArea();
+                DysonPanelGUI(heightdis);
             }
             else
             {
@@ -1492,6 +1187,356 @@ namespace Auxilaryfunction
                 GUILayout.EndArea();
 
             }
+        }
+        private void TextTechPanelGUI(int heightdis)
+        {
+            int tempheight = 0;
+            scrollPosition = GUI.BeginScrollView(new Rect(10, 20, window_width - 20, window_height - 30), scrollPosition, new Rect(0, 0, window_width - 20, max_window_height));
+
+            int buttonwidth = heightdis * 5;
+            int colnum = (int)window_width / buttonwidth;
+            var propertyicon = UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture;
+            GUI.Label(new Rect(0, 0, heightdis * 10, heightdis), "准备研究".getTranslate());
+            int i = 0;
+            tempheight += heightdis;
+            for (; i < readyresearch.Count; i++)
+            {
+                TechProto tp = LDB.techs.Select(readyresearch[i]);
+                if (i != 0 && i % colnum == 0) tempheight += heightdis * 4;
+                if (GUI.Button(new Rect(i % colnum * buttonwidth, tempheight, buttonwidth, heightdis * 2), tp.ID < 2000 ? tp.name : (tp.name + tp.Level)))
+                {
+                    if (GameMain.history.TechInQueue(readyresearch[i]))
+                    {
+                        for (int j = 0; j < GameMain.history.techQueue.Length; j++)
+                        {
+                            if (GameMain.history.techQueue[j] != readyresearch[i]) continue;
+                            GameMain.history.RemoveTechInQueue(j);
+                            break;
+                        }
+                    }
+                    readyresearch.RemoveAt(i);
+                }
+                int k = 0;
+                foreach (ItemProto ip in tp.itemArray)
+                {
+                    GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
+                }
+                k = 0;
+                foreach (RecipeProto rp in tp.unlockRecipeArray)
+                {
+                    GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
+                }
+                if (GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), propertyicon))
+                {
+                    BuyoutTech(tp);
+                }
+            }
+            tempheight += heightdis * 4;
+            GUI.Label(new Rect(0, tempheight, heightdis * 10, heightdis), "科技".getTranslate());
+            tempheight += heightdis;
+            i = 0;
+            foreach (TechProto tp in LDB.techs.dataArray)
+            {
+                if (tp.ID > 2000) break;
+                if (readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || GameMain.history.TechUnlocked(tp.ID)) continue;
+                if (limitmaterial)
+                {
+                    bool condition = true;
+                    foreach (int ip in tp.Items)
+                    {
+                        if (GameMain.history.ItemUnlocked(ip)) continue;
+                        condition = false;
+                        break;
+                    }
+                    if (!condition) continue;
+                }
+                if (i != 0 && i % colnum == 0) tempheight += heightdis * 4;
+                if (GUI.Button(new Rect(i % colnum * buttonwidth, tempheight, buttonwidth, heightdis * 2), tp.name))
+                {
+                    readyresearch.Add(tp.ID);
+                }
+                int k = 0;
+                foreach (ItemProto ip in tp.itemArray)
+                {
+                    GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
+                }
+                k = 0;
+                foreach (RecipeProto rp in tp.unlockRecipeArray)
+                {
+                    GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), rp.iconSprite.texture);
+                }
+                if (GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture))
+                {
+                    BuyoutTech(tp);
+                }
+                i++;
+            }
+            tempheight += heightdis * 4;
+            GUI.Label(new Rect(0, tempheight, heightdis * 10, heightdis), "升级".getTranslate());
+            i = 0;
+            tempheight += heightdis;
+            foreach (TechProto tp in LDB.techs.dataArray)
+            {
+                if (tp.ID < 2000 || readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || tp.MaxLevel > 100 || GameMain.history.TechUnlocked(tp.ID)) continue;
+                if (limitmaterial)
+                {
+                    bool condition = true;
+                    foreach (int ip in tp.Items)
+                    {
+                        if (GameMain.history.ItemUnlocked(ip)) continue;
+                        condition = false;
+                        break;
+                    }
+                    if (!condition) continue;
+                }
+                if (i != 0 && i % colnum == 0) tempheight += heightdis * 4;
+                if (GUI.Button(new Rect(i % colnum * buttonwidth, tempheight, buttonwidth, heightdis * 2), tp.name + tp.Level))
+                {
+                    readyresearch.Add(tp.ID);
+                }
+                int k = 0;
+                foreach (ItemProto ip in tp.itemArray)
+                {
+                    GUI.Button(new Rect(i % colnum * buttonwidth + k++ * heightdis, heightdis * 2 + tempheight, heightdis, heightdis), ip.iconSprite.texture);
+                }
+                if (GUI.Button(new Rect(i % colnum * buttonwidth + 4 * heightdis, heightdis * 3 + tempheight, heightdis, heightdis), UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture))
+                {
+                    BuyoutTech(tp);
+                }
+                i++;
+            }
+            max_window_height = heightdis * 5 + tempheight;
+            GUI.EndScrollView();
+        }
+        private void DysonPanelGUI(int heightdis)
+        {
+            bool[] dysonlayers = new bool[11];
+            var dyson = UIRoot.instance?.uiGame?.dysonEditor?.selection?.viewDysonSphere;
+            if (dyson != null)
+            {
+                for (int i = 1; i <= 10; i++)
+                {
+                    if (dyson.layersIdBased[i] != null && dyson.layersIdBased[i].id != 0 && dyson.layersIdBased[i].nodeCount == 0)
+                    {
+                        dysonlayers[dyson.layersIdBased[i].id] = true;
+                    }
+                }
+            }
+
+            GUILayout.BeginArea(new Rect(10, 20, window_width, window_height));
+            {
+                #region 左侧面板
+                GUILayout.BeginArea(new Rect(10, 0, window_width / 2, window_height));
+                GUILayout.BeginVertical();
+                GUILayout.Label("选择一个蓝图后，点击右侧的层级可以自动导入".getTranslate());
+                if (GUILayout.Button("打开戴森球蓝图文件夹".getTranslate(), new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 10) }))
+                {
+                    string path = new StringBuilder(GameConfig.overrideDocumentFolder).Append(GameConfig.gameName).Append("/DysonBluePrint/").ToString();
+                    if (!Directory.Exists(path))
+                    {
+                        Directory.CreateDirectory(path);
+                    }
+                    Application.OpenURL(path);
+                }
+                if (GUILayout.Button("刷新文件".getTranslate(), new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 10) }))
+                {
+                    selectDysonBlueprintData.path = "";
+                    LoadDysonBluePrintData();
+                }
+                GUILayout.BeginArea(new Rect(0, 3 * heightdis, window_width / 2, window_height));
+                scrollPosition = GUI.BeginScrollView(new Rect(0, 0, window_width/2 -20 , window_height - 4 * heightdis), scrollPosition, new Rect(0, 0, window_width / 2-40, Math.Max((4+ DysonPanelBluePrintNum) *(heightdis+4), window_height - 4 * heightdis)));
+
+                GUILayout.BeginVertical();
+                DysonPanelBluePrintNum = 0;
+                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.SingleLayer))
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("单层壳".getTranslate());
+                    GUILayout.FlexibleSpace();
+                    DysonPanelSingleLayer.Value = GUILayout.Toggle(DysonPanelSingleLayer.Value, "", new[] { GUILayout.Width(2 * heightdis) });
+                    GUILayout.Space(heightdis);
+                    GUILayout.EndHorizontal();
+                    if (DysonPanelSingleLayer.Value)
+                    {
+                        var templist = tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.SingleLayer).ToList();
+                        for (int i = 0; i < templist.Count; i++)
+                        {
+                            bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name, new[] { GUILayout.Height(heightdis) });
+                            if (temp != (templist[i].path == selectDysonBlueprintData.path))
+                            {
+                                selectDysonBlueprintData = templist[i];
+                            }
+                        }
+                        DysonPanelBluePrintNum += templist.Count;
+                    }
+                }
+                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.Layers))
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("多层壳".getTranslate(), new[] { GUILayout.Height(heightdis) });
+                    GUILayout.FlexibleSpace();
+                    DysonPanelLayers.Value=GUILayout.Toggle(DysonPanelLayers.Value, "", new[] { GUILayout.Width(2 * heightdis) });
+                    GUILayout.Space(heightdis);
+                    GUILayout.EndHorizontal();
+                    if (DysonPanelLayers.Value)
+                    {
+                        var templist = tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.Layers).ToList();
+                        for (int i = 0; i < templist.Count; i++)
+                        {
+                            bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name, new[] { GUILayout.Height(heightdis) });
+                            if (temp != (templist[i].path == selectDysonBlueprintData.path))
+                            {
+                                selectDysonBlueprintData = templist[i];
+                            }
+                        }
+                        DysonPanelBluePrintNum += templist.Count;
+                    }
+                }
+                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.SwarmOrbits))
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("戴森云".getTranslate());
+                    GUILayout.FlexibleSpace();
+                    DysonPanelSwarm.Value=GUILayout.Toggle(DysonPanelSwarm.Value, "", new[] { GUILayout.Width(2 * heightdis)});
+                    GUILayout.Space(heightdis);
+                    GUILayout.EndHorizontal();
+                    if (DysonPanelSwarm.Value)
+                    {
+                        var templist = tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.SwarmOrbits).ToList();
+                        for (int i = 0; i < templist.Count; i++)
+                        {
+                            bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name, new[] { GUILayout.Height(heightdis) });
+                            if (temp != (templist[i].path == selectDysonBlueprintData.path))
+                            {
+                                selectDysonBlueprintData = templist[i];
+                            }
+                        }
+                        DysonPanelBluePrintNum += templist.Count;
+                    }
+                }
+                if (tempDysonBlueprintData.Exists(o => o.type == EDysonBlueprintType.DysonSphere))
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("戴森球(包括壳、云)".getTranslate());
+                    GUILayout.FlexibleSpace();
+                    DysonPanelDysonSphere.Value=GUILayout.Toggle(DysonPanelDysonSphere.Value, "",new[] {GUILayout.Width(2*heightdis) });
+                    GUILayout.Space(heightdis);
+                    GUILayout.EndHorizontal();
+                    if (DysonPanelDysonSphere.Value)
+                    {
+                        var templist = tempDysonBlueprintData.Where(x => x.type == EDysonBlueprintType.DysonSphere).ToList();
+                        for (int i = 0; i < templist.Count; i++)
+                        {
+                            bool temp = GUILayout.Toggle(templist[i].path == selectDysonBlueprintData.path, templist[i].name, new[] {GUILayout.Height(heightdis)});
+                            if (temp != (templist[i].path == selectDysonBlueprintData.path))
+                            {
+                                selectDysonBlueprintData = templist[i];
+                            }
+                        }
+                        DysonPanelBluePrintNum += templist.Count;
+                    }
+                }
+                GUILayout.EndVertical();
+                GUI.EndScrollView();
+                GUILayout.EndArea();
+                GUILayout.EndVertical();
+                GUILayout.EndArea();
+                #endregion
+                #region 右侧面板
+                GUILayout.BeginArea(new Rect(10 + window_width / 2, 0, window_width / 2, window_height));
+                int lineIndex = 0;
+
+                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "复制选中文件代码".getTranslate()))
+                {
+                    string data = ReaddataFromFile(selectDysonBlueprintData.path);
+                    GUIUtility.systemCopyBuffer = data;
+                    ThreadPool.QueueUserWorkItem(o =>
+                    {
+                        Thread.Sleep(10000);
+                        GUIUtility.systemCopyBuffer = "";
+                    });
+                }
+                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "清除剪贴板".getTranslate()))
+                {
+                    GUIUtility.systemCopyBuffer = "";
+                }
+                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "应用蓝图".getTranslate()) && dyson != null)
+                {
+                    string data = ReaddataFromFile(selectDysonBlueprintData.path);
+                    ApplyDysonBlueprintManage(data, dyson, selectDysonBlueprintData.type);
+                }
+                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "自动生成最大半径戴森壳".getTranslate()) && dyson != null)
+                {
+                    for (int i = 1; i <= 10; i++)
+                    {
+                        float radius = dyson.maxOrbitRadius;
+                        while (radius > dyson.minOrbitRadius)
+                        {
+                            if (dyson.QueryLayerRadius(ref radius, out float orbitAngularSpeed))
+                            {
+                                dyson.AddLayer(radius, Quaternion.identity, orbitAngularSpeed);
+                                break;
+                            }
+                            radius -= 1;
+                        }
+                        if (dyson.layerCount == 10) break;
+                    }
+                }
+                if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "删除全部空壳".getTranslate()) && dyson != null)
+                {
+                    for (int i = 1; i <= 10; i++)
+                    {
+                        if (dyson.layersIdBased[i] != null && dyson.layersIdBased[i].nodeCount == 0)
+                        {
+                            dyson.RemoveLayer(dyson.layersIdBased[i]);
+                        }
+                    }
+                }
+                if (autoClearEmptyDyson.Value != GUI.Toggle(new Rect(0, lineIndex++ * heightdis, heightdis * 8, heightdis), autoClearEmptyDyson.Value, "自动清除空戴森球".getTranslate()))
+                {
+                    UIMessageBox.Show(ErrorTitle.getTranslate(), "每次打开戴森球面板都会自动进行清理".getTranslate(), "确定".Translate(), 3, null);
+                }
+
+
+                GUI.Label(new Rect(0, lineIndex++ * heightdis, heightdis * 12, heightdis), "当前选中".getTranslate() + ":" +
+                    UIRoot.instance?.uiGame?.dysonEditor?.selection?.viewDysonSphere?.starData.name ?? "");
+                GUI.Label(new Rect(0, lineIndex++ * heightdis, heightdis * 5, heightdis), "可用戴森壳层级:".getTranslate());
+                for (int i = 1; i <= 10; i++)
+                {
+                    if (GUI.Button(new Rect((i - 1) % 5 * heightdis, lineIndex * heightdis, heightdis, heightdis), dysonlayers[i] ? i.ToString() : ""))
+                    {
+                        if (dysonlayers[i])
+                        {
+                            string data = ReaddataFromFile(selectDysonBlueprintData.path);
+                            ApplyDysonBlueprintManage(data, dyson, EDysonBlueprintType.SingleLayer, i);
+                        }
+                    }
+                    if (i % 5 == 0)
+                    {
+                        lineIndex++;
+                    }
+                }
+                DeleteDysonLayer = GUI.Toggle(new Rect(heightdis * 5, lineIndex * heightdis, heightdis * 8, heightdis), DeleteDysonLayer, "勾选即可点击删除".getTranslate());
+                GUI.Label(new Rect(0, lineIndex++ * heightdis, heightdis * 5, heightdis), "不可用戴森壳层级:".getTranslate());
+                for (int i = 1; i <= 10; i++)
+                {
+
+                    if (GUI.Button(new Rect((i - 1) % 5 * heightdis, lineIndex * heightdis, heightdis, heightdis), !dysonlayers[i] ? i.ToString() : ""))
+                    {
+                        if (DeleteDysonLayer)
+                        {
+                            RemoveLayerById(i);
+                        }
+                    }
+                    if (i % 5 == 0)
+                    {
+                        lineIndex++;
+                    }
+                }
+                GUILayout.EndArea();
+                #endregion
+            }
+            GUILayout.EndArea();
         }
 
         void BeltMonitorWindowOpen()
@@ -2711,7 +2756,47 @@ namespace Auxilaryfunction
         }
 
         #region 应用戴森球蓝图
-        public string ReaddataFromFile(string path)
+        private void LoadDysonBluePrintData()
+        {
+            DysonPanelBluePrintNum = 0;
+            tempDysonBlueprintData = new List<TempDysonBlueprintData>();
+            string path = new StringBuilder(GameConfig.overrideDocumentFolder).Append(GameConfig.gameName).Append("/DysonBluePrint/").ToString();
+            if (!Directory.Exists(path))
+            {
+                Directory.CreateDirectory(path);
+                Stream sm = Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.450节点+框架+32壳面.txt");
+                byte[] bs = new byte[sm.Length];
+                sm.Read(bs, 0, (int)sm.Length);
+                sm.Close();
+                UTF8Encoding con = new UTF8Encoding();
+                string strdata = con.GetString(bs);
+                try
+                {
+                    File.WriteAllText(Path.Combine(path, "450节点+框架+32壳面.txt"), strdata);
+                }
+                catch { }
+                Debug.Log(strdata);
+            }
+            var filesPath = Directory.GetFiles(path);
+            for (int i = 0; i < filesPath.Length; i++)
+            {
+                if (!filesPath[i].Contains(".txt")) continue;
+                string str64Data = File.ReadAllText(filesPath[i]);
+                var data = new TempDysonBlueprintData()
+                {
+                    name = Path.GetFileName(filesPath[i]),
+                    path = filesPath[i],
+                };
+                data.ReadDysonSphereBluePrint(str64Data);
+                if (data.type != EDysonBlueprintType.None)
+                {
+                    tempDysonBlueprintData.Add(data);
+                }
+            }
+            DysonPanelBluePrintNum += tempDysonBlueprintData.Count;
+
+        }
+        private string ReaddataFromFile(string path)
         {
             if (selectDysonBlueprintData.path == "")
             {
@@ -2735,9 +2820,9 @@ namespace Auxilaryfunction
         }
         private void RemoveLayerById(int Id)
         {
-            if (GameMain.localStar == null)
+            var dysonSphere = UIRoot.instance.uiGame.dysonEditor.selection.viewDysonSphere;
+            if (dysonSphere == null)
                 return;
-            var dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
             var layer = dysonSphere.layersIdBased[Id];
             if (layer != null)
             {
@@ -2753,11 +2838,8 @@ namespace Auxilaryfunction
                 dysonSphere.RemoveLayer(layer);
             }
         }
-        public void ApplySingleLayerBlueprint(string data,int id)
+        private void ApplySingleLayerBlueprint(string data,DysonSphere dysonSphere, int id)
         {
-            if (GameMain.localStar == null)
-                return;
-            var dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
             DysonBlueprintDataIOError dysonBlueprintDataIOError = new DysonBlueprintData().FromBase64String(data, EDysonBlueprintType.SingleLayer, dysonSphere, dysonSphere.layersIdBased[id]);
             if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.OK)
             {
@@ -2793,11 +2875,8 @@ namespace Auxilaryfunction
             UIMessageBox.Show("戴森球蓝图错误标题".Translate(), "戴森球蓝图错误描述".Translate(), "确定".Translate(), 3, null);
             VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
         }
-        public void ApplyDysonLayersBlueprint(string data)
+        private void ApplyDysonLayersBlueprint(string data, DysonSphere dysonSphere)
         {
-            if (GameMain.localStar == null)
-                return;
-            var dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
             DysonBlueprintDataIOError dysonBlueprintDataIOError = new DysonBlueprintData().FromBase64String(data, EDysonBlueprintType.Layers, dysonSphere, null);
             if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.OK)
             {
@@ -2832,11 +2911,8 @@ namespace Auxilaryfunction
             UIMessageBox.Show("戴森球蓝图错误标题".Translate(), "戴森球蓝图错误描述".Translate(), "确定".Translate(), 3, null);
             VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
         }
-        public void ApplyDysonBlueprint(string data)
+        private void ApplyDysonBlueprint(string data, DysonSphere dysonSphere)
         {
-            if (GameMain.localStar == null)
-                return;
-            var dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
             DysonBlueprintDataIOError dysonBlueprintDataIOError = new DysonBlueprintData().FromBase64String(data, EDysonBlueprintType.DysonSphere, dysonSphere, null);
             if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.OK)
             {
@@ -2872,11 +2948,8 @@ namespace Auxilaryfunction
                 VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
             }
         }
-        public void ApplySwarmBlueprint(string data)
+        private void ApplySwarmBlueprint(string data, DysonSphere dysonSphere)
         {
-            if (GameMain.localStar == null)
-                return;
-            var dysonSphere = GameMain.data.dysonSpheres[GameMain.localStar.index];
             DysonBlueprintDataIOError dysonBlueprintDataIOError = new DysonBlueprintData().FromBase64String(data, EDysonBlueprintType.SwarmOrbits, dysonSphere, null);
             if (dysonBlueprintDataIOError == DysonBlueprintDataIOError.OK)
             {
@@ -2906,9 +2979,10 @@ namespace Auxilaryfunction
                 VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
             }
         }
-        public void ApplyDysonBlueprintManage(string data,EDysonBlueprintType type, int id = -1)
+        private void ApplyDysonBlueprintManage(string data, DysonSphere dysonSphere, EDysonBlueprintType type, int id = -1)
         {
-            if (data == "") return;
+            if (data == "" || dysonSphere ==null) return;
+            
             switch (type)
             {
                 case EDysonBlueprintType.SingleLayer:
@@ -2918,16 +2992,16 @@ namespace Auxilaryfunction
                         VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
                         return;
                     }
-                    ApplySingleLayerBlueprint(data, id);
+                    ApplySingleLayerBlueprint(data, dysonSphere, id);
                     break;
                 case EDysonBlueprintType.Layers:
-                    ApplyDysonLayersBlueprint(data);
+                    ApplyDysonLayersBlueprint(data, dysonSphere);
                     break;
                 case EDysonBlueprintType.SwarmOrbits:
-                    ApplySwarmBlueprint(data);
+                    ApplySwarmBlueprint(data, dysonSphere);
                     break;
                 case EDysonBlueprintType.DysonSphere:
-                    ApplyDysonBlueprint(data);
+                    ApplyDysonBlueprint(data, dysonSphere);
                     break;
             }
         }

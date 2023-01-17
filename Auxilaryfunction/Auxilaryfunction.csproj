@@ -101,6 +101,9 @@
   <ItemGroup>
     <EmbeddedResource Include="auxilarypanel" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="450节点+框架+32壳面.txt" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>taskkill /f /im DSPGAME.exe

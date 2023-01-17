@@ -27,6 +27,25 @@ namespace Auxilaryfunction
                 }
             }
         }
+        [HarmonyPatch(typeof(UIDETopFunction), "SetDysonComboBox")]
+        class UIDETopFunctionSetDysonComboBoxPatch
+        {
+            public static void Prefix()
+            {
+                if (autoClearEmptyDyson.Value && GameMain.data?.dysonSpheres!=null)
+                {
+                    for (int i = 0; i < GameMain.data.dysonSpheres.Length; i++)
+                    {
+                        var dysonsphere = GameMain.data.dysonSpheres[i];
+                        if (dysonsphere != null && dysonsphere.totalNodeCount == 0)
+                        {
+                            if (dysonsphere.starData.index == (GameMain.localStar?.index ?? 0)) continue;
+                            GameMain.data.dysonSpheres[i] = null;
+                        }
+                    }
+                }
+            }
+        }
         [HarmonyPatch(typeof(FactorySystem), "NewEjectorComponent")]
         class NewEjectorComponentPatch
         {

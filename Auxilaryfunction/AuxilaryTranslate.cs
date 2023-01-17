@@ -16,11 +16,29 @@ namespace Auxilaryfunction
             TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
             #region 戴森球面板
             TranslateDict.Add("戴森球面板", "Dyson Sphere Panel");
-            TranslateDict.Add("选择一个蓝图后，点击右侧的层级可以自动导入", "Auxilaryfunction Error");
-            TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
-            TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
-            TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
-            TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
+            TranslateDict.Add("选择一个蓝图后，点击右侧的层级可以自动导入", "Select BluePrintFile,you can click enabled layers to paste");
+            TranslateDict.Add("单层壳", "Single Layer");
+            TranslateDict.Add("多层壳", "Layers");
+            TranslateDict.Add("戴森云", "Dyson Swarm");
+            TranslateDict.Add("戴森球(包括壳、云)", "Dyson Sphere(include layers and swarm)");
+            TranslateDict.Add("打开戴森球蓝图文件夹", "Open DysonBlueprint Folder");
+            TranslateDict.Add("刷新文件", "Refresh files list");
+            TranslateDict.Add("复制选中文件代码", "Copy selected file cotent");
+            TranslateDict.Add("清除剪贴板", "clear clipboard");
+            TranslateDict.Add("应用蓝图", "Apply Selected BluePrint File");
+            TranslateDict.Add("自动生成最大半径戴森壳", "Auto Add bigest layers");
+            TranslateDict.Add("删除全部空壳", "Delete all empty layers");
+            TranslateDict.Add("可用戴森壳层级:", "Enabled layers:");
+            TranslateDict.Add("不可用戴森壳层级:", "Disabled layers:");
+            TranslateDict.Add("勾选即可点击删除", "Tick to click delete layer");
+            TranslateDict.Add("路径为空，请重新选择", "The path is empty, please select again");
+            TranslateDict.Add("文件读取失败", "file read failed");
+            TranslateDict.Add("文件不存在", "file does not exist");
+            TranslateDict.Add("自动清除空戴森球", "Auto Clear Empty Dyson");
+            TranslateDict.Add("每次打开戴森球面板(Y)都会自动进行清理", "Auto Clear Empty Dyson when you open DysonPanel(Y)");
+            
+            TranslateDict.Add("单层壳蓝图请选择层级", " Single layer blueprint please select the layer");
+            
             #endregion
             TranslateDict.Add("自动配置新运输站", "AutoStation");
             TranslateDict.Add("配置参数", "Configurations");
