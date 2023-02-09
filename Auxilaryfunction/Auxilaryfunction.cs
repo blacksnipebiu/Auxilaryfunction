@@ -24,14 +24,14 @@ namespace Auxilaryfunction
         public const string ErrorTitle = "辅助面板错误提示";
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.9.6";
+        public const string VERSION = "1.9.7";
         public int stationindex = 4;
         public int locallogic;
         public int remotelogic = 2;
         public int[] locallogics = new int[5];
         public int[] remotelogics = new int[5];
         public int autoaddtechid;
-        public int maxheight;
+        public int maxheight => Screen.height;
         public int recipewindowx;
         public int recipewindowy;
         public int pointlayerid;
@@ -56,7 +56,6 @@ namespace Auxilaryfunction
         public string[] stationname = new string[6] { "星球矿机", "垃圾站", "星球无限供货机", "星球量子传输站", "星系量子传输站", "设置翘曲需求" };
         public float slowconstructspeed = 1;
         public float drawdysonlasttime;
-        public float trashlasttime;
         public float autobuildtime;
         public float window_x_move = 200;
         public float window_y_move = 200;
@@ -86,7 +85,7 @@ namespace Auxilaryfunction
         public bool limitmaterial;
         public bool blueprintopen;
         public bool autosetstationconfig = true;
-        public bool firstStart = true;
+        public bool firstStart = false;
         public bool moving;
         public bool leftscaling;
         public bool startdrawdyson;
@@ -96,15 +95,14 @@ namespace Auxilaryfunction
         public bool showwindow;
         public bool ChangeQuickKey;
         public bool ChangingQuickKey;
-        public bool autoaddtech;
         public bool auto_setejector_start;
         public bool autoAddwarp_start;
         public bool autoAddFuel_start;
+        public static bool GameDataImported;
         private bool DysonPanel;
         private bool DeleteDysonLayer;
         public static Dictionary<int, List<int>> EjectorDictionary;
-        public static List<ItemProto> ItemList = new List<ItemProto>();
-        public static Player Player => GameMain.mainPlayer;
+        public static Player player => GameMain.mainPlayer;
         public static PlanetData LocalPlanet => GameMain.localPlanet;
         public Texture2D mytexture;
         public static BuildingParameters buildingParameters;
@@ -199,22 +197,16 @@ namespace Auxilaryfunction
         private GameObject AuxilaryPanel;
         private GameObject ui_AuxilaryPanelPanel;
 
-        void Awake()
-        {
-            new Harmony(GUID).PatchAll();
-        }
-
         void Start()
         {
-            //AssetBundle assetBundle = AssetBundle.LoadFromFile("E:/game/game1/New Unity Project (4)/AssetBundles/StandaloneWindows64/panel");
-
-
+            var harmony = new Harmony(GUID);
+            harmony.PatchAll(typeof(PlayerOperation));
+            harmony.PatchAll(typeof(AuxilaryfunctionPatch));
+            AuxilaryTranslate.regallTranslate();
             AuxilaryPanel = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.auxilarypanel")).LoadAsset<GameObject>("AuxilaryPanel");
-            trashlasttime = Time.time;
             drawdysonlasttime = Time.time;
             QuickKey = Config.Bind("打开窗口快捷键", "Key", new KeyboardShortcut(KeyCode.Alpha2, KeyCode.LeftAlt));
             tempShowWindow = QuickKey.Value;
-            AuxilaryTranslate.regallTranslate();
             auto_setejector_bool = Config.Bind("自动配置太阳帆弹射器", "auto_setejector_bool", false);
 
             auto_supply_station = Config.Bind("自动配置新运输站", "auto_supply_station", false);
@@ -277,12 +269,6 @@ namespace Auxilaryfunction
             DysonPanelSwarm = Config.Bind("戴森云列表", "DysonPanelSwarm", true);
             DysonPanelDysonSphere = Config.Bind("戴森壳列表", "DysonPanelDysonSphere", true);
 
-
-            
-            
-        
-        
-            maxheight = Screen.height;
             scrollPosition[0] = 0;
             pdselectscrollPosition[0] = 0;
             mytexture = new Texture2D(10, 10);
@@ -348,39 +334,33 @@ namespace Auxilaryfunction
             {
                 LoadDysonBluePrintData();
             });
+            ThreadPool.QueueUserWorkItem(o =>
+            {
+                TrashFunction();
+            });
         }
+
         void Update()
         {
-            ChangeQuickKeyMethod();
-            StartAndStopGame();
-            BeltWindowUpdate();
-            if (GameMain.instance != null)
+            if (autosavetimechange.Value && UIAutoSave.autoSaveTime != autosavetime.Value)
             {
-                if (autosavetimechange.Value && UIAutoSave.autoSaveTime != autosavetime.Value)
-                {
-                    DSPGame.globalOption.autoSaveTime = autosavetime.Value;
-                    DSPGame.globalOption.Apply();
-                    UIAutoSave.autoSaveTime = autosavetime.Value;
-                }
-                if (!GameMain.instance.running)
+                DSPGame.globalOption.autoSaveTime = autosavetime.Value;
+                DSPGame.globalOption.Apply();
+                UIAutoSave.autoSaveTime = autosavetime.Value;
+            }
+            if (!GameDataImported)
+            {
+                firstStart = true;
+                closecollider = true;
+                StopAutoBuildThread();
+                readyresearch = new List<int>();
+                upsfix = 1;
+            }
+            if (GameDataImported && firstStart)
+            {
+                if (firstStart)
                 {
                     firstStart = false;
-                    closecollider = false;
-                    if (autobuildThread != null)
-                    {
-                        if (autobuildThread.ThreadState == ThreadState.WaitSleepJoin)
-                            autobuildThread.Interrupt();
-                        else
-                            autobuildThread.Abort();
-                        autobuildThread = null;
-                    }
-                    ItemList = new List<ItemProto>(LDB.items.dataArray);
-                    readyresearch = new List<int>();
-                    upsfix = 1;
-                    autoaddtech = false;
-                }
-                if (GameMain.instance.running && !firstStart)
-                {
                     ready = true;
                     EjectorDictionary = new Dictionary<int, List<int>>();
                     techlist = new List<TechProto>(LDB.techs.dataArray);
@@ -406,9 +386,8 @@ namespace Auxilaryfunction
                                 EjectorDictionary[pd.id] = tempec;
                         }
                     }
-                    firstStart = true;
                 }
-                if (GameMain.history != null && Player != null && firstStart)
+                else
                 {
                     if (auto_setejector_bool.Value && !auto_setejector_start)
                     {
@@ -444,18 +423,31 @@ namespace Auxilaryfunction
                     {
                         GameMain.history.EnqueueTech(autoaddtechid);
                     }
-                    TrashFunction();
+                    StartAndStopGame();
                     BluePrintoptimize();
+                    BeltWindowUpdate();
+                }
+
+                for (int i = 0; i < readyresearch.Count && GameMain.history.techQueueLength < 7; i++)
+                {
+                    if (GameMain.history.TechUnlocked(readyresearch[i])) readyresearch.RemoveAt(i);
+                    else if (!GameMain.history.TechInQueue(readyresearch[i]))
+                    {
+                        if (!GameMain.history.CanEnqueueTech(readyresearch[i]))
+                        {
+                            readyresearch.RemoveAt(i);
+                        }
+                        else GameMain.history.EnqueueTech(readyresearch[i]);
+                    }
                 }
             }
 
+            ChangeQuickKeyMethod();
             if (QuickKey.Value.IsDown() && !ChangingQuickKey && ready)
             {
                 showwindow = !showwindow;
                 if (ui_AuxilaryPanelPanel == null)
-                {
-                    ui_AuxilaryPanelPanel = UnityEngine.Object.Instantiate<GameObject>(AuxilaryPanel, UIRoot.instance.overlayCanvas.transform);
-                }
+                    ui_AuxilaryPanelPanel = Instantiate<GameObject>(AuxilaryPanel, UIRoot.instance.overlayCanvas.transform);
                 ui_AuxilaryPanelPanel.SetActive(showwindow && !CloseUIpanel.Value);
             }
             if (showwindow && Input.GetKey(KeyCode.LeftControl))
@@ -464,34 +456,6 @@ namespace Auxilaryfunction
                 if (Input.GetKeyDown(KeyCode.DownArrow)) { scale.Value--; changescale = true; window_height = 52 * scale.Value; }
                 if (scale.Value < 5) scale.Value = 5;
                 if (scale.Value > 35) scale.Value = 35;
-            }
-            if (autoaddtech && LDB.techs != null && LDB.techs.dataArray != null && GameMain.history != null)
-            {
-                foreach (TechProto tp in LDB.techs.dataArray)
-                {
-                    if (readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || GameMain.history.TechUnlocked(tp.ID)) continue;
-                    bool condition = true;
-                    foreach (int ip in tp.Items)
-                    {
-                        if (GameMain.history.ItemUnlocked(ip)) continue;
-                        condition = false;
-                        break;
-                    }
-                    if (!condition) continue;
-                    readyresearch.Add(tp.ID);
-                }
-            }
-            for (int i = 0; i < readyresearch.Count && GameMain.history != null && GameMain.history.techQueueLength < 7; i++)
-            {
-                if (GameMain.history.TechUnlocked(readyresearch[i])) readyresearch.RemoveAt(i);
-                else if (!GameMain.history.TechInQueue(readyresearch[i]))
-                {
-                    if (!GameMain.history.CanEnqueueTech(readyresearch[i]))
-                    {
-                        readyresearch.RemoveAt(i);
-                    }
-                    else GameMain.history.EnqueueTech(readyresearch[i]);
-                }
             }
             if (upsquickset.Value)
             {
@@ -504,6 +468,7 @@ namespace Auxilaryfunction
                 }
             }
         }
+
         private void OnGUI()
         {
             if (changescale || firstopen)
@@ -551,7 +516,7 @@ namespace Auxilaryfunction
                 switchwindow = GUI.Window(202108228, switchwindow, DoMyWindow2, "");
                 GUI.DrawTexture(switchwindow, mytexture);
             }
-            if (Player != null && Player.navigation != null && Player.navigation._indicatorAstroId != 0)
+            if (player != null && player.navigation != null && player.navigation._indicatorAstroId != 0)
             {
                 if (GUI.Button(new Rect(10, 250, 150, 60), PlayerOperation.fly ? "停止导航".getTranslate() : "继续导航".getTranslate()))
                 {
@@ -559,41 +524,23 @@ namespace Auxilaryfunction
                 }
                 if (GUI.Button(new Rect(10, 300, 150, 60), "取消方向指示".getTranslate()))
                 {
-                    Player.navigation._indicatorAstroId = 0;
+                    player.navigation._indicatorAstroId = 0;
                 }
             }
-            if (automovetounbuilt.Value && Player != null && LocalPlanet != null && LocalPlanet.factory != null && LocalPlanet.factory.prebuildCount > 0 && Player.movementState == EMovementState.Fly)
+            if (automovetounbuilt.Value && player != null && LocalPlanet != null && LocalPlanet.factory != null && LocalPlanet.factory.prebuildCount > 0 && player.movementState == EMovementState.Fly)
             {
                 if (GUI.Button(new Rect(10, 360, 150, 60), closecollider ? "停止寻找未完成建筑".getTranslate() : "开始寻找未完成建筑".getTranslate()))
                 {
-                    closecollider = !closecollider;
-                    Player.gameObject.GetComponent<SphereCollider>().enabled = !closecollider;
-                    Player.gameObject.GetComponent<CapsuleCollider>().enabled = !closecollider;
-                    autobuildgetitem = false;
-                    if (autobuildThread != null)
-                    {
-                        if (autobuildThread.ThreadState == ThreadState.WaitSleepJoin)
-                            autobuildThread.Interrupt();
-                        else
-                            autobuildThread.Abort();
-                        autobuildThread = null;
-                    }
+                    StopAutoBuildThread();
+                    player.gameObject.GetComponent<SphereCollider>().enabled = !closecollider;
+                    player.gameObject.GetComponent<CapsuleCollider>().enabled = !closecollider;
                 }
             }
             else if (closecollider)
             {
-                closecollider = !closecollider;
-                Player.gameObject.GetComponent<SphereCollider>().enabled = !closecollider;
-                Player.gameObject.GetComponent<CapsuleCollider>().enabled = !closecollider;
-                autobuildgetitem = false;
-                if (autobuildThread != null)
-                {
-                    if (autobuildThread.ThreadState == ThreadState.WaitSleepJoin)
-                        autobuildThread.Interrupt();
-                    else
-                        autobuildThread.Abort();
-                    autobuildThread = null;
-                }
+                StopAutoBuildThread();
+                player.gameObject.GetComponent<SphereCollider>().enabled = true;
+                player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
             }
             if (closecollider && LocalPlanet.gasItems == null && GUI.Button(new Rect(10, 420, 150, 60), autobuildgetitem ? "停止自动补充材料".getTranslate() : "开始自动补充材料".getTranslate()))
             {
@@ -732,8 +679,8 @@ namespace Auxilaryfunction
                                 if (i == 5)
                                 {
                                     if (sc.storage[4].count > 0 && sc.storage[4].itemId != 1210)
-                                        Player.TryAddItemToPackage(sc.storage[4].itemId, sc.storage[4].count, 0, false);
-                                    LocalPlanet.factory.transport.SetStationStorage(stationpools[j], stationindex, 1210, (int)batchnum * 100, (ELogisticStorage)locallogic, (ELogisticStorage)remotelogic, Player);
+                                        player.TryAddItemToPackage(sc.storage[4].itemId, sc.storage[4].count, 0, false);
+                                    LocalPlanet.factory.transport.SetStationStorage(stationpools[j], stationindex, 1210, (int)batchnum * 100, (ELogisticStorage)locallogic, (ELogisticStorage)remotelogic, player);
                                 }
                                 else sc.name = stationname[i];
                             }
@@ -776,12 +723,12 @@ namespace Auxilaryfunction
                                 if (stationcopyItem[i, 0] > 0)
                                 {
                                     if (sc.storage[i].count > 0 && sc.storage[i].itemId != stationcopyItem[i, 0])
-                                        Player.TryAddItemToPackage(sc.storage[i].itemId, sc.storage[i].count, 0, false);
+                                        player.TryAddItemToPackage(sc.storage[i].itemId, sc.storage[i].count, 0, false);
                                     factory.transport.SetStationStorage(stationpools[j], i, stationcopyItem[i, 0], stationcopyItem[i, 1], (ELogisticStorage)stationcopyItem[i, 2]
-                                        , (ELogisticStorage)stationcopyItem[i, 3], Player);
+                                        , (ELogisticStorage)stationcopyItem[i, 3], player);
                                 }
                                 else
-                                    factory.transport.SetStationStorage(stationpools[j], i, 0, 0, ELogisticStorage.None, ELogisticStorage.None, Player);
+                                    factory.transport.SetStationStorage(stationpools[j], i, 0, 0, ELogisticStorage.None, ELogisticStorage.None, player);
                             }
                         }
                         stationpools.Clear();
@@ -848,7 +795,7 @@ namespace Auxilaryfunction
                                 int num = (int)powerGeneratorComponent.productCount;
                                 if (productId != 0 && num > 0)
                                 {
-                                    int upCount = Player.TryAddItemToPackage(productId, num, 0, true, 0);
+                                    int upCount = player.TryAddItemToPackage(productId, num, 0, true, 0);
                                     UIItemup.Up(productId, upCount);
                                 }
                                 factory.powerSystem.genPool[generatorId].productId = 0;
@@ -886,6 +833,7 @@ namespace Auxilaryfunction
                 }
             }
         }
+
         public void DoMyWindow2(int winId)
         {
             int heightdis = scale.Value * 2;
@@ -900,10 +848,6 @@ namespace Auxilaryfunction
             {
                 limitmaterial = !limitmaterial;
                 if (limitmaterial) TextTech = true;
-            }
-            if (autoaddtech != GUI.Toggle(new Rect(heightdis / 2, 10 + heightdis * 2, widthlen2, heightdis), autoaddtech, "自动乱点".getTranslate()))
-            {
-                autoaddtech = !autoaddtech;
             }
             if (DysonPanel != GUI.Toggle(new Rect(0, 10 + heightdis * 3, widthlen2, heightdis), DysonPanel, "戴森球面板".getTranslate()))
             {
@@ -1731,6 +1675,7 @@ namespace Auxilaryfunction
             for (int i = 0; i < maxCount; ++i)
                 tip[i] = Instantiate<GameObject>(tipPrefab, stationTip.transform);
         }
+
         void BeltWindowUpdate()
         {
             if (!ShowStationInfo.Value)
@@ -1900,13 +1845,13 @@ namespace Auxilaryfunction
         {
             if (LocalPlanet == null || LocalPlanet.factory == null || LocalPlanet.gasItems != null) return;
             if (LDB.items == null || LDB.items.Select(itemId) == null) return;
-            Player.package.Sort();
-            int packageGridLen = Player.package.grids.Length;
+            player.package.Sort();
+            int packageGridLen = player.package.grids.Length;
             int stackMax;
             int stackSize = 0;
             for (int i = packageGridLen - 1; i >= 0; i--, stackSize++)
             {
-                if (Player.package.grids[i].count != 0) break;
+                if (player.package.grids[i].count != 0) break;
             }
             stackMax = LDB.items.Select(itemId).StackSize * stackSize;
             itemCount = stackMax > itemCount ? itemCount : stackMax;
@@ -1928,7 +1873,7 @@ namespace Auxilaryfunction
                     itemCount -= tempItemCount;
                     resultinc += inc;
                 }
-                Player.TryAddItemToPackage(itemId, result, resultinc, false);
+                player.TryAddItemToPackage(itemId, result, resultinc, false);
             }
 
             if (pf.factoryStorage != null && pf.factoryStorage.storagePool != null)
@@ -1945,7 +1890,7 @@ namespace Auxilaryfunction
                             itemCount -= temp;
                             if (temp > 0)
                             {
-                                Player.TryAddItemToPackage(itemId, temp, inc, false);
+                                player.TryAddItemToPackage(itemId, temp, inc, false);
                             }
                         }
                     }
@@ -1966,7 +1911,7 @@ namespace Auxilaryfunction
                             itemCount -= tempItemCount;
                             if (tempItemCount > 0)
                             {
-                                Player.TryAddItemToPackage(itemId, tempItemCount, inc, false);
+                                player.TryAddItemToPackage(itemId, tempItemCount, inc, false);
                             }
                         }
                     }
@@ -1986,34 +1931,34 @@ namespace Auxilaryfunction
                 if (dc == null) continue;
                 if (dc.idleCourierCount + dc.workCourierCount < auto_supply_Courier.Value)
                 {
-                    dc.idleCourierCount += Player.package.TakeItem(5003, auto_supply_Courier.Value - dc.idleCourierCount + dc.workCourierCount, out _);
+                    dc.idleCourierCount += player.package.TakeItem(5003, auto_supply_Courier.Value - dc.idleCourierCount + dc.workCourierCount, out _);
                 }
             }
             foreach (StationComponent sc in LocalPlanet.factory.transport.stationPool)
             {
                 if (sc == null || sc.isVeinCollector) continue;
                 if (sc.isStellar && sc.workShipCount + sc.idleShipCount < auto_supply_ship.Value)
-                    sc.idleShipCount += Player.package.TakeItem(5002, auto_supply_ship.Value - sc.workShipCount - sc.idleShipCount, out inc);
+                    sc.idleShipCount += player.package.TakeItem(5002, auto_supply_ship.Value - sc.workShipCount - sc.idleShipCount, out inc);
                 if (sc.isStellar)
                 {
                     if (sc.workDroneCount + sc.idleDroneCount < auto_supply_drone.Value)
-                        sc.idleDroneCount += Player.package.TakeItem(5001, auto_supply_drone.Value - sc.workDroneCount - sc.idleDroneCount, out inc);
+                        sc.idleDroneCount += player.package.TakeItem(5001, auto_supply_drone.Value - sc.workDroneCount - sc.idleDroneCount, out inc);
                 }
                 else
                 {
                     int tempdrone = auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value;
                     if (sc.workDroneCount + sc.idleDroneCount < tempdrone)
-                        sc.idleDroneCount += Player.package.TakeItem(5001, tempdrone - sc.workDroneCount - sc.idleDroneCount, out inc);
+                        sc.idleDroneCount += player.package.TakeItem(5001, tempdrone - sc.workDroneCount - sc.idleDroneCount, out inc);
                 }
                 if (sc.warperCount < auto_supply_warp.Value)
-                    sc.warperCount += Player.package.TakeItem(1210, auto_supply_warp.Value - sc.warperCount, out inc);
+                    sc.warperCount += player.package.TakeItem(1210, auto_supply_warp.Value - sc.warperCount, out inc);
             }
             foreach (StationComponent sc in LocalPlanet.factory.transport.stationPool)
             {
                 if (sc == null) continue;
                 if (sc.isStellar && sc.workShipCount + sc.idleShipCount > 10)
                 {
-                    Player.package.AddItem(5002, sc.workShipCount + sc.idleShipCount - 10, 0, out inc);
+                    player.package.AddItem(5002, sc.workShipCount + sc.idleShipCount - 10, 0, out inc);
                     sc.idleShipCount -= sc.workShipCount + sc.idleShipCount - 10;
                 }
                 if (sc.isStellar)
@@ -2027,7 +1972,7 @@ namespace Auxilaryfunction
                 {
                     if (sc.workDroneCount + sc.idleDroneCount > 50)
                     {
-                        Player.package.TakeItem(5001, sc.workDroneCount + sc.idleDroneCount - 50, out inc);
+                        player.package.TakeItem(5001, sc.workDroneCount + sc.idleDroneCount - 50, out inc);
                         sc.idleDroneCount -= sc.workDroneCount + sc.idleDroneCount - 50;
                     }
                 }
@@ -2095,7 +2040,7 @@ namespace Auxilaryfunction
                     }
                 }
             }
-            StorageComponent package = Player.package;
+            StorageComponent package = player.package;
             int sum = 0;
             for (int index = 0; index < package.size; ++index)
             {
@@ -2151,9 +2096,9 @@ namespace Auxilaryfunction
                     posx = -posxz[i - 30, 0];
                     posz = -posxz[i - 30, 1];
                 }
-                pos = new Vector3((float)(posx * Player.planetData.realRadius), 0, (float)(posz * Player.planetData.realRadius));
-                Vector3 vector3_3 = 0.025f * pos.normalized * Player.planetData.realRadius;
-                Quaternion quaternion3 = Maths.SphericalRotation(pos, Player.controller.actionBuild.clickTool.yaw);
+                pos = new Vector3((float)(posx * player.planetData.realRadius), 0, (float)(posz * player.planetData.realRadius));
+                Vector3 vector3_3 = 0.025f * pos.normalized * player.planetData.realRadius;
+                Quaternion quaternion3 = Maths.SphericalRotation(pos, player.controller.actionBuild.clickTool.yaw);
                 pos = pos + vector3_3;
                 PrebuildData prebuild = new PrebuildData();
                 prebuild.protoId = (short)2105;
@@ -2168,7 +2113,7 @@ namespace Auxilaryfunction
                 prebuild.filterId = 0;
                 prebuild.paramCount = 0;
                 prebuild.InitParametersArray(0);
-                Player.controller.actionBuild.clickTool.factory.AddPrebuildDataWithComponents(prebuild);
+                player.controller.actionBuild.clickTool.factory.AddPrebuildDataWithComponents(prebuild);
             }
         }
 
@@ -2183,7 +2128,7 @@ namespace Auxilaryfunction
             {
                 int inc;
                 if (pgc.fuelMask == 4 && pgc.fuelCount < auto_supply_starfuel.Value)
-                    fs.powerSystem.genPool[pgc.id].SetNewFuel(1803, (short)(Player.package.TakeItem(1803, auto_supply_starfuel.Value - pgc.fuelCount, out inc) + pgc.fuelCount), (short)inc);
+                    fs.powerSystem.genPool[pgc.id].SetNewFuel(1803, (short)(player.package.TakeItem(1803, auto_supply_starfuel.Value - pgc.fuelCount, out inc) + pgc.fuelCount), (short)inc);
             }
         }
 
@@ -2199,7 +2144,6 @@ namespace Auxilaryfunction
         /// </summary>
         private void BluePrintoptimize()
         {
-            Player player = Player;
             blueprintopen = false;
             //蓝图复制操作优化
             if (player == null || player.controller.actionBuild == null)
@@ -2396,6 +2340,20 @@ namespace Auxilaryfunction
 
         }
 
+        private void StopAutoBuildThread()
+        {
+            closecollider = !closecollider;
+            autobuildgetitem = false;
+            if (autobuildThread != null)
+            {
+                if (autobuildThread.ThreadState == ThreadState.WaitSleepJoin)
+                    autobuildThread.Interrupt();
+                else
+                    autobuildThread.Abort();
+                autobuildThread = null;
+            }
+        }
+
         private void InitBluePrintData()
         {
             pointeRecipetype = ERecipeType.None;
@@ -2405,6 +2363,7 @@ namespace Auxilaryfunction
             beltpools = new List<int>();
             monitorpools = new List<int>();
             powergenGammapools = new List<int>();
+            ejectorpools=new List<int>();
             beltWindow.gameObject.SetActive(false);
             SpeakerPanel.gameObject.SetActive(false);
             SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(false);
@@ -2442,33 +2401,38 @@ namespace Auxilaryfunction
         /// </summary>
         private void TrashFunction()
         {
-            if (GameMain.data == null) return;
-            if (autoabsorttrash_bool.Value && Time.time - trashlasttime > 30)
+            while (true)
             {
-                trashlasttime = Time.time;
-                for (int i = 0; i < GameMain.data.trashSystem.container.trashCursor; i++)
+                Thread.Sleep(30000);
+                if (GameMain.data != null)
                 {
-                    if (GameMain.data.trashSystem.container.trashObjPool[i].item > 0)
+                    continue;
+                }
+                if (autoabsorttrash_bool.Value)
+                {
+                    for (int i = 0; i < GameMain.data.trashSystem.container.trashCursor; i++)
                     {
-                        if (GameMain.data.trashSystem.container.trashObjPool[i].expire < 0)
+                        if (GameMain.data.trashSystem.container.trashObjPool[i].item > 0)
                         {
-                            if (onlygetbuildings.Value)
+                            if (GameMain.data.trashSystem.container.trashObjPool[i].expire < 0)
                             {
-                                if (LDB.items.Select(GameMain.data.trashSystem.container.trashObjPool[i].item) != null && LDB.items.Select(GameMain.data.trashSystem.container.trashObjPool[i].item).CanBuild)
-                                    GameMain.data.trashSystem.container.trashObjPool[i].expire = 35;
+                                if (onlygetbuildings.Value)
+                                {
+                                    if (LDB.items.Select(GameMain.data.trashSystem.container.trashObjPool[i].item) != null && LDB.items.Select(GameMain.data.trashSystem.container.trashObjPool[i].item).CanBuild)
+                                        GameMain.data.trashSystem.container.trashObjPool[i].expire = 35;
+                                    else
+                                        GameMain.data.trashSystem.container.RemoveTrash(i);
+                                }
                                 else
-                                    GameMain.data.trashSystem.container.RemoveTrash(i);
+                                    GameMain.data.trashSystem.container.trashObjPool[i].expire = 35;
                             }
-                            else
-                                GameMain.data.trashSystem.container.trashObjPool[i].expire = 35;
                         }
                     }
                 }
-            }
-            if (autocleartrash_bool.Value && Time.time - trashlasttime > 30 && GameMain.data.trashSystem != null)
-            {
-                trashlasttime = Time.time;
-                GameMain.data.trashSystem.ClearAllTrash();
+                if (autocleartrash_bool.Value && GameMain.data.trashSystem != null)
+                {
+                    GameMain.data.trashSystem.ClearAllTrash();
+                }
             }
         }
 
@@ -2488,41 +2452,41 @@ namespace Auxilaryfunction
         /// </summary>
         private void AutoAddwarp()
         {
-            if (Player != null && Player.mecha != null && Player.mecha.thrusterLevel >= 3 && !Player.mecha.HasWarper())
+            if (player != null && player.mecha != null && player.mecha.thrusterLevel >= 3 && !player.mecha.HasWarper())
             {
                 int itemID = 1210;
                 int count = 20;
-                Player.package.TakeTailItems(ref itemID, ref count, out int inc);
+                player.package.TakeTailItems(ref itemID, ref count, out int inc);
                 if (itemID <= 0 || count <= 0)
                 {
                     return;
                 }
-                Player.mecha.warpStorage.AddItem(itemID, count, inc, out int remaininc);
+                player.mecha.warpStorage.AddItem(itemID, count, inc, out int remaininc);
             }
         }
 
         private void AutoAddFuel()
         {
-            if (Player != null && Player.mecha != null && Player.mecha.reactorStorage.isEmpty)
+            if (player != null && player.mecha != null && player.mecha.reactorStorage.isEmpty)
             {
                 foreach (var itemID in fuelItems)
                 {
-                    if (!FuelFilter[itemID] || Player.package.GetItemCount(itemID) == 0)
+                    if (!FuelFilter[itemID] || player.package.GetItemCount(itemID) == 0)
                     {
                         continue;
                     }
                     var item = LDB.items.Select(itemID);
                     int tempitemID = itemID;
                     int count = item.StackSize;
-                    while (!Player.mecha.reactorStorage.isFull)
+                    while (!player.mecha.reactorStorage.isFull)
                     {
-                        Player.package.TakeTailItems(ref tempitemID, ref count, out int inc);
+                        player.package.TakeTailItems(ref tempitemID, ref count, out int inc);
                         if (tempitemID <= 0 || count <= 0)
                         {
                             break;
                         }
-                        Player.mecha.reactorStorage.AddItem(itemID, count, inc, out int remaininc);
-                        if (Player.mecha.reactorStorage.isFull || Player.mecha.reactorStorage.GetItemCount(itemID) > 100000) return;
+                        player.mecha.reactorStorage.AddItem(itemID, count, inc, out int remaininc);
+                        if (player.mecha.reactorStorage.isFull || player.mecha.reactorStorage.GetItemCount(itemID) > 100000) return;
                     }
                 }
             }
@@ -2561,7 +2525,6 @@ namespace Auxilaryfunction
         {
             bool left = true;
             int[] result = new int[2];
-            int num = 0;
             if (Input.GetKey(KeyCode.LeftShift) && left)
             {
                 left = false;
@@ -2605,17 +2568,11 @@ namespace Auxilaryfunction
                     break;
                 }
             }
-            if (left && right) num = 0;
-            else if (!left && !right) num = 2;
-            else num = 1;
-            if (num == 2)
+            if (left && right) { }
+            else if (!left && !right) tempShowWindow = new KeyboardShortcut((KeyCode)result[1], (KeyCode)result[0]);
+            else
             {
-                tempShowWindow = new KeyboardShortcut((KeyCode)result[1], (KeyCode)result[0]);
-            }
-            else if (num == 1)
-            {
-                int keynum = Math.Max(result[0], result[1]);
-                tempShowWindow = new KeyboardShortcut((KeyCode)keynum);
+                tempShowWindow = new KeyboardShortcut((KeyCode)Math.Max(result[0], result[1]));
             }
         }
 
@@ -3036,7 +2993,6 @@ namespace Auxilaryfunction
             }
             return true;
         }
-
 
         public void ReadDysonSphereBluePrint(string Content, float Radius = 0, float DysonLumino = 1)
         {
