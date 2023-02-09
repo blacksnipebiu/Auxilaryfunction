@@ -24,7 +24,7 @@ namespace Auxilaryfunction
         public const string ErrorTitle = "辅助面板错误提示";
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.9.7";
+        public const string VERSION = "1.9.8";
         public int stationindex = 4;
         public int locallogic;
         public int remotelogic = 2;
@@ -356,7 +356,7 @@ namespace Auxilaryfunction
                 readyresearch = new List<int>();
                 upsfix = 1;
             }
-            if (GameDataImported && firstStart)
+            if (GameDataImported)
             {
                 if (firstStart)
                 {
