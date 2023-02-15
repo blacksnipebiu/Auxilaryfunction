@@ -2734,14 +2734,13 @@ namespace Auxilaryfunction
                 catch { }
                 Debug.Log(strdata);
             }
-            var filesPath = Directory.GetFiles(path);
+            var filesPath = Directory.GetFiles(path, "*.txt", SearchOption.AllDirectories);
             for (int i = 0; i < filesPath.Length; i++)
             {
-                if (!filesPath[i].Contains(".txt")) continue;
                 string str64Data = File.ReadAllText(filesPath[i]);
                 var data = new TempDysonBlueprintData()
                 {
-                    name = Path.GetFileName(filesPath[i]),
+                    name = filesPath[i].Substring(path.Length),
                     path = filesPath[i],
                 };
                 data.ReadDysonSphereBluePrint(str64Data);
