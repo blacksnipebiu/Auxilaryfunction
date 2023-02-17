@@ -195,6 +195,13 @@ namespace Auxilaryfunction
         }
 
         [HarmonyPrefix]
+        [HarmonyPatch(typeof(LogisticCourierRenderer), "Draw")]
+        public static bool CourierDrawPatch()
+        {
+            return !norender_shipdrone_bool.Value && !simulatorrender;
+        }
+
+        [HarmonyPrefix]
         [HarmonyPatch(typeof(LogisticShipRenderer), "Draw")]
         public static bool ShipDrawPatch()
         {

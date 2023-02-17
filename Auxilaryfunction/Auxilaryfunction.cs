@@ -24,7 +24,7 @@ namespace Auxilaryfunction
         public const string ErrorTitle = "辅助面板错误提示";
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "1.9.8";
+        public const string VERSION = "2.0.1";
         public int stationindex = 4;
         public int locallogic;
         public int remotelogic = 2;
@@ -55,7 +55,7 @@ namespace Auxilaryfunction
         private static Dictionary<int, bool> FuelFilter = new Dictionary<int, bool>();
         public string[] stationname = new string[6] { "星球矿机", "垃圾站", "星球无限供货机", "星球量子传输站", "星系量子传输站", "设置翘曲需求" };
         public float slowconstructspeed = 1;
-        public float drawdysonlasttime;
+        private float trashfunctiontime;
         public float autobuildtime;
         public float window_x_move = 200;
         public float window_y_move = 200;
@@ -121,7 +121,7 @@ namespace Auxilaryfunction
         public GUIStyle styleitemname = null;
         public GUIStyle buttonstyleyellow = null;
         public GUIStyle buttonstyleblue = null;
-        public List<TechProto> techlist = null;
+
         public ERecipeType pointeRecipetype = ERecipeType.None;
         public static bool closecollider;
         public static bool stopfactory;
@@ -204,71 +204,74 @@ namespace Auxilaryfunction
             harmony.PatchAll(typeof(AuxilaryfunctionPatch));
             AuxilaryTranslate.regallTranslate();
             AuxilaryPanel = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.auxilarypanel")).LoadAsset<GameObject>("AuxilaryPanel");
-            drawdysonlasttime = Time.time;
-            QuickKey = Config.Bind("打开窗口快捷键", "Key", new KeyboardShortcut(KeyCode.Alpha2, KeyCode.LeftAlt));
-            tempShowWindow = QuickKey.Value;
-            auto_setejector_bool = Config.Bind("自动配置太阳帆弹射器", "auto_setejector_bool", false);
+            trashfunctiontime = Time.time;
 
-            auto_supply_station = Config.Bind("自动配置新运输站", "auto_supply_station", false);
-            auto_supply_Courier = Config.Bind("自动填充配送机", "auto_supply_Courier", 10);
-            auto_supply_drone = Config.Bind("自动填充飞机数量", "auto_supply_drone", 10);
-            auto_supply_ship = Config.Bind("自动填充飞船数量", "auto_supply_ship", 5);
-            stationmaxpowerpertick = Config.Bind("自动设置最大充电功率", "autowarpdistance", 30f);
-            stationwarpdist = Config.Bind("自动设置物流站使用翘曲器距离", "stationwarpdist", 12.0);
-            DroneStartCarry = Config.Bind("自动设置物流站小飞机起送量", "DroneStartCarry", 0.1f);
-            ShipStartCarry = Config.Bind("自动设置物流站运输船起送量", "ShipStartCarry", 1f);
-            veincollectorspeed = Config.Bind("大型采矿机采矿速度", "veincollectorspeed", 10);
-            auto_supply_warp = Config.Bind("自动设置物流站翘曲器数量", "auto_supply_warp", 0);
-            stationdronedist = Config.Bind("自动设置物流站运输机最远距离", "stationdronedist", 180);
-            stationshipdist = Config.Bind("自动设置物流站运输船最远距离", "stationshipdist", 61);
-            scale = Config.Bind("大小适配", "scale", 16);
+            {
+                QuickKey = Config.Bind("打开窗口快捷键", "Key", new KeyboardShortcut(KeyCode.Alpha2, KeyCode.LeftAlt));
+                tempShowWindow = QuickKey.Value;
+                auto_setejector_bool = Config.Bind("自动配置太阳帆弹射器", "auto_setejector_bool", false);
 
-            closeplayerflyaudio = Config.Bind("关闭玩家飞行声音", "closeplayerflyaudio", false);
-            BluePrintDelete = Config.Bind("蓝图删除", "BluePrintDelete", false);
-            BluePrintRevoke = Config.Bind("蓝图撤销", "BluePrintRevoke", false);
-            BluePrintSelectAll = Config.Bind("蓝图全选", "BluePrintSelectAll", false);
-            BluePrintSetRecipe = Config.Bind("蓝图配方", "BluePrintSetRecipe", false);
-            BluePrintCopyToPaste = Config.Bind("蓝图直接粘贴", "BluePrintCopyToPaste", false);
-            stationcopyItem_bool = Config.Bind("物流站复制物品配方", "stationcopyItem_bool", false);
+                auto_supply_station = Config.Bind("自动配置新运输站", "auto_supply_station", false);
+                auto_supply_Courier = Config.Bind("自动填充配送机", "auto_supply_Courier", 10);
+                auto_supply_drone = Config.Bind("自动填充飞机数量", "auto_supply_drone", 10);
+                auto_supply_ship = Config.Bind("自动填充飞船数量", "auto_supply_ship", 5);
+                stationmaxpowerpertick = Config.Bind("自动设置最大充电功率", "autowarpdistance", 30f);
+                stationwarpdist = Config.Bind("自动设置物流站使用翘曲器距离", "stationwarpdist", 12.0);
+                DroneStartCarry = Config.Bind("自动设置物流站小飞机起送量", "DroneStartCarry", 0.1f);
+                ShipStartCarry = Config.Bind("自动设置物流站运输船起送量", "ShipStartCarry", 1f);
+                veincollectorspeed = Config.Bind("大型采矿机采矿速度", "veincollectorspeed", 10);
+                auto_supply_warp = Config.Bind("自动设置物流站翘曲器数量", "auto_supply_warp", 0);
+                stationdronedist = Config.Bind("自动设置物流站运输机最远距离", "stationdronedist", 180);
+                stationshipdist = Config.Bind("自动设置物流站运输船最远距离", "stationshipdist", 61);
+                scale = Config.Bind("大小适配", "scale", 16);
 
-            autocleartrash_bool = Config.Bind("30s间隔自动清除垃圾", "autocleartrash_bool", false);
-            autoabsorttrash_bool = Config.Bind("30s间隔自动吸收垃圾", "autoabsorttrash_bool", false);
-            onlygetbuildings = Config.Bind("只回收建筑", "onlygetbuildings", false);
+                closeplayerflyaudio = Config.Bind("关闭玩家飞行声音", "closeplayerflyaudio", false);
+                BluePrintDelete = Config.Bind("蓝图删除", "BluePrintDelete", false);
+                BluePrintRevoke = Config.Bind("蓝图撤销", "BluePrintRevoke", false);
+                BluePrintSelectAll = Config.Bind("蓝图全选", "BluePrintSelectAll", false);
+                BluePrintSetRecipe = Config.Bind("蓝图配方", "BluePrintSetRecipe", false);
+                BluePrintCopyToPaste = Config.Bind("蓝图直接粘贴", "BluePrintCopyToPaste", false);
+                stationcopyItem_bool = Config.Bind("物流站复制物品配方", "stationcopyItem_bool", false);
 
-            autowarpcommand = Config.Bind("自动导航使用翘曲", "autowarpcommand", false);
-            close_alltip_bool = Config.Bind("关掉所有提示", "close_alltip_bool", false);
+                autocleartrash_bool = Config.Bind("30s间隔自动清除垃圾", "autocleartrash_bool", false);
+                autoabsorttrash_bool = Config.Bind("30s间隔自动吸收垃圾", "autoabsorttrash_bool", false);
+                onlygetbuildings = Config.Bind("只回收建筑", "onlygetbuildings", false);
 
-            autoAddwarp = Config.Bind("自动添加翘曲器", "autoAddwarp", false);
-            autoAddFuel = Config.Bind("自动添加燃料", "autoAddFuel", false);
-            autonavigation_bool = Config.Bind("自动导航", "autonavigation_bool", false);
-            autowarpdistance = Config.Bind("自动使用翘曲器距离", "autowarpdistance", 0f);
-            autoaddtech_bool = Config.Bind("自动添加科技队列", "autoaddtech_bool", false);
-            ShowStationInfo = Config.Bind("展示物流站信息", "ShowStationInfo", false);
+                autowarpcommand = Config.Bind("自动导航使用翘曲", "autowarpcommand", false);
+                close_alltip_bool = Config.Bind("关掉所有提示", "close_alltip_bool", false);
 
-            noscaleuitech_bool = Config.Bind("科技页面不缩放", "noscaleuitech_bool", false);
-            norender_shipdrone_bool = Config.Bind("不渲染飞机飞船", "norender_shipdrone_bool", false);
-            norender_lab_bool = Config.Bind("不渲染研究室", "norender_shipdrone_bool", false);
-            norender_beltitem = Config.Bind("不渲染传送带货物", "norender_beltitem", false);
-            norender_dysonshell_bool = Config.Bind("不渲染戴森壳", "norender_dysonshell_bool", false);
-            norender_dysonswarm_bool = Config.Bind("不渲染戴森云", "norender_dysonswarm_bool", false);
-            norender_entity_bool = Config.Bind("不渲染实体", "norender_entity_bool", false);
-            norender_powerdisk_bool = Config.Bind("不渲染电网覆盖", "norender_powerdisk_bool", false);
-            Quickstop_bool = Config.Bind("ctrl+空格开启暂停工厂和戴森球", "Quickstop_bool", false);
-            automovetounbuilt = Config.Bind("自动走向未完成建筑", "automovetounbuilt", false);
-            upsquickset = Config.Bind("快速设置逻辑帧倍数", "upsquickset", false);
-            autosetSomevalue_bool = Config.Bind("自动配置建筑", "autosetSomevalue_bool", false);
-            auto_supply_starfuel = Config.Bind("人造恒星自动填充燃料数量", "auto_supply_starfuel", 4);
-            autosavetimechange = Config.Bind("自动保存", "autosavetimechange", false);
-            KeepBeltHeight = Config.Bind("保持传送带高度", "KeepBeltHeight", false);
-            autosavetime = Config.Bind("自动保存时间", "autosavetime", 25);
-            CloseUIpanel = Config.Bind("关闭面板", "CloseUIpanel", true);
-            FuelFilterConfig = Config.Bind("自动填充燃料", "FuelFilterConfig", "");
-            autoClearEmptyDyson = Config.Bind("自动清除空戴森球", "autoClearEmptyDyson", false);
-            DysonPanelSingleLayer = Config.Bind("单层壳列表", "DysonPanelSingleLayer", true);
-            DysonPanelLayers = Config.Bind("多层壳列表", "DysonPanelLayers", true);
-            DysonPanelSwarm = Config.Bind("戴森云列表", "DysonPanelSwarm", true);
-            DysonPanelDysonSphere = Config.Bind("戴森壳列表", "DysonPanelDysonSphere", true);
+                autoAddwarp = Config.Bind("自动添加翘曲器", "autoAddwarp", false);
+                autoAddFuel = Config.Bind("自动添加燃料", "autoAddFuel", false);
+                autonavigation_bool = Config.Bind("自动导航", "autonavigation_bool", false);
+                autowarpdistance = Config.Bind("自动使用翘曲器距离", "autowarpdistance", 0f);
+                autoaddtech_bool = Config.Bind("自动添加科技队列", "autoaddtech_bool", false);
+                ShowStationInfo = Config.Bind("展示物流站信息", "ShowStationInfo", false);
 
+                noscaleuitech_bool = Config.Bind("科技页面不缩放", "noscaleuitech_bool", false);
+                norender_shipdrone_bool = Config.Bind("不渲染飞机飞船", "norender_shipdrone_bool", false);
+                norender_lab_bool = Config.Bind("不渲染研究室", "norender_lab_bool", false);
+                norender_beltitem = Config.Bind("不渲染传送带货物", "norender_beltitem", false);
+                norender_dysonshell_bool = Config.Bind("不渲染戴森壳", "norender_dysonshell_bool", false);
+                norender_dysonswarm_bool = Config.Bind("不渲染戴森云", "norender_dysonswarm_bool", false);
+                norender_entity_bool = Config.Bind("不渲染实体", "norender_entity_bool", false);
+                norender_powerdisk_bool = Config.Bind("不渲染电网覆盖", "norender_powerdisk_bool", false);
+                Quickstop_bool = Config.Bind("ctrl+空格开启暂停工厂和戴森球", "Quickstop_bool", false);
+                automovetounbuilt = Config.Bind("自动走向未完成建筑", "automovetounbuilt", false);
+                upsquickset = Config.Bind("快速设置逻辑帧倍数", "upsquickset", false);
+                autosetSomevalue_bool = Config.Bind("自动配置建筑", "autosetSomevalue_bool", false);
+                auto_supply_starfuel = Config.Bind("人造恒星自动填充燃料数量", "auto_supply_starfuel", 4);
+                autosavetimechange = Config.Bind("自动保存", "autosavetimechange", false);
+                KeepBeltHeight = Config.Bind("保持传送带高度", "KeepBeltHeight", false);
+                autosavetime = Config.Bind("自动保存时间", "autosavetime", 25);
+                CloseUIpanel = Config.Bind("关闭面板", "CloseUIpanel", true);
+                FuelFilterConfig = Config.Bind("自动填充燃料", "FuelFilterConfig", "");
+                autoClearEmptyDyson = Config.Bind("自动清除空戴森球", "autoClearEmptyDyson", false);
+                DysonPanelSingleLayer = Config.Bind("单层壳列表", "DysonPanelSingleLayer", true);
+                DysonPanelLayers = Config.Bind("多层壳列表", "DysonPanelLayers", true);
+                DysonPanelSwarm = Config.Bind("戴森云列表", "DysonPanelSwarm", true);
+                DysonPanelDysonSphere = Config.Bind("戴森壳列表", "DysonPanelDysonSphere", true);
+            }
+            
             scrollPosition[0] = 0;
             pdselectscrollPosition[0] = 0;
             mytexture = new Texture2D(10, 10);
@@ -329,15 +332,7 @@ namespace Auxilaryfunction
             styleyellow.fontSize = 20;
             styleyellow.normal.textColor = new Color32(240, 191, 103, 255);
             BeltMonitorWindowOpen();
-
-            ThreadPool.QueueUserWorkItem(o =>
-            {
-                LoadDysonBluePrintData();
-            });
-            ThreadPool.QueueUserWorkItem(o =>
-            {
-                TrashFunction();
-            });
+            LoadDysonBluePrintData();
         }
 
         void Update()
@@ -355,15 +350,16 @@ namespace Auxilaryfunction
                 StopAutoBuildThread();
                 readyresearch = new List<int>();
                 upsfix = 1;
+                autoaddtechid = 0;
             }
-            if (GameDataImported)
+            else
             {
                 if (firstStart)
                 {
                     firstStart = false;
                     ready = true;
                     EjectorDictionary = new Dictionary<int, List<int>>();
-                    techlist = new List<TechProto>(LDB.techs.dataArray);
+                    trashfunctiontime = Time.time;
                     foreach (StarData sd in GameMain.galaxy.stars)
                     {
                         foreach (PlanetData pd in sd.planets)
@@ -419,13 +415,14 @@ namespace Auxilaryfunction
                         CancelInvoke("AutoAddFuel");
                         autoAddFuel_start = false;
                     }
-                    if (GameMain.history.techQueueLength == 0 && autoaddtech_bool.Value && autoaddtechid > 0)
+                    if (autoaddtechid > 0 && GameMain.history.techQueueLength == 0 && autoaddtech_bool.Value)
                     {
                         GameMain.history.EnqueueTech(autoaddtechid);
                     }
                     StartAndStopGame();
                     BluePrintoptimize();
-                    BeltWindowUpdate();
+                    StationInfoWindowUpdate();
+                    TrashFunction();
                 }
 
                 for (int i = 0; i < readyresearch.Count && GameMain.history.techQueueLength < 7; i++)
@@ -980,16 +977,16 @@ namespace Auxilaryfunction
                         {
                             selectautoaddtechid = !selectautoaddtechid;
                         }
-                        if (techlist != null && selectautoaddtechid)
+                        if (LDB.techs.dataArray != null && selectautoaddtechid)
                         {
-                            for (int i = 0; i < techlist.Count; i++)
+                            for (int i = 0; i < LDB.techs.dataArray.Length; i++)
                             {
-                                TechState techstate = GameMain.history.techStates[techlist[i].ID];
+                                TechState techstate = GameMain.history.techStates[LDB.techs.dataArray[i].ID];
                                 if (techstate.curLevel < techstate.maxLevel && techstate.maxLevel > 10)
                                 {
-                                    if (GUILayout.Button(techlist[i].name + " " + techstate.curLevel + " " + techstate.maxLevel, buttonoptions))
+                                    if (GUILayout.Button(LDB.techs.dataArray[i].name + " " + techstate.curLevel + " " + techstate.maxLevel, buttonoptions))
                                     {
-                                        autoaddtechid = techlist[i].ID;
+                                        autoaddtechid = LDB.techs.dataArray[i].ID;
                                     }
                                 }
                             }
@@ -1676,7 +1673,7 @@ namespace Auxilaryfunction
                 tip[i] = Instantiate<GameObject>(tipPrefab, stationTip.transform);
         }
 
-        void BeltWindowUpdate()
+        void StationInfoWindowUpdate()
         {
             if (!ShowStationInfo.Value)
                 return;
@@ -2146,7 +2143,7 @@ namespace Auxilaryfunction
         {
             blueprintopen = false;
             //蓝图复制操作优化
-            if (player == null || player.controller.actionBuild == null)
+            if (player?.controller?.actionBuild == null)
             {
                 return;
             }
@@ -2401,13 +2398,9 @@ namespace Auxilaryfunction
         /// </summary>
         private void TrashFunction()
         {
-            while (true)
+            if(Time.time - trashfunctiontime > 30)
             {
-                Thread.Sleep(30000);
-                if (GameMain.data != null)
-                {
-                    continue;
-                }
+                trashfunctiontime=Time.time;
                 if (autoabsorttrash_bool.Value)
                 {
                     for (int i = 0; i < GameMain.data.trashSystem.container.trashCursor; i++)

@@ -94,8 +94,8 @@ namespace Auxilaryfunction
             TranslateDict.Add("30s间隔自动清除垃圾","Auto. clear Litter in 30s");
             TranslateDict.Add("改变窗口快捷键","Change Window shortcut");
             TranslateDict.Add("点击确认","Click to confirm");
-            TranslateDict.Add("生产加速", "Extra Products");
-            TranslateDict.Add("额外产出", "Production Speedup");
+            TranslateDict.Add("生产加速", "Production Speedup");
+            TranslateDict.Add("额外产出", "Extra Products");
 
             TranslateDict.Add("自动画最密戴森球","Auto. draw DysonSphere");
             TranslateDict.Add("缓慢最密画法","slow draw method");
