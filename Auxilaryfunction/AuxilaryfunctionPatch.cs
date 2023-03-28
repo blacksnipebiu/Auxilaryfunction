@@ -14,6 +14,13 @@ namespace Auxilaryfunction
 {
     public class AuxilaryfunctionPatch
     {
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(UIRoot), "OpenMainMenuUI")]
+        public static void UIMainMenu_Open()
+        {
+            Debug.Log(1);
+        }
+
         [HarmonyPrefix]
         [HarmonyPatch(typeof(GameLoader), "CreateLoader")]
         public static void GameLoaderCreateLoaderPrefix()
@@ -153,7 +160,7 @@ namespace Auxilaryfunction
                 if (__result.isStellar)
                 {
                     __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
-                    __result.warpEnableDist = stationwarpdist.Value * AU;
+                    __result.warpEnableDist = stationwarpdist.Value * GalaxyData.AU;
                     __result.deliveryShips = (int)(ShipStartCarry.Value * 10) * 10;
                     __result.idleShipCount = player.package.TakeItem(5002, auto_supply_ship.Value, out _);
                     __result.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
@@ -719,6 +726,86 @@ namespace Auxilaryfunction
             if (controller.actionFly.currentAltitude > 49 && controller.horzSpeed < 12.5)
             {
                 controller.velocity = (player.uPosition - LocalPlanet.uPosition).normalized * t++;
+            }
+        }
+
+
+        private static void FindItemAndMove(int itemId, int itemCount)
+        {
+            if (LocalPlanet == null || LocalPlanet.factory == null || LocalPlanet.gasItems != null) return;
+            if (LDB.items == null || LDB.items.Select(itemId) == null) return;
+            int packageGridLen = player.package.grids.Length;
+            int stackMax;
+            int stackSize = 0;
+            if (player.package.grids[packageGridLen - 1].count != 0)
+            {
+                player.package.Sort();
+            }
+            for (int i = packageGridLen - 1; i >= 0; i--, stackSize++)
+            {
+                if (player.package.grids[i].count != 0) break;
+            }
+            stackMax = LDB.items.Select(itemId).StackSize * stackSize;
+            itemCount = stackMax > itemCount ? itemCount : stackMax;
+            PlanetFactory pf = LocalPlanet.factory;
+
+            if (pf.transport != null && pf.transport.stationPool != null)
+            {
+                int result = 0;
+                int resultinc = 0;
+                foreach (StationComponent sc in pf.transport.stationPool)
+                {
+                    if (itemCount == 0) break;
+                    if (sc == null || sc.storage == null) continue;
+                    int tempItemCount = itemCount;
+                    int tempItemId = itemId;
+                    sc.TakeItem(ref tempItemId, ref tempItemCount, out int inc);
+                    result += tempItemCount;
+                    itemCount -= tempItemCount;
+                    resultinc += inc;
+                }
+                player.TryAddItemToPackage(itemId, result, resultinc, false);
+            }
+
+            if (pf.factoryStorage != null && pf.factoryStorage.storagePool != null)
+            {
+                if (pf.factoryStorage.storagePool != null)
+                {
+                    foreach (StorageComponent sc in pf.factoryStorage.storagePool)
+                    {
+                        if (itemCount == 0) break;
+                        if (sc != null)
+                        {
+                            int temp = sc.TakeItem(itemId, itemCount, out int inc);
+                            itemCount -= temp;
+                            if (temp > 0)
+                            {
+                                player.TryAddItemToPackage(itemId, temp, inc, false);
+                            }
+                        }
+                    }
+                }
+                if (pf.factoryStorage.tankPool != null)
+                {
+                    foreach (TankComponent tc in pf.factoryStorage.tankPool)
+                    {
+                        if (itemCount == 0) break;
+                        if (tc.id > 0 && tc.fluidId > 0 && tc.fluidCount > 0 && itemId == tc.fluidId)
+                        {
+                            int tempItemCount = tc.fluidCount > itemCount ? itemCount : tc.fluidCount;
+
+                            int inc = (int)(tc.fluidInc / tc.fluidCount + 0.5) * tempItemCount;
+                            pf.factoryStorage.tankPool[tc.id].fluidCount -= tempItemCount;
+                            pf.factoryStorage.tankPool[tc.id].fluidInc -= inc;
+
+                            itemCount -= tempItemCount;
+                            if (tempItemCount > 0)
+                            {
+                                player.TryAddItemToPackage(itemId, tempItemCount, inc, false);
+                            }
+                        }
+                    }
+                }
             }
         }
     }

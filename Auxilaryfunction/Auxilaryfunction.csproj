@@ -91,6 +91,9 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Services\DysonBluePrintDataService.cs" />
+    <Compile Include="Services\GUIService.cs" />
+    <Compile Include="Services\TechService.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">
