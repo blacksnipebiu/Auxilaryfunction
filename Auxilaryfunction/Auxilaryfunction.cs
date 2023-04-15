@@ -24,7 +24,7 @@ namespace Auxilaryfunction
         public static string ErrorTitle = "辅助面板错误提示";
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.0.3";
+        public const string VERSION = "2.0.4";
         public static int stationindex = 4;
         public static int locallogic;
         public static int remotelogic = 2;
@@ -379,57 +379,35 @@ namespace Auxilaryfunction
         public static void AddDroneShipToStation()
         {
             if (LocalPlanet == null || LocalPlanet.type == EPlanetType.Gas) return;
-            int inc;
+            int autoCourierValue = auto_supply_Courier.Value;
+            int autoShipValue = auto_supply_ship.Value;
+            int autoDroneValue = auto_supply_drone.Value;
+            int autoWrapValue = auto_supply_warp.Value;
             foreach (var dc in LocalPlanet.factory.transport.dispenserPool)
             {
                 if (dc == null) continue;
-                if (dc.idleCourierCount + dc.workCourierCount < auto_supply_Courier.Value)
-                {
-                    dc.idleCourierCount += player.package.TakeItem(5003, auto_supply_Courier.Value - dc.idleCourierCount + dc.workCourierCount, out _);
-                }
+
+                int needCourierNum = autoCourierValue- dc.idleCourierCount - dc.workCourierCount;
+                if (needCourierNum > 0)
+                    dc.idleCourierCount += player.package.TakeItem(5003, needCourierNum, out _);
             }
             foreach (StationComponent sc in LocalPlanet.factory.transport.stationPool)
             {
                 if (sc == null || sc.isVeinCollector) continue;
-                if (sc.isStellar && sc.workShipCount + sc.idleShipCount < auto_supply_ship.Value)
-                    sc.idleShipCount += player.package.TakeItem(5002, auto_supply_ship.Value - sc.workShipCount - sc.idleShipCount, out inc);
-                if (sc.isStellar)
-                {
-                    if (sc.workDroneCount + sc.idleDroneCount < auto_supply_drone.Value)
-                        sc.idleDroneCount += player.package.TakeItem(5001, auto_supply_drone.Value - sc.workDroneCount - sc.idleDroneCount, out inc);
-                }
-                else
-                {
-                    int tempdrone = auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value;
-                    if (sc.workDroneCount + sc.idleDroneCount < tempdrone)
-                        sc.idleDroneCount += player.package.TakeItem(5001, tempdrone - sc.workDroneCount - sc.idleDroneCount, out inc);
-                }
-                if (sc.warperCount < auto_supply_warp.Value)
-                    sc.warperCount += player.package.TakeItem(1210, auto_supply_warp.Value - sc.warperCount, out inc);
-            }
-            foreach (StationComponent sc in LocalPlanet.factory.transport.stationPool)
-            {
-                if (sc == null) continue;
-                if (sc.isStellar && sc.workShipCount + sc.idleShipCount > 10)
-                {
-                    player.package.AddItem(5002, sc.workShipCount + sc.idleShipCount - 10, 0, out inc);
-                    sc.idleShipCount -= sc.workShipCount + sc.idleShipCount - 10;
-                }
-                if (sc.isStellar)
-                {
-                    if (sc.workDroneCount + sc.idleDroneCount > 100)
-                    {
-                        sc.idleDroneCount -= sc.workDroneCount + sc.idleDroneCount - 100;
-                    }
-                }
-                else
-                {
-                    if (sc.workDroneCount + sc.idleDroneCount > 50)
-                    {
-                        player.package.TakeItem(5001, sc.workDroneCount + sc.idleDroneCount - 50, out inc);
-                        sc.idleDroneCount -= sc.workDroneCount + sc.idleDroneCount - 50;
-                    }
-                }
+
+                int dronelimit = sc.isStellar ? 100 : 50;
+                int tempdrone = autoDroneValue > dronelimit ? dronelimit : autoDroneValue;
+                int needDroneNum = tempdrone - sc.workDroneCount - sc.idleDroneCount;
+                if (needDroneNum > 0)
+                    sc.idleDroneCount += player.package.TakeItem(5001, needDroneNum, out _);
+
+                int needShipNum = autoShipValue - sc.idleShipCount - sc.workShipCount;
+                if (sc.isStellar && needShipNum > 0)
+                    sc.idleShipCount += player.package.TakeItem(5002, needShipNum, out _);
+
+                int needWrapNum = autoWrapValue - sc.warperCount;
+                if (needWrapNum>0)
+                    sc.warperCount += player.package.TakeItem(1210, needWrapNum, out _);
             }
         }
 
