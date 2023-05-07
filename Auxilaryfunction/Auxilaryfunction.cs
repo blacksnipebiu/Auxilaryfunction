@@ -21,10 +21,10 @@ namespace Auxilaryfunction
     [BepInPlugin(GUID, NAME, VERSION)]
     public class Auxilaryfunction : BaseUnityPlugin
     {
-        public static string ErrorTitle = "辅助面板错误提示";
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.0.4";
+        public const string VERSION = "2.0.6";
+        public static string ErrorTitle = "辅助面板错误提示";
         public static int stationindex = 4;
         public static int locallogic;
         public static int remotelogic = 2;
@@ -233,12 +233,39 @@ namespace Auxilaryfunction
 
         void Update()
         {
+            AutoSaveTimeChange();
+            GameUpdate();
+            ChangeQuickKeyMethod();
+            GUIUpdate();
+            if (upsquickset.Value)
+            {
+                if (Input.GetKey(KeyCode.LeftShift))
+                {
+                    if (Input.GetKey(KeyCode.KeypadPlus)) upsfix += 0.01f;
+                    if (Input.GetKey(KeyCode.KeypadMinus)) upsfix -= 0.01f;
+                    if (upsfix < 0.01) upsfix = 0.01f;
+                    else if (upsfix > 10) upsfix = 10;
+                }
+            }
+        }
+
+        private void OnGUI()
+        {
+            OnGUIOpen();
+        }
+
+        private void AutoSaveTimeChange()
+        {
             if (autosavetimechange.Value && UIAutoSave.autoSaveTime != autosavetime.Value)
             {
                 DSPGame.globalOption.autoSaveTime = autosavetime.Value;
                 DSPGame.globalOption.Apply();
                 UIAutoSave.autoSaveTime = autosavetime.Value;
             }
+        }
+
+        private void GameUpdate()
+        {
             if (!GameDataImported)
             {
                 firstStart = true;
@@ -248,6 +275,7 @@ namespace Auxilaryfunction
                 upsfix = 1;
                 autoaddtechid = 0;
                 blueprintopen = false;
+                simulatorrender = false;
             }
             else
             {
@@ -290,7 +318,7 @@ namespace Auxilaryfunction
                         CancelInvoke("AutoAddFuel");
                         autoAddFuel_start = false;
                     }
-                    if (autoaddtechid > 0 && GameMain.history.techQueueLength == 0 && autoaddtech_bool.Value)
+                    if (autoaddtech_bool.Value && autoaddtechid > 0 && GameMain.history!=null && GameMain.history.techQueueLength == 0 )
                     {
                         GameMain.history.EnqueueTech(autoaddtechid);
                     }
@@ -302,24 +330,6 @@ namespace Auxilaryfunction
                 }
 
             }
-
-            ChangeQuickKeyMethod();
-            GUIUpdate();
-            if (upsquickset.Value)
-            {
-                if (Input.GetKey(KeyCode.LeftShift))
-                {
-                    if (Input.GetKey(KeyCode.KeypadPlus)) upsfix += 0.01f;
-                    if (Input.GetKey(KeyCode.KeypadMinus)) upsfix -= 0.01f;
-                    if (upsfix < 0.01) upsfix = 0.01f;
-                    else if (upsfix > 10) upsfix = 10;
-                }
-            }
-        }
-
-        private void OnGUI()
-        {
-            OnGUIOpen();
         }
 
         /// <summary>

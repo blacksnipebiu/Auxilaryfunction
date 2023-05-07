@@ -130,7 +130,6 @@ namespace Auxilaryfunction.Services
 
         public static void GUIUpdate()
         {
-
             if (QuickKey.Value.IsDown() && !ChangingQuickKey && ready)
             {
                 showwindow = !showwindow;
