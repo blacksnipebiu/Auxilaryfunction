@@ -3,19 +3,18 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
-using static UnityEngine.Object;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
+using System.Threading;
+using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.UI;
+using static Auxilaryfunction.Auxilaryfunction;
 using static Auxilaryfunction.Constant;
 using static Auxilaryfunction.Services.DysonBluePrintDataService;
 using static Auxilaryfunction.Services.TechService;
-using static Auxilaryfunction.Auxilaryfunction;
-using UnityEngine;
-using System.Text.RegularExpressions;
-using UnityEngine.UI;
-using System.Threading;
-using UnityEngine.Events;
-using System.Reflection;
+using static UnityEngine.Object;
 
 namespace Auxilaryfunction.Services
 {
@@ -24,9 +23,7 @@ namespace Auxilaryfunction.Services
         private int TechPanelBluePrintNum;
         public static float max_window_height = 710;
         private static bool DeleteDysonLayer;
-        public static bool changescale;
         public static GameObject ui_AuxilaryPanelPanel;
-        public static int autoaddtechid;
         public static int recipewindowx;
         public static int recipewindowy;
         public static int[] locallogics = new int[5];
@@ -58,23 +55,61 @@ namespace Auxilaryfunction.Services
         public static float temp_window_y = 200;
         public static float window_x = 300;
         public static float window_y = 200;
-        public static float window_width = 830;
-        public static float window_height = 0;
+        static float _windowwitdth;
+        public static float Windowwidth
+        {
+            get => _windowwitdth;
+            set
+            {
+                if (_windowwitdth != value)
+                {
+                    _windowwitdth = value;
+                    window_width.Value = value;
+                }
+            }
+        }
+        static float _windowheight;
+        public static float Windowheight
+        {
+            get => _windowheight;
+            set
+            {
+                if (_windowheight != value)
+                {
+                    _windowheight = value;
+                    window_height.Value = value;
+                }
+            }
+        }
         public static List<float[]> boundaries = new List<float[]>();
-        public static GUIStyle styleblue = new GUIStyle();
-        public static GUIStyle styleyellow = new GUIStyle();
-        public static GUIStyle styleitemname = null;
-        public static GUIStyle buttonstyleyellow = null;
-        public static GUIStyle buttonstyleblue = null;
-        public static GameObject AuxilaryPanel;
+        static GUIStyle styleblue = new GUIStyle();
+        static GUIStyle styleyellow = new GUIStyle();
+        static GUIStyle styleitemname = null;
+        static GUIStyle buttonstyleyellow = null;
+        static GUIStyle buttonstyleblue = null;
+        static GUIStyle labelstyle = null;
+        static GameObject AuxilaryPanel;
+        static GUILayoutOption[] HorizontalSlideroptions;
+        static GUILayoutOption[] buttonoptions;
 
-
+        private static int baseSize;
+        public static int BaseSize
+        {
+            get => baseSize;
+            set
+            {
+                baseSize = value;
+                scale.Value = value;
+                firstopen = true;
+            }
+        }
 
         public static void Init()
         {
             AuxilaryPanel = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.auxilarypanel")).LoadAsset<GameObject>("AuxilaryPanel");
-
             autosetstationconfig = true;
+            Windowwidth = window_width.Value;
+            Windowheight = window_height.Value;
             mytexture = new Texture2D(10, 10);
             for (int i = 0; i < mytexture.width; i++)
                 for (int j = 0; j < mytexture.height; j++)
@@ -139,28 +174,29 @@ namespace Auxilaryfunction.Services
             }
             if (showwindow && Input.GetKey(KeyCode.LeftControl))
             {
-                if (Input.GetKeyDown(KeyCode.UpArrow)) { scale.Value++; changescale = true; window_height = 52 * scale.Value; }
-                if (Input.GetKeyDown(KeyCode.DownArrow)) { scale.Value--; changescale = true; window_height = 52 * scale.Value; }
-                if (scale.Value < 5) scale.Value = 5;
-                if (scale.Value > 35) scale.Value = 35;
+                int t = (int)(Input.GetAxis("Mouse Wheel") * 10);
+                int temp = BaseSize + t;
+                if (Input.GetKeyDown(KeyCode.UpArrow)) { temp++; }
+                if (Input.GetKeyDown(KeyCode.DownArrow)) { temp--; }
+                temp = Math.Max(5, Math.Min(temp, 35));
+                BaseSize = temp;
             }
         }
-
         public static void OnGUIOpen()
         {
-            if (changescale || firstopen)
+            if (firstopen)
             {
-                changescale = false;
                 firstopen = false;
-                GUI.skin.label.fontSize = scale.Value;
-                GUI.skin.button.fontSize = scale.Value;
-                GUI.skin.toggle.fontSize = scale.Value;
-                GUI.skin.textField.fontSize = scale.Value;
-                GUI.skin.textArea.fontSize = scale.Value;
-            }
-            else if (!changescale && GUI.skin.toggle.fontSize != scale.Value)
-            {
-                scale.Value = GUI.skin.toggle.fontSize;
+                GUI.skin.label.fontSize = BaseSize;
+                GUI.skin.button.fontSize = BaseSize;
+                GUI.skin.toggle.fontSize = BaseSize;
+                GUI.skin.textField.fontSize = BaseSize;
+                GUI.skin.textArea.fontSize = BaseSize;
+                labelstyle = new GUIStyle(GUI.skin.label);
+                labelstyle.fontSize = BaseSize - 3;
+                labelstyle.normal.textColor = GUI.skin.toggle.normal.textColor;
+                HorizontalSlideroptions = new[] { GUILayout.ExpandWidth(false), GUILayout.Height(BaseSize), GUILayout.Width(BaseSize * 10) };
+                buttonoptions = new[] { GUILayout.Height(BaseSize * 2), GUILayout.ExpandWidth(false) };
             }
             if (styleitemname == null)
             {
@@ -174,22 +210,22 @@ namespace Auxilaryfunction.Services
             if (showwindow)
             {
                 var rt = ui_AuxilaryPanelPanel.GetComponent<RectTransform>();
-                rt.sizeDelta = new Vector2(window_width, window_height);
-                rt.localPosition = new Vector2(-Screen.width / 2 + window_x, Screen.height / 2 - window_y - window_height);
+                rt.sizeDelta = new Vector2(Windowwidth, Windowheight);
+                rt.localPosition = new Vector2(-Screen.width / 2 + window_x, Screen.height / 2 - window_y - Windowheight);
                 //ui_StarMapToolsBasePanel.transform. = new Vector3(window_width, window_height , 1);
-                Rect window = new Rect(window_x, window_y, window_width, window_height);
+                Rect window = new Rect(window_x, window_y, Windowwidth, Windowheight);
                 GUI.DrawTexture(window, mytexture);
                 if (leftscaling || rightscaling || topscaling || bottomscaling) { }
                 else
-                    MoveWindow_xl_first(ref window_x, ref window_y, ref window_x_move, ref window_y_move, ref moving, ref temp_window_x, ref temp_window_y, window_width);
-                Scaling_window(window_width, window_height, ref window_x, ref window_y);
+                    MoveWindow_xl_first(ref window_x, ref window_y, ref window_x_move, ref window_y_move, ref moving, ref temp_window_x, ref temp_window_y, Windowwidth);
+                Scaling_window(Windowwidth, Windowheight, ref window_x, ref window_y);
                 window = GUI.Window(20210827, window, DoMyWindow1, "辅助面板".getTranslate() + "(" + VERSION + ")" + "ps:ctrl+↑↓");
-                int window2width = Localization.language != Language.zhCN ? 15 * scale.Value : 15 * scale.Value / 2;
-                Rect switchwindow = new Rect(window_x - window2width, window_y, window2width, 25 * scale.Value);
+                int window2width = Localization.language != Language.zhCN ? 15 * BaseSize : 15 * BaseSize / 2;
+                Rect switchwindow = new Rect(window_x - window2width, window_y, window2width, 25 * BaseSize);
                 if (leftscaling || rightscaling || topscaling || bottomscaling) { }
                 else
-                    MoveWindow_xl_first(ref window_x, ref window_y, ref window_x_move, ref window_y_move, ref moving, ref temp_window_x, ref temp_window_y, window_width);
-                Scaling_window(window_width, window_height, ref window_x, ref window_y);
+                    MoveWindow_xl_first(ref window_x, ref window_y, ref window_x_move, ref window_y_move, ref moving, ref temp_window_x, ref temp_window_y, Windowwidth);
+                Scaling_window(Windowwidth, Windowheight, ref window_x, ref window_y);
                 switchwindow = GUI.Window(202108228, switchwindow, DoMyWindow2, "");
                 GUI.DrawTexture(switchwindow, mytexture);
             }
@@ -415,7 +451,7 @@ namespace Auxilaryfunction.Services
                         }
                         stationpools.Clear();
                     }
-                    int heightdis = scale.Value * 2;
+                    int heightdis = BaseSize * 2;
                     GUILayout.BeginArea(new Rect(recipewindowx, Screen.height - recipewindowy + tempheight++ * 50, heightdis * 15, heightdis * 10));
                     {
                         GUILayout.BeginVertical();
@@ -461,7 +497,7 @@ namespace Auxilaryfunction.Services
                 {
                     PlanetFactory factory = LocalPlanet.factory;
                     tempwidth = 0;
-                    GUILayout.BeginArea(new Rect(recipewindowx, Screen.height - recipewindowy, scale.Value * 10, scale.Value * 10));
+                    GUILayout.BeginArea(new Rect(recipewindowx, Screen.height - recipewindowy, BaseSize * 10, BaseSize * 10));
                     GUILayout.BeginVertical();
                     if (GUILayout.Button("直接发电".getTranslate()))
                     {
@@ -678,6 +714,7 @@ namespace Auxilaryfunction.Services
             else
                 stationTip.SetActive(false);
         }
+
         private static void BeltMonitorWindowOpen()
         {
             # region BeltWindow
@@ -880,8 +917,8 @@ namespace Auxilaryfunction.Services
 
         private static void DoMyWindow2(int winId)
         {
-            int heightdis = scale.Value * 2;
-            int widthlen2 = Localization.language != Language.zhCN ? 15 * scale.Value : 9 * scale.Value;
+            int heightdis = BaseSize * 2;
+            int widthlen2 = Localization.language != Language.zhCN ? 15 * BaseSize : 9 * BaseSize;
             GUILayout.BeginArea(new Rect(10, 20, widthlen2, 400));
             if (TextTech != GUI.Toggle(new Rect(0, 10, widthlen2, heightdis), TextTech, "文字科技树".getTranslate()))
             {
@@ -904,8 +941,7 @@ namespace Auxilaryfunction.Services
         }
         private static void DoMyWindow1(int winId)
         {
-            int heightdis = scale.Value * 2;
-            if (window_height == 0) window_height = 26 * heightdis;
+            int heightdis = BaseSize * 2;
             if (TextTech)
             {
                 TextTechPanelGUI(heightdis);
@@ -916,12 +952,9 @@ namespace Auxilaryfunction.Services
             }
             else
             {
-                GUILayout.BeginArea(new Rect(10, 20, window_width, window_height));
-                GUILayout.Space(20);
-                scrollPosition = GUILayout.BeginScrollView(scrollPosition, new[] { GUILayout.Width(window_width), GUILayout.Height(window_height) });
+                GUILayout.BeginArea(new Rect(10, 20, Windowwidth - 30, Windowheight));
+                scrollPosition = GUILayout.BeginScrollView(scrollPosition);
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(false));
-                GUILayoutOption[] HorizontalSlideroptions = new[] { GUILayout.ExpandWidth(false), GUILayout.Height(heightdis / 2), GUILayout.Width(heightdis * 5) };
-                GUILayoutOption[] buttonoptions = new[] { GUILayout.Height(heightdis), GUILayout.ExpandWidth(false) };
                 GUILayout.Space(20);
                 GUILayout.BeginVertical();
                 {
@@ -984,9 +1017,6 @@ namespace Auxilaryfunction.Services
                                     showinfo = veincollectorspeed.Value / 10.0f + " ";
                                     break;
                             }
-                            GUIStyle labelstyle = new GUIStyle(GUI.skin.label);
-                            labelstyle.fontSize = scale.Value - 3;
-                            labelstyle.normal.textColor = GUI.skin.toggle.normal.textColor;
                             GUILayout.Label(showinfo + ConfigNames[i].getTranslate(), labelstyle, buttonoptions);
                             GUILayout.EndHorizontal();
                         }
@@ -1010,17 +1040,39 @@ namespace Auxilaryfunction.Services
                     closeplayerflyaudio.Value = GUILayout.Toggle(closeplayerflyaudio.Value, "关闭玩家走路飞行声音".getTranslate());
                 }
                 GUILayout.EndVertical();
+                GUILayout.Space(20);
 
                 GUILayout.BeginVertical();
                 {
                     if (autoaddtech_bool.Value != GUILayout.Toggle(autoaddtech_bool.Value, "自动添加科技队列".getTranslate(), buttonoptions))
                     {
                         autoaddtech_bool.Value = !autoaddtech_bool.Value;
-                        if (!autoaddtech_bool.Value) autoaddtechid = 0;
+                        if (!autoaddtech_bool.Value) auto_add_techid.Value = 0;
                     }
                     if (autoaddtech_bool.Value)
                     {
-                        if (GUILayout.Button(LDB.techs.Select(autoaddtechid) == null ? "未选择".getTranslate() : LDB.techs.Select(autoaddtechid).name, buttonoptions))
+                        GUILayout.Label("自动添加科技等级上限".getTranslate() + ":");
+                        string t = GUILayout.TextField(auto_add_techmaxLevel.Value.ToString(), new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 3) });
+                        bool reset = !int.TryParse(Regex.Replace(t, @"^[^0-9]", ""), out int maxlevel);
+                        if (maxlevel != 0)
+                        {
+                            auto_add_techmaxLevel.Value = maxlevel;
+                        }
+                        var pointtech = LDB.techs.Select(auto_add_techid.Value);
+                        var name = "未选择".getTranslate();
+                        if (pointtech != null)
+                        {
+                            TechState techstate = GameMain.history.techStates[pointtech.ID];
+                            if (techstate.curLevel != techstate.maxLevel)
+                            {
+                                name = pointtech.name + "level" + techstate.curLevel;
+                            }
+                            if (reset)
+                            {
+                                auto_add_techmaxLevel.Value = techstate.maxLevel;
+                            }
+                        }
+                        if (GUILayout.Button(name, buttonoptions))
                         {
                             selectautoaddtechid = !selectautoaddtechid;
                         }
@@ -1033,7 +1085,7 @@ namespace Auxilaryfunction.Services
                                 {
                                     if (GUILayout.Button(LDB.techs.dataArray[i].name + " " + techstate.curLevel + " " + techstate.maxLevel, buttonoptions))
                                     {
-                                        autoaddtechid = LDB.techs.dataArray[i].ID;
+                                        auto_add_techid.Value = LDB.techs.dataArray[i].ID;
                                     }
                                 }
                             }
@@ -1117,6 +1169,7 @@ namespace Auxilaryfunction.Services
                     }
                 }
                 GUILayout.EndVertical();
+                GUILayout.Space(20);
 
                 GUILayout.BeginVertical();
                 {
@@ -1170,7 +1223,7 @@ namespace Auxilaryfunction.Services
                 GUILayout.EndVertical();
 
                 GUILayout.EndHorizontal();
-                GUI.EndScrollView();
+                GUILayout.EndScrollView();
                 GUILayout.EndArea();
 
             }
@@ -1178,10 +1231,10 @@ namespace Auxilaryfunction.Services
         private static void TextTechPanelGUI(int heightdis)
         {
             int tempheight = 0;
-            scrollPosition = GUI.BeginScrollView(new Rect(10, 20, window_width - 20, window_height - 30), scrollPosition, new Rect(0, 0, window_width - 20, max_window_height));
+            scrollPosition = GUI.BeginScrollView(new Rect(10, 20, Windowwidth - 20, Windowheight - 30), scrollPosition, new Rect(0, 0, Windowwidth - 20, max_window_height));
 
             int buttonwidth = heightdis * 5;
-            int colnum = (int)window_width / buttonwidth;
+            int colnum = (int)Windowwidth / buttonwidth;
             var propertyicon = UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture;
             GUI.Label(new Rect(0, 0, heightdis * 10, heightdis), "准备研究".getTranslate());
             int i = 0;
@@ -1310,10 +1363,10 @@ namespace Auxilaryfunction.Services
                 }
             }
 
-            GUILayout.BeginArea(new Rect(10, 20, window_width, window_height));
+            GUILayout.BeginArea(new Rect(10, 20, Windowwidth, Windowheight));
             {
                 #region 左侧面板
-                GUILayout.BeginArea(new Rect(10, 0, window_width / 2, window_height));
+                GUILayout.BeginArea(new Rect(10, 0, Windowwidth / 2, Windowheight));
                 GUILayout.BeginVertical();
                 GUILayout.Label("选择一个蓝图后，点击右侧的层级可以自动导入".getTranslate());
                 if (GUILayout.Button("打开戴森球蓝图文件夹".getTranslate(), new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 10) }))
@@ -1330,8 +1383,8 @@ namespace Auxilaryfunction.Services
                     selectDysonBlueprintData.path = "";
                     LoadDysonBluePrintData();
                 }
-                GUILayout.BeginArea(new Rect(0, 3 * heightdis, window_width / 2, window_height));
-                scrollPosition = GUI.BeginScrollView(new Rect(0, 0, window_width / 2 - 20, window_height - 4 * heightdis), scrollPosition, new Rect(0, 0, window_width / 2 - 40, Math.Max((4 + DysonPanelBluePrintNum) * (heightdis + 4), window_height - 4 * heightdis)));
+                GUILayout.BeginArea(new Rect(0, 3 * heightdis, Windowwidth / 2, Windowheight));
+                scrollPosition = GUI.BeginScrollView(new Rect(0, 0, Windowwidth / 2 - 20, Windowheight - 4 * heightdis), scrollPosition, new Rect(0, 0, Windowwidth / 2 - 40, Math.Max((4 + DysonPanelBluePrintNum) * (heightdis + 4), Windowheight - 4 * heightdis)));
 
                 GUILayout.BeginVertical();
                 DysonPanelBluePrintNum = 0;
@@ -1430,7 +1483,7 @@ namespace Auxilaryfunction.Services
                 GUILayout.EndArea();
                 #endregion
                 #region 右侧面板
-                GUILayout.BeginArea(new Rect(10 + window_width / 2, 0, window_width / 2, window_height));
+                GUILayout.BeginArea(new Rect(10 + Windowwidth / 2, 0, Windowwidth / 2, Windowheight));
                 int lineIndex = 0;
 
                 if (GUI.Button(new Rect(0, lineIndex++ * heightdis, heightdis * 10, heightdis), "复制选中文件代码".getTranslate()))
@@ -1527,7 +1580,7 @@ namespace Auxilaryfunction.Services
         private static void MoveWindow_xl_first(ref float x, ref float y, ref float x_move, ref float y_move, ref bool movewindow, ref float tempx, ref float tempy, float x_width)
         {
             Vector2 temp = Input.mousePosition;
-            if (temp.x > x && temp.x < x + x_width && Screen.height- temp.y > y && Screen.height- temp.y < y + 20)
+            if (temp.x > x && temp.x < x + x_width && Screen.height - temp.y > y && Screen.height - temp.y < y + 20)
             {
                 if (Input.GetMouseButton(0))
                 {
@@ -1536,11 +1589,11 @@ namespace Auxilaryfunction.Services
                         x_move = x;
                         y_move = y;
                         tempx = temp.x;
-                        tempy = Screen.height- temp.y;
+                        tempy = Screen.height - temp.y;
                     }
                     movewindow = true;
                     x = x_move + temp.x - tempx;
-                    y = y_move + (Screen.height- temp.y) - tempy;
+                    y = y_move + (Screen.height - temp.y) - tempy;
                 }
                 else
                 {
@@ -1553,7 +1606,7 @@ namespace Auxilaryfunction.Services
             {
                 movewindow = false;
                 x = x_move + temp.x - tempx;
-                y = y_move + (Screen.height- temp.y) - tempy;
+                y = y_move + (Screen.height - temp.y) - tempy;
             }
         }
 
@@ -1562,30 +1615,30 @@ namespace Auxilaryfunction.Services
             Vector2 temp = Input.mousePosition;
             if (Input.GetMouseButton(0))
             {
-                if ((temp.x + 10 > x_move && temp.x - 10 < x_move) && (Screen.height- temp.y >= y_move && Screen.height- temp.y <= y_move + y) || leftscaling)
+                if ((temp.x + 10 > x_move && temp.x - 10 < x_move) && (Screen.height - temp.y >= y_move && Screen.height - temp.y <= y_move + y) || leftscaling)
                 {
                     x -= temp.x - x_move;
                     x_move = temp.x;
                     leftscaling = true;
                     rightscaling = false;
                 }
-                if ((temp.x + 10 > x_move + x && temp.x - 10 < x_move + x) && (Screen.height- temp.y >= y_move && Screen.height- temp.y <= y_move + y) || rightscaling)
+                if ((temp.x + 10 > x_move + x && temp.x - 10 < x_move + x) && (Screen.height - temp.y >= y_move && Screen.height - temp.y <= y_move + y) || rightscaling)
                 {
                     x += temp.x - x_move - x;
                     rightscaling = true;
                     leftscaling = false;
                 }
-                if ((Screen.height- temp.y + 10 > y + y_move && Screen.height- temp.y - 10 < y + y_move) && (temp.x >= x_move && temp.x <= x_move + x) || bottomscaling)
+                if ((Screen.height - temp.y + 10 > y + y_move && Screen.height - temp.y - 10 < y + y_move) && (temp.x >= x_move && temp.x <= x_move + x) || bottomscaling)
                 {
-                    y += Screen.height- temp.y - (y_move + y);
+                    y += Screen.height - temp.y - (y_move + y);
                     bottomscaling = true;
                 }
                 if (rightscaling || leftscaling)
                 {
-                    if ((Screen.height- temp.y + 10 > y_move && Screen.height- temp.y - 10 < y_move) && (temp.x >= x_move && temp.x <= x_move + x) || topscaling)
+                    if ((Screen.height - temp.y + 10 > y_move && Screen.height - temp.y - 10 < y_move) && (temp.x >= x_move && temp.x <= x_move + x) || topscaling)
                     {
-                        y -= Screen.height- temp.y - y_move;
-                        y_move = Screen.height- temp.y;
+                        y -= Screen.height - temp.y - y_move;
+                        y_move = Screen.height - temp.y;
                         topscaling = true;
                     }
                 }
@@ -1597,8 +1650,8 @@ namespace Auxilaryfunction.Services
                 bottomscaling = false;
                 topscaling = false;
             }
-            window_width = x;
-            window_height = y;
+            Windowwidth = x;
+            Windowheight = y;
         }
     }
 }

@@ -1,14 +1,9 @@
-﻿using BepInEx;
-using HarmonyLib;
-using UnityEngine;
+﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
-using BepInEx.Configuration;
-using System.Text.RegularExpressions;
-using UnityEngine.UI;
-using UnityEngine.Events;
-using static Auxilaryfunction.Auxilaryfunction;
 using System.Threading;
+using UnityEngine;
+using static Auxilaryfunction.Auxilaryfunction;
 
 namespace Auxilaryfunction
 {
@@ -18,7 +13,7 @@ namespace Auxilaryfunction
         [HarmonyPatch(typeof(UIRoot), "OpenMainMenuUI")]
         public static void UIMainMenu_Open()
         {
-            Debug.Log(1);
+
         }
 
         [HarmonyPrefix]

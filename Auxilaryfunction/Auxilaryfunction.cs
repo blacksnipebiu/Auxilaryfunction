@@ -1,20 +1,15 @@
-﻿using BepInEx;
-using HarmonyLib;
-using UnityEngine;
-using System;
-using System.Linq;
-using System.Collections.Generic;
+﻿using Auxilaryfunction.Services;
+using BepInEx;
 using BepInEx.Configuration;
-using System.Text.RegularExpressions;
-using UnityEngine.UI;
-using UnityEngine.Events;
-using static Auxilaryfunction.Constant;
-using static Auxilaryfunction.Services.GUIService;
+using HarmonyLib;
+using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
-using System.IO;
-using System.Text;
-using Auxilaryfunction.Services;
+using UnityEngine;
+using UnityEngine.UI;
+using static Auxilaryfunction.Constant;
+using static Auxilaryfunction.Services.GUIService;
 
 namespace Auxilaryfunction
 {
@@ -23,7 +18,7 @@ namespace Auxilaryfunction
     {
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.0.6";
+        public const string VERSION = "2.0.7";
         public static string ErrorTitle = "辅助面板错误提示";
         public static int stationindex = 4;
         public static int locallogic;
@@ -81,6 +76,8 @@ namespace Auxilaryfunction
         public static bool autobuildgetitem;
         public static readonly FieldInfo _uiGridSplit_sliderImg = AccessTools.Field(typeof(UIGridSplit), "sliderImg");
         public static readonly FieldInfo _uiGridSplit_valueText = AccessTools.Field(typeof(UIGridSplit), "valueText");
+
+        #region 配置菜单
         public static ConfigEntry<bool> autoClearEmptyDyson;
         public static ConfigEntry<bool> closeplayerflyaudio;
         public static ConfigEntry<bool> autosetSomevalue_bool;
@@ -121,6 +118,8 @@ namespace Auxilaryfunction
         public static ConfigEntry<bool> DysonPanelSwarm;
         public static ConfigEntry<bool> DysonPanelDysonSphere;
         public static ConfigEntry<KeyboardShortcut> QuickKey;
+        public static ConfigEntry<int> auto_add_techid;
+        public static ConfigEntry<int> auto_add_techmaxLevel;
         public static ConfigEntry<int> auto_supply_Courier;
         public static ConfigEntry<int> stationdronedist;
         public static ConfigEntry<int> autosavetime;
@@ -130,11 +129,16 @@ namespace Auxilaryfunction
         public static ConfigEntry<int> auto_supply_ship;
         public static ConfigEntry<int> auto_supply_warp;
         public static ConfigEntry<int> veincollectorspeed;
+        public static ConfigEntry<float> window_width;
+        public static ConfigEntry<float> window_height;
         public static ConfigEntry<float> stationmaxpowerpertick;
         public static ConfigEntry<float> autowarpdistance;
         public static ConfigEntry<float> DroneStartCarry;
         public static ConfigEntry<float> ShipStartCarry;
         public static ConfigEntry<string> FuelFilterConfig;
+        #endregion
+
+
         public static Thread autobuildThread;
 
         public static int maxCount = 0;
@@ -190,6 +194,8 @@ namespace Auxilaryfunction
                 autonavigation_bool = Config.Bind("自动导航", "autonavigation_bool", false);
                 autowarpdistance = Config.Bind("自动使用翘曲器距离", "autowarpdistance", 0f);
                 autoaddtech_bool = Config.Bind("自动添加科技队列", "autoaddtech_bool", false);
+                auto_add_techid = Config.Bind("自动添加科技队列科技ID", "auto_add_techid", 0);
+                auto_add_techmaxLevel = Config.Bind("自动添加科技队列科技等级上限", "auto_add_techmaxLevel", 500);
                 ShowStationInfo = Config.Bind("展示物流站信息", "ShowStationInfo", false);
 
                 noscaleuitech_bool = Config.Bind("科技页面不缩放", "noscaleuitech_bool", false);
@@ -215,8 +221,12 @@ namespace Auxilaryfunction
                 DysonPanelLayers = Config.Bind("多层壳列表", "DysonPanelLayers", true);
                 DysonPanelSwarm = Config.Bind("戴森云列表", "DysonPanelSwarm", true);
                 DysonPanelDysonSphere = Config.Bind("戴森壳列表", "DysonPanelDysonSphere", true);
+                window_height = Config.Bind("窗口高度", "window_height", 660f);
+                window_width = Config.Bind("窗口宽度", "window_width", 830f);
             }
-            
+
+            BaseSize = Math.Max(5, Math.Min(scale.Value, 35));
+
             scrollPosition[0] = 0;
             pdselectscrollPosition[0] = 0;
             foreach (var item in LDB.items.dataArray)
@@ -229,6 +239,7 @@ namespace Auxilaryfunction
             }
             Init();
             DysonBluePrintDataService.LoadDysonBluePrintData();
+            ThreadPool.QueueUserWorkItem(_ => SecondEvent());
         }
 
         void Update()
@@ -254,6 +265,40 @@ namespace Auxilaryfunction
             OnGUIOpen();
         }
 
+        private void SecondEvent()
+        {
+            while (true)
+            {
+                if (!GameDataImported)
+                    continue;
+                if (auto_setejector_bool.Value)
+                {
+                    ResetEjector();
+                }
+                if (autoAddwarp.Value)
+                {
+                    AutoAddwarp();
+                }
+                if (autoAddFuel.Value)
+                {
+                    AutoAddFuel();
+                }
+                if (autoaddtech_bool.Value && auto_add_techid.Value > 0 && GameMain.history != null && GameMain.history.techQueueLength == 0)
+                {
+                    TechState techstate = GameMain.history.techStates[auto_add_techid.Value];
+                    if (techstate.curLevel == techstate.maxLevel)
+                    {
+                        auto_add_techid.Value = 0;
+                    }
+                    else if (techstate.curLevel < auto_add_techmaxLevel.Value)
+                    {
+                        GameMain.history.EnqueueTech(auto_add_techid.Value);
+                    }
+                }
+                Thread.Sleep(1000);
+            }
+        }
+
         private void AutoSaveTimeChange()
         {
             if (autosavetimechange.Value && UIAutoSave.autoSaveTime != autosavetime.Value)
@@ -273,7 +318,7 @@ namespace Auxilaryfunction
                 StopAutoBuildThread();
                 readyresearch = new List<int>();
                 upsfix = 1;
-                autoaddtechid = 0;
+                auto_add_techid.Value = 0;
                 blueprintopen = false;
                 simulatorrender = false;
             }
@@ -288,40 +333,6 @@ namespace Auxilaryfunction
                 }
                 else
                 {
-                    if (auto_setejector_bool.Value && !auto_setejector_start)
-                    {
-                        InvokeRepeating("ResetEjector", 1, 1);
-                        auto_setejector_start = true;
-                    }
-                    else if (!auto_setejector_bool.Value && auto_setejector_start)
-                    {
-                        CancelInvoke("ResetEjector");
-                        auto_setejector_start = false;
-                    }
-                    if (autoAddwarp.Value && !autoAddwarp_start)
-                    {
-                        InvokeRepeating("AutoAddwarp", 1, 1);
-                        autoAddwarp_start = true;
-                    }
-                    else if (!autoAddwarp.Value && autoAddwarp_start)
-                    {
-                        CancelInvoke("AutoAddwarp");
-                        autoAddwarp_start = false;
-                    }
-                    if (autoAddFuel.Value && !autoAddFuel_start)
-                    {
-                        InvokeRepeating("AutoAddFuel", 1, 1);
-                        autoAddFuel_start = true;
-                    }
-                    else if (!autoAddFuel.Value && autoAddFuel_start)
-                    {
-                        CancelInvoke("AutoAddFuel");
-                        autoAddFuel_start = false;
-                    }
-                    if (autoaddtech_bool.Value && autoaddtechid > 0 && GameMain.history!=null && GameMain.history.techQueueLength == 0 )
-                    {
-                        GameMain.history.EnqueueTech(autoaddtechid);
-                    }
                     StartAndStopGame();
                     BluePrintoptimize();
                     StationInfoWindowUpdate();
@@ -397,7 +408,7 @@ namespace Auxilaryfunction
             {
                 if (dc == null) continue;
 
-                int needCourierNum = autoCourierValue- dc.idleCourierCount - dc.workCourierCount;
+                int needCourierNum = autoCourierValue - dc.idleCourierCount - dc.workCourierCount;
                 if (needCourierNum > 0)
                     dc.idleCourierCount += player.package.TakeItem(5003, needCourierNum, out _);
             }
@@ -416,7 +427,7 @@ namespace Auxilaryfunction
                     sc.idleShipCount += player.package.TakeItem(5002, needShipNum, out _);
 
                 int needWrapNum = autoWrapValue - sc.warperCount;
-                if (needWrapNum>0)
+                if (needWrapNum > 0)
                     sc.warperCount += player.package.TakeItem(1210, needWrapNum, out _);
             }
         }
@@ -683,11 +694,11 @@ namespace Auxilaryfunction
                             }
                         }
                     }
-                    else if(labpools.Count>0 || ejectorpools.Count>0 || stationpools.Count>0 || powergenGammapools.Count > 0)
+                    else if (labpools.Count > 0 || ejectorpools.Count > 0 || stationpools.Count > 0 || powergenGammapools.Count > 0)
                     {
                         //无需操作
                     }
-                    else if(beltpools.Count>0)
+                    else if (beltpools.Count > 0)
                     {
                         if (!beltWindow.gameObject.activeSelf)
                         {
@@ -800,7 +811,7 @@ namespace Auxilaryfunction
             beltpools = new List<int>();
             monitorpools = new List<int>();
             powergenGammapools = new List<int>();
-            ejectorpools=new List<int>();
+            ejectorpools = new List<int>();
             beltWindow.gameObject.SetActive(false);
             SpeakerPanel.gameObject.SetActive(false);
             SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(false);
@@ -841,7 +852,7 @@ namespace Auxilaryfunction
         /// </summary>
         private void TrashFunction()
         {
-            if(Time.time - trashfunctiontime < 30)
+            if (Time.time - trashfunctiontime < 30)
                 return;
             trashfunctiontime = Time.time;
             if (autoabsorttrash_bool.Value) //回收函数

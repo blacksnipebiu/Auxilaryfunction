@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static Auxilaryfunction.Services.GUIService;
-
-namespace Auxilaryfunction.Services
+﻿namespace Auxilaryfunction.Services
 {
     internal class TechService
     {
@@ -23,7 +16,7 @@ namespace Auxilaryfunction.Services
             }
             if (!GameMain.data.history.propertyData.hasUsedProperty)
             {
-                UIMessageBox.Show("初次使用元数据标题".Translate(), "初次使用元数据描述".Translate(), "取消".Translate(), "确定".Translate(), 2, null, new UIMessageBox.Response(()=>DoBuyoutTech(tp)));
+                UIMessageBox.Show("初次使用元数据标题".Translate(), "初次使用元数据描述".Translate(), "取消".Translate(), "确定".Translate(), 2, null, new UIMessageBox.Response(() => DoBuyoutTech(tp)));
                 return;
             }
             else
@@ -41,12 +34,5 @@ namespace Auxilaryfunction.Services
             GameMain.history.BuyoutTech(tp.ID);
         }
 
-        #region
-        private void LoadTechBluePrintData()
-        {
-            //TechPanelBluePrintNum = 0;
-
-        }
-        #endregion
     }
 }
