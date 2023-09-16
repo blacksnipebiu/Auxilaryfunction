@@ -92,7 +92,7 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="Services\DysonBluePrintDataService.cs" />
-    <Compile Include="Services\GUIService.cs" />
+    <Compile Include="Services\GUIDraw.cs" />
     <Compile Include="Services\TechService.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -4,21 +4,18 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Auxilaryfunction.Services
 {
     public class DysonBluePrintDataService
     {
-        public static int DysonPanelBluePrintNum;
         public static TempDysonBlueprintData selectDysonBlueprintData = new TempDysonBlueprintData();
         public static List<TempDysonBlueprintData> tempDysonBlueprintData = new List<TempDysonBlueprintData>();
 
         #region 应用戴森球蓝图
         public static void LoadDysonBluePrintData()
         {
-            DysonPanelBluePrintNum = 0;
             tempDysonBlueprintData = new List<TempDysonBlueprintData>();
             string path = new StringBuilder(GameConfig.overrideDocumentFolder).Append(GameConfig.gameName).Append("/DysonBluePrint/").ToString();
             if (!Directory.Exists(path))
@@ -51,7 +48,6 @@ namespace Auxilaryfunction.Services
                     tempDysonBlueprintData.Add(data);
                 }
             }
-            DysonPanelBluePrintNum += tempDysonBlueprintData.Count;
 
         }
         public static string ReaddataFromFile(string path)
@@ -87,7 +83,8 @@ namespace Auxilaryfunction.Services
             {
                 if (layer.nodeCount > 0 || layer.frameCount > 0 || layer.shellCount > 0)
                 {
-                    UIMessageBox.Show("删除层级非空标题".Translate(), "删除层级非空描述".Translate(), "取消".Translate(), "确定".Translate(), 1, null, new UIMessageBox.Response(() => {
+                    UIMessageBox.Show("删除层级非空标题".Translate(), "删除层级非空描述".Translate(), "取消".Translate(), "确定".Translate(), 1, null, new UIMessageBox.Response(() =>
+                    {
                         if (dysonSphere.layersSorted.Contains(layer))
                         {
                             layer?.RemoveAllStructure();
@@ -257,7 +254,8 @@ namespace Auxilaryfunction.Services
                     ApplySingleLayerBlueprint(data, dysonSphere, id);
                     break;
                 case EDysonBlueprintType.Layers:
-                    UIMessageBox.Show("戴森球多层壳蓝图应用".Translate(), "确定应用多层壳蓝图吗？使用时鼠标最好不要放在戴森球上".Translate(), "取消".Translate(), "确定".Translate(), 1, null, new UIMessageBox.Response(() => {
+                    UIMessageBox.Show("戴森球多层壳蓝图应用".Translate(), "确定应用多层壳蓝图吗？使用时鼠标最好不要放在戴森球上".Translate(), "取消".Translate(), "确定".Translate(), 1, null, new UIMessageBox.Response(() =>
+                    {
                         ApplyDysonLayersBlueprint(data, dysonSphere);
                     }));
                     break;

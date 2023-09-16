@@ -11,6 +11,7 @@ namespace Auxilaryfunction
             TranslateDict.Clear();
             TranslateDict.Add("辅助面板错误提示", "Auxilaryfunction Error");
             #region 戴森球面板
+            TranslateDict.Add("默认面板", "Default Panel");
             TranslateDict.Add("戴森球面板", "Dyson Sphere Panel");
             TranslateDict.Add("选择一个蓝图后，点击右侧的层级可以自动导入", "Select BluePrintFile,you can click enabled layers to paste");
             TranslateDict.Add("单层壳", "Single Layer");

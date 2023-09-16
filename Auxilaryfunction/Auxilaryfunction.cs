@@ -9,7 +9,7 @@ using System.Threading;
 using UnityEngine;
 using UnityEngine.UI;
 using static Auxilaryfunction.Constant;
-using static Auxilaryfunction.Services.GUIService;
+using static Auxilaryfunction.Services.GUIDraw;
 
 namespace Auxilaryfunction
 {
@@ -18,8 +18,9 @@ namespace Auxilaryfunction
     {
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.0.7";
+        public const string VERSION = "2.0.8";
         public static string ErrorTitle = "辅助面板错误提示";
+        public static GUIDraw guidraw;
         public static int stationindex = 4;
         public static int locallogic;
         public static int remotelogic = 2;
@@ -43,7 +44,6 @@ namespace Auxilaryfunction
         public static bool simulatorrender;
         public static bool simulatorchanging;
         public static bool ready;
-        public static bool firstopen = true;
         public bool DysonBluePrint;
         public bool constructframe;
         public bool constructingshell;
@@ -108,7 +108,6 @@ namespace Auxilaryfunction
         public static ConfigEntry<bool> auto_supply_station;
         public static ConfigEntry<bool> auto_setejector_bool;
         public static ConfigEntry<bool> ShowStationInfo;
-        public static ConfigEntry<bool> CloseUIpanel;
         public static ConfigEntry<bool> KeepBeltHeight;
         public static ConfigEntry<bool> autoAddFuel;
         public static ConfigEntry<bool> autoAddwarp;
@@ -214,7 +213,6 @@ namespace Auxilaryfunction
                 autosavetimechange = Config.Bind("自动保存", "autosavetimechange", false);
                 KeepBeltHeight = Config.Bind("保持传送带高度", "KeepBeltHeight", false);
                 autosavetime = Config.Bind("自动保存时间", "autosavetime", 25);
-                CloseUIpanel = Config.Bind("关闭面板", "CloseUIpanel", true);
                 FuelFilterConfig = Config.Bind("自动填充燃料", "FuelFilterConfig", "");
                 autoClearEmptyDyson = Config.Bind("自动清除空戴森球", "autoClearEmptyDyson", false);
                 DysonPanelSingleLayer = Config.Bind("单层壳列表", "DysonPanelSingleLayer", true);
@@ -225,10 +223,9 @@ namespace Auxilaryfunction
                 window_width = Config.Bind("窗口宽度", "window_width", 830f);
             }
 
-            BaseSize = Math.Max(5, Math.Min(scale.Value, 35));
 
             scrollPosition[0] = 0;
-            pdselectscrollPosition[0] = 0;
+            dysonBluePrintscrollPosition[0] = 0;
             foreach (var item in LDB.items.dataArray)
             {
                 if (item.HeatValue > 0)
@@ -237,7 +234,9 @@ namespace Auxilaryfunction
                     FuelFilter.Add(item.ID, false);
                 }
             }
-            Init();
+            var AuxilaryPanel = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.auxilarypanel")).LoadAsset<GameObject>("AuxilaryPanel");
+            var ui_AuxilaryPanelPanel = UnityEngine.Object.Instantiate(AuxilaryPanel, UIRoot.instance.overlayCanvas.transform);
+            guidraw = new GUIDraw(Math.Max(5, Math.Min(scale.Value, 35)), ui_AuxilaryPanelPanel);
             DysonBluePrintDataService.LoadDysonBluePrintData();
             ThreadPool.QueueUserWorkItem(_ => SecondEvent());
         }
@@ -247,7 +246,7 @@ namespace Auxilaryfunction
             AutoSaveTimeChange();
             GameUpdate();
             ChangeQuickKeyMethod();
-            GUIUpdate();
+            guidraw.GUIUpdate();
             if (upsquickset.Value)
             {
                 if (Input.GetKey(KeyCode.LeftShift))
@@ -262,7 +261,7 @@ namespace Auxilaryfunction
 
         private void OnGUI()
         {
-            OnGUIOpen();
+            guidraw.Draw();
         }
 
         private void SecondEvent()
@@ -335,7 +334,6 @@ namespace Auxilaryfunction
                 {
                     StartAndStopGame();
                     BluePrintoptimize();
-                    StationInfoWindowUpdate();
                     TrashFunction();
                     EnqueueTech();
                 }
