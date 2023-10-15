@@ -1210,6 +1210,7 @@ namespace Auxilaryfunction.Services
                         }
                     }
                     KeepBeltHeight.Value = GUILayout.Toggle(KeepBeltHeight.Value, "保持传送带高度(shift)".getTranslate(), buttonoptions);
+                    SaveLastOpenBluePrintBrowserPathConfig.Value = GUILayout.Toggle(SaveLastOpenBluePrintBrowserPathConfig.Value, "记录上次蓝图路径".getTranslate(), buttonoptions);
                     Quickstop_bool.Value = GUILayout.Toggle(Quickstop_bool.Value, "ctrl+空格快速开关".getTranslate(), buttonoptions);
                     stopfactory = GUILayout.Toggle(stopfactory, "     停止工厂".getTranslate(), buttonoptions);
                     autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate(), buttonoptions);
@@ -1558,8 +1559,8 @@ namespace Auxilaryfunction.Services
                 GUILayout.BeginHorizontal();
                 for (int j = 0; j < 5; j++)
                 {
-                    int index = i * 5 + j;
-                    if (GUILayout.Button(dysonlayers[index] ? index.ToString() : "", nomarginButtonStyle, iconbuttonoptions) && dysonlayers[index])
+                    int index = i * 5 + j + 1;
+                    if (GUILayout.Button(dysonlayers[index] ? (index).ToString() : "", nomarginButtonStyle, iconbuttonoptions) && dysonlayers[index])
                     {
                         string data = ReaddataFromFile(selectDysonBlueprintData.path);
                         ApplyDysonBlueprintManage(data, dyson, EDysonBlueprintType.SingleLayer, index);
@@ -1576,13 +1577,10 @@ namespace Auxilaryfunction.Services
                 GUILayout.BeginHorizontal();
                 for (int j = 0; j < 5; j++)
                 {
-                    int index = i * 5 + j;
-                    if (GUILayout.Button(!dysonlayers[index] ? index.ToString() : "", nomarginButtonStyle, iconbuttonoptions) && dysonlayers[index])
+                    int index = i * 5 + j + 1;
+                    if (GUILayout.Button(!dysonlayers[index] ? index.ToString() : "", nomarginButtonStyle, iconbuttonoptions) && DeleteDysonLayer)
                     {
-                        if (DeleteDysonLayer)
-                        {
-                            RemoveLayerById(index);
-                        }
+                        RemoveLayerById(index);
                     }
                 }
                 GUILayout.EndHorizontal();

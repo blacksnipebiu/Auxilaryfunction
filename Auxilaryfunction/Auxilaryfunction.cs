@@ -18,7 +18,7 @@ namespace Auxilaryfunction
     {
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.0.8";
+        public const string VERSION = "2.1.0";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
         public static int stationindex = 4;
@@ -128,6 +128,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<int> auto_supply_ship;
         public static ConfigEntry<int> auto_supply_warp;
         public static ConfigEntry<int> veincollectorspeed;
+        public static ConfigEntry<bool> SaveLastOpenBluePrintBrowserPathConfig;
         public static ConfigEntry<float> window_width;
         public static ConfigEntry<float> window_height;
         public static ConfigEntry<float> stationmaxpowerpertick;
@@ -135,6 +136,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<float> DroneStartCarry;
         public static ConfigEntry<float> ShipStartCarry;
         public static ConfigEntry<string> FuelFilterConfig;
+        public static ConfigEntry<string> LastOpenBluePrintBrowserPathConfig;
         #endregion
 
 
@@ -196,6 +198,7 @@ namespace Auxilaryfunction
                 auto_add_techid = Config.Bind("自动添加科技队列科技ID", "auto_add_techid", 0);
                 auto_add_techmaxLevel = Config.Bind("自动添加科技队列科技等级上限", "auto_add_techmaxLevel", 500);
                 ShowStationInfo = Config.Bind("展示物流站信息", "ShowStationInfo", false);
+                SaveLastOpenBluePrintBrowserPathConfig = Config.Bind("记录上次蓝图路径", "SaveLastOpenBluePrintBrowserPathConfig", false);
 
                 noscaleuitech_bool = Config.Bind("科技页面不缩放", "noscaleuitech_bool", false);
                 norender_shipdrone_bool = Config.Bind("不渲染飞机飞船", "norender_shipdrone_bool", false);
@@ -221,6 +224,7 @@ namespace Auxilaryfunction
                 DysonPanelDysonSphere = Config.Bind("戴森壳列表", "DysonPanelDysonSphere", true);
                 window_height = Config.Bind("窗口高度", "window_height", 660f);
                 window_width = Config.Bind("窗口宽度", "window_width", 830f);
+                LastOpenBluePrintBrowserPathConfig = Config.Bind("上次打开蓝图路径", "LastOpenBluePrintBrowserPathConfig", "");
             }
 
 

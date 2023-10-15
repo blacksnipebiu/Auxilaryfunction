@@ -33,6 +33,7 @@ namespace Auxilaryfunction
             TranslateDict.Add("文件不存在", "file does not exist");
             TranslateDict.Add("自动清除空戴森球", "Auto Clear Empty Dyson");
             TranslateDict.Add("每次打开戴森球面板(Y)都会自动进行清理", "Auto Clear Empty Dyson when you open DysonPanel(Y)");
+            TranslateDict.Add("记录上次蓝图路径", "Record the last blueprint path");
 
             TranslateDict.Add("单层壳蓝图请选择层级", " Single layer blueprint please select the layer");
 

@@ -137,6 +137,25 @@ namespace Auxilaryfunction
                 __instance.dispenserPool[__result].idleCourierCount = player.package.TakeItem(5003, auto_supply_Courier.Value, out _);
             }
         }
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(UIBlueprintBrowser), "SetCurrentDirectory")]
+        public static void UIBlueprintBrowserSetCurrentDirectory(string fullpath)
+        {
+            if (SaveLastOpenBluePrintBrowserPathConfig.Value)
+            {
+                LastOpenBluePrintBrowserPathConfig.Value = fullpath;
+            }
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(UIBlueprintBrowser), "_OnOpen")]
+        public static void UIBlueprintBrowser_OnOpen(ref UIBlueprintBrowser __instance)
+        {
+            if (SaveLastOpenBluePrintBrowserPathConfig.Value && string.IsNullOrEmpty(__instance.openPath) && !string.IsNullOrEmpty(LastOpenBluePrintBrowserPathConfig.Value))
+            {
+                __instance.openPath = LastOpenBluePrintBrowserPathConfig.Value;
+            }
+        }
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(PlanetTransport), "NewStationComponent")]
