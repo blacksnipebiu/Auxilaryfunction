@@ -18,7 +18,7 @@ namespace Auxilaryfunction
     {
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.1.0";
+        public const string VERSION = "2.1.7";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
         public static int stationindex = 4;
@@ -108,6 +108,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<bool> auto_supply_station;
         public static ConfigEntry<bool> auto_setejector_bool;
         public static ConfigEntry<bool> ShowStationInfo;
+        public static ConfigEntry<bool> ShowStationInfoMode;
         public static ConfigEntry<bool> KeepBeltHeight;
         public static ConfigEntry<bool> autoAddFuel;
         public static ConfigEntry<bool> autoAddwarp;
@@ -143,7 +144,7 @@ namespace Auxilaryfunction
         public static Thread autobuildThread;
 
         public static int maxCount = 0;
-        public static GameObject[] tip = new GameObject[maxCount];
+        public static GameObject[] tips = new GameObject[maxCount];
         public static GameObject stationTip;
         public static GameObject tipPrefab;
         public static GameObject beltWindow;
@@ -198,6 +199,7 @@ namespace Auxilaryfunction
                 auto_add_techid = Config.Bind("自动添加科技队列科技ID", "auto_add_techid", 0);
                 auto_add_techmaxLevel = Config.Bind("自动添加科技队列科技等级上限", "auto_add_techmaxLevel", 500);
                 ShowStationInfo = Config.Bind("展示物流站信息", "ShowStationInfo", false);
+                ShowStationInfoMode = Config.Bind("展示物流站信息模式", "ShowStationInfoMode", false);
                 SaveLastOpenBluePrintBrowserPathConfig = Config.Bind("记录上次蓝图路径", "SaveLastOpenBluePrintBrowserPathConfig", false);
 
                 noscaleuitech_bool = Config.Bind("科技页面不缩放", "noscaleuitech_bool", false);
@@ -350,17 +352,24 @@ namespace Auxilaryfunction
         /// </summary>
         private void EnqueueTech()
         {
-            for (int i = 0; i < readyresearch.Count && GameMain.history.techQueueLength < 7; i++)
+            if (readyresearch.Count > 0)
             {
-                if (GameMain.history.TechUnlocked(readyresearch[i])) readyresearch.RemoveAt(i);
-                else if (!GameMain.history.TechInQueue(readyresearch[i]))
+                try
                 {
-                    if (!GameMain.history.CanEnqueueTech(readyresearch[i]))
+                    for (int i = 0; i < readyresearch.Count && GameMain.history.techQueueLength < 7; i++)
                     {
-                        readyresearch.RemoveAt(i);
+                        if (GameMain.history.TechUnlocked(readyresearch[i])) readyresearch.RemoveAt(i);
+                        else if (!GameMain.history.TechInQueue(readyresearch[i]))
+                        {
+                            if (!GameMain.history.CanEnqueueTech(readyresearch[i]))
+                            {
+                                readyresearch.RemoveAt(i);
+                            }
+                            else GameMain.history.EnqueueTech(readyresearch[i]);
+                        }
                     }
-                    else GameMain.history.EnqueueTech(readyresearch[i]);
                 }
+                catch { }
             }
         }
 

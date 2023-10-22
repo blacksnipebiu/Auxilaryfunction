@@ -579,7 +579,7 @@ namespace Auxilaryfunction
                                     bool getitem = true;
                                     foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
                                     {
-                                        if (pd.id == 0) continue;
+                                        if (pd.id == 0 || pd.protoId == 0) continue;
                                         if (__instance.player.package.GetItemCount(pd.protoId) > 0)
                                         {
                                             __instance.player.Order(new OrderNode() { target = pd.pos, type = EOrderType.Move }, false);

@@ -1,11 +1,4 @@
-﻿using HarmonyLib;
-using UnityEngine;
-using System;
-using System.Collections.Generic;
-using BepInEx.Configuration;
-using System.Reflection;
-
-namespace Auxilaryfunction
+﻿namespace Auxilaryfunction
 {
     public class Constant
     {
@@ -36,7 +29,7 @@ namespace Auxilaryfunction
             { 0.9511, -0.3089 },
             { 0.9877, -0.1564 },
         };
-        public static string[] StationNames = new string[6] { "星球矿机", "垃圾站", "星球无限供货机", "星球量子传输站", "星系量子传输站", "设置翘曲需求" };
+        public static string[] StationNames = new string[8] { "星球矿机", "垃圾站", "星球无限供货机", "喷涂加工厂", "星球熔炉矿机", "星球量子传输站", "星系量子传输站", "设置翘曲需求" };
 
         public static string GetStationlogic(int i)
         {

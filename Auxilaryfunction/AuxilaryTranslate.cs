@@ -65,7 +65,7 @@ namespace Auxilaryfunction
             TranslateDict.Add("关闭玩家走路飞行声音", "Turn off the player's walking and flying sound");
             TranslateDict.Add("自动添加翘曲器", "Auto add Warp");
             TranslateDict.Add("自动添加燃料", "Auto add fuel");
-            TranslateDict.Add("     停止工厂", "     stop factory");
+            TranslateDict.Add("停止工厂", "stop factory");
             TranslateDict.Add("ctrl+空格快速开关", "quick start and stop(ctrl+space)");
 
             TranslateDict.Add("自动飞向未完成建筑", "Auto fly to unfinished buildings");
@@ -87,6 +87,8 @@ namespace Auxilaryfunction
             TranslateDict.Add("蓝图设置配方", "Blueprint setting recipe");
             TranslateDict.Add("蓝图复制直接粘贴", "Blueprint copy and paste directly");
             TranslateDict.Add("物流站信息显示", "Show station info");
+            TranslateDict.Add("详细模式", "Detailed mode");
+            TranslateDict.Add("简易模式", "Simple Mode");
             TranslateDict.Add("物流站物品设置复制粘贴", "Station grids copy(<) and paste(>)");
             TranslateDict.Add("30s间隔自动吸收垃圾", "Auto. recycle Litter in 30s");
             TranslateDict.Add("只回收建筑", "Recycle only buildings");

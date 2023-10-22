@@ -58,6 +58,10 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
       <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
     </Reference>
@@ -71,9 +75,7 @@
     <Reference Include="UnityEngine.TextCoreModule">
       <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\UnityEngine.TextCoreModule.dll</HintPath>
     </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
-    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
     <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>E:\steam\steamapps\common\Dyson Sphere Program\DSPGAME_Data\Managed\UnityEngine.UI.dll</HintPath>
@@ -106,6 +108,13 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="450节点+框架+32壳面.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="right.png" />
+    <EmbeddedResource Include="left.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="flat.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
