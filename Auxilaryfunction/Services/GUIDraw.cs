@@ -87,12 +87,14 @@ namespace Auxilaryfunction.Services
             }
         }
         public static List<float[]> boundaries = new List<float[]>();
+        GUIStyle normalstyle = new GUIStyle();
         GUIStyle styleblue = new GUIStyle();
         GUIStyle styleyellow = new GUIStyle();
         GUIStyle styleitemname = null;
         GUIStyle buttonstyleyellow = null;
         GUIStyle buttonstyleblue = null;
         GUIStyle labelstyle = null;
+        GUIStyle whitestyle = null;
         GUIStyle nomarginButtonStyle = null;
         GUILayoutOption[] HorizontalSlideroptions;
         GUILayoutOption[] buttonoptions;
@@ -246,6 +248,8 @@ namespace Auxilaryfunction.Services
             }
             if (styleitemname == null)
             {
+                whitestyle = new GUIStyle();
+                whitestyle.normal.background = Texture2D.whiteTexture;
                 styleitemname = new GUIStyle(GUI.skin.label);
                 styleitemname.normal.textColor = Color.white;
                 buttonstyleblue = new GUIStyle(GUI.skin.button);
@@ -1261,10 +1265,10 @@ namespace Auxilaryfunction.Services
                             for (int j = 0; j < 6 && index < fuelItems.Count; j++, index++)
                             {
                                 int itemID = fuelItems[index];
-                                GUIStyle style = new GUIStyle();
+                                GUIStyle style = normalstyle;
                                 if (FuelFilter[itemID])
-                                    style.normal.background = Texture2D.whiteTexture;
-                                if (GUILayout.Button(LDB.items.Select(itemID).iconSprite.texture, style, new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis) }))
+                                    style = whitestyle;
+                                if (GUILayout.Button(LDB.items.Select(itemID).iconSprite.texture, style, GUILayout.Height(heightdis), GUILayout.Width(heightdis)))
                                 {
                                     FuelFilter[itemID] = !FuelFilter[itemID];
                                     string result = "";
