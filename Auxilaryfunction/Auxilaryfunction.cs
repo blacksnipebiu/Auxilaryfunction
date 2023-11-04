@@ -18,14 +18,16 @@ namespace Auxilaryfunction
     {
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.1.8";
+        public const string VERSION = "2.2.1";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
+        public static int autoaddtechid;
         public static int stationindex = 4;
         public static int locallogic;
         public static int remotelogic = 2;
         public static int pointlayerid;
         public static int pointsignalid;
+        public static Light SunLight;
         public static List<int> assemblerpools = new List<int>();
         public static List<int> labpools = new List<int>();
         public static List<int> beltpools = new List<int>();
@@ -79,6 +81,7 @@ namespace Auxilaryfunction
 
         #region 配置菜单
         public static ConfigEntry<bool> autoClearEmptyDyson;
+        public static ConfigEntry<bool> SunLightOpen;
         public static ConfigEntry<bool> closeplayerflyaudio;
         public static ConfigEntry<bool> autosetSomevalue_bool;
         public static ConfigEntry<bool> noscaleuitech_bool;
@@ -176,6 +179,7 @@ namespace Auxilaryfunction
                 stationdronedist = Config.Bind("自动设置物流站运输机最远距离", "stationdronedist", 180);
                 stationshipdist = Config.Bind("自动设置物流站运输船最远距离", "stationshipdist", 61);
                 scale = Config.Bind("大小适配", "scale", 16);
+                SunLightOpen = Config.Bind("夜灯", "SunLight", false);
 
                 closeplayerflyaudio = Config.Bind("关闭玩家飞行声音", "closeplayerflyaudio", false);
                 BluePrintDelete = Config.Bind("蓝图删除", "BluePrintDelete", false);
@@ -245,10 +249,20 @@ namespace Auxilaryfunction
             guidraw = new GUIDraw(Math.Max(5, Math.Min(scale.Value, 35)), ui_AuxilaryPanelPanel);
             DysonBluePrintDataService.LoadDysonBluePrintData();
             ThreadPool.QueueUserWorkItem(_ => SecondEvent());
+            autoaddtechid = auto_add_techid.Value;
         }
 
         void Update()
         {
+            if (Input.GetKeyDown(KeyCode.L))
+            {
+                foreach (var techstate in GameMain.history.techStates)
+                {
+                    int keyid = techstate.Key;
+                    var tech = GameMain.history.techStates[keyid];
+                    tech.hashUploaded = 0;
+                }
+            }
             AutoSaveTimeChange();
             GameUpdate();
             ChangeQuickKeyMethod();
@@ -262,6 +276,38 @@ namespace Auxilaryfunction
                     if (upsfix < 0.01) upsfix = 0.01f;
                     else if (upsfix > 10) upsfix = 10;
                 }
+            }
+            SunLightSet();
+        }
+
+        private void SunLightSet()
+        {
+            if (!SunLightOpen.Value || GameMain.localPlanet == null || GameMain.universeSimulator?.LocalStarSimulator()?.sunLight == null)
+            {
+                if (SunLight != null)
+                {
+                    Destroy(SunLight.gameObject);
+                    SunLight = null;
+                }
+                return;
+            }
+            if (SunLight == null)
+            {
+                SunLight = Instantiate(GameMain.universeSimulator.LocalStarSimulator().sunLight, GameMain.mainPlayer.transform);
+                SunLight.enabled = true;
+                SunLight.transform.position = GameMain.mainPlayer.position + GameMain.mainPlayer.transform.up * 5;
+                SunLight.transform.rotation = Quaternion.LookRotation(-player.transform.up);
+                SunLight.transform.localPosition = new Vector3(0, 5, 0);
+                SunLight.name = "PlayerLight";
+                SunLight.intensity = 1f;
+            }
+            if (FactoryModel.whiteMode0)
+            {
+                SunLight.enabled = false;
+            }
+            else
+            {
+                SunLight.enabled = true;
             }
         }
 
@@ -288,16 +334,17 @@ namespace Auxilaryfunction
                 {
                     AutoAddFuel();
                 }
-                if (autoaddtech_bool.Value && auto_add_techid.Value > 0 && GameMain.history != null && GameMain.history.techQueueLength == 0)
+                if (autoaddtech_bool.Value && autoaddtechid > 0 && GameMain.history != null && GameMain.history.techQueueLength == 0)
                 {
-                    TechState techstate = GameMain.history.techStates[auto_add_techid.Value];
+                    TechState techstate = GameMain.history.techStates[autoaddtechid];
                     if (techstate.curLevel == techstate.maxLevel)
                     {
+                        autoaddtechid = 0;
                         auto_add_techid.Value = 0;
                     }
                     else if (techstate.curLevel < auto_add_techmaxLevel.Value)
                     {
-                        GameMain.history.EnqueueTech(auto_add_techid.Value);
+                        GameMain.history.EnqueueTech(autoaddtechid);
                     }
                 }
                 Thread.Sleep(1000);
@@ -323,7 +370,7 @@ namespace Auxilaryfunction
                 StopAutoBuildThread();
                 readyresearch = new List<int>();
                 upsfix = 1;
-                auto_add_techid.Value = 0;
+                autoaddtechid = 0;
                 blueprintopen = false;
                 simulatorrender = false;
             }
@@ -342,6 +389,7 @@ namespace Auxilaryfunction
                     BluePrintoptimize();
                     TrashFunction();
                     EnqueueTech();
+                    autoaddtechid = auto_add_techid.Value;
                 }
 
             }

@@ -10,10 +10,64 @@ namespace Auxilaryfunction
     public class AuxilaryfunctionPatch
     {
         [HarmonyPostfix]
-        [HarmonyPatch(typeof(UIRoot), "OpenMainMenuUI")]
-        public static void UIMainMenu_Open()
+        [HarmonyPatch(typeof(PostEffectController), "Update")]
+        public static void PostEffectControllerUpdatePatch(PostEffectController __instance)
         {
+            if (SunLightOpen.Value && __instance.sunShaft != null && GameMain.localStar != null && GameMain.localPlanet != null && SunLight != null && !FactoryModel.whiteMode0)
+            {
+                float magnitude = GameCamera.main.transform.localPosition.magnitude;
+                if (GameMain.universeSimulator != null && GameMain.localStar.type != EStarType.BlackHole)
+                {
+                    StarSimulator starSimulator = GameMain.universeSimulator.LocalStarSimulator();
+                    if (starSimulator != null)
+                    {
+                        __instance.sunShaft.sunTransform = SunLight.transform;
+                        __instance.sunShaft.sunColor = GameMain.universeSimulator.sunshaftColor.Evaluate(starSimulator.sunColorParam);
+                        SunLight.shadowBias = Mathf.Clamp01((magnitude - 300f) / 700f) * 0.5f + 0.045f;
+                    }
+                }
+                __instance.sunShaft.enabled = (__instance.sunShaft.sunTransform != null);
+                __instance.sunShaft.sunShaftIntensity = 0.25f + Mathf.Clamp01((300f - GameMain.mainPlayer.position.magnitude + GameMain.localPlanet.realRadius) / 200f) * 1.25f;
+            }
+        }
 
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(StarSimulator), "LateUpdate")]
+        public static bool StarSimulatorLateUpdate(ref StarSimulator __instance, Material ___bodyMaterial, Material ___haloMaterial)
+        {
+            if (!SunLightOpen.Value || FactoryModel.whiteMode0 || GameMain.localStar != __instance.starData)
+            {
+                return true;
+            }
+            __instance.sunLight.enabled = false;
+            Shader.SetGlobalVector("_Global_SunDir", GameMain.mainPlayer.transform.up);
+            Shader.SetGlobalColor("_Global_SunsetColor0", Color.Lerp(Color.white, __instance.sunsetColor0, __instance.useSunsetColor));
+            Shader.SetGlobalColor("_Global_SunsetColor1", Color.Lerp(Color.white, __instance.sunsetColor1, __instance.useSunsetColor));
+            Shader.SetGlobalColor("_Global_SunsetColor2", Color.Lerp(Color.white, __instance.sunsetColor2, __instance.useSunsetColor));
+            ___bodyMaterial.renderQueue = 2981;
+            ___haloMaterial.renderQueue = 2981;
+            __instance.blackRenderer.enabled = false;
+            return false;
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(PlanetSimulator), "LateUpdate")]
+        public static bool PlanetSimulatorLateUpdatePatch(PlanetSimulator __instance)
+        {
+            PlanetData localPlanet = GameMain.localPlanet;
+            if (!GameDataImported || !SunLightOpen.Value || FactoryModel.whiteMode0 || localPlanet == null || localPlanet != __instance.planetData || SunLight == null)
+            {
+                return true;
+            }
+            Vector3 vector3 = GameMain.mainPlayer.transform.up;
+            if (__instance.surfaceRenderer?.Length != 0)
+                __instance.surfaceRenderer[0]?.sharedMaterial?.SetVector("_SunDir", vector3);
+            __instance.reformMat0?.SetVector("_SunDir", vector3);
+            __instance.reformMat1?.SetVector("_SunDir", vector3);
+            __instance.atmoMat?.SetVector("_SunDir", vector3);
+            __instance.atmoMatLate?.SetVector("_SunDir", vector3);
+            __instance.cloudSimulator?.OnLateUpdate();
+            return false;
         }
 
         [HarmonyPrefix]

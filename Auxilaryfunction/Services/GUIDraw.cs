@@ -1190,6 +1190,7 @@ namespace Auxilaryfunction.Services
                     norender_dysonswarm_bool.Value = GUILayout.Toggle(norender_dysonswarm_bool.Value, "不渲染戴森云".getTranslate());
                     norender_lab_bool.Value = GUILayout.Toggle(norender_lab_bool.Value, "不渲染研究站".getTranslate());
                     norender_beltitem.Value = GUILayout.Toggle(norender_beltitem.Value, "不渲染传送带货物".getTranslate());
+                    norender_powerdisk_bool.Value = GUILayout.Toggle(norender_powerdisk_bool.Value, "不渲染电网覆盖".getTranslate());
                     norender_shipdrone_bool.Value = GUILayout.Toggle(norender_shipdrone_bool.Value, "不渲染运输船和飞机".getTranslate());
                     norender_entity_bool.Value = GUILayout.Toggle(norender_entity_bool.Value, "不渲染实体".getTranslate());
                     if (simulatorrender != GUILayout.Toggle(simulatorrender, "不渲染全部".getTranslate()))
@@ -1197,7 +1198,7 @@ namespace Auxilaryfunction.Services
                         simulatorrender = !simulatorrender;
                         simulatorchanging = true;
                     }
-                    norender_powerdisk_bool.Value = GUILayout.Toggle(norender_powerdisk_bool.Value, "不渲染电网覆盖".getTranslate());
+                    SunLightOpen.Value = GUILayout.Toggle(SunLightOpen.Value, "夜灯".getTranslate());
                     closeplayerflyaudio.Value = GUILayout.Toggle(closeplayerflyaudio.Value, "关闭玩家走路飞行声音".getTranslate());
                 }
                 GUILayout.EndVertical();
@@ -1205,10 +1206,14 @@ namespace Auxilaryfunction.Services
 
                 GUILayout.BeginVertical();
                 {
-                    if (autoaddtech_bool.Value != GUILayout.Toggle(autoaddtech_bool.Value, "自动添加科技队列".getTranslate(), buttonoptions))
+                    if (autoaddtech_bool.Value != GUILayout.Toggle(autoaddtech_bool.Value, "自动添加科技队列".getTranslate()))
                     {
                         autoaddtech_bool.Value = !autoaddtech_bool.Value;
-                        if (!autoaddtech_bool.Value) auto_add_techid.Value = 0;
+                        if (!autoaddtech_bool.Value)
+                        {
+                            autoaddtechid = 0;
+                            auto_add_techid.Value = 0;
+                        }
                     }
                     if (autoaddtech_bool.Value)
                     {
@@ -1246,14 +1251,15 @@ namespace Auxilaryfunction.Services
                                 {
                                     if (GUILayout.Button(LDB.techs.dataArray[i].name + " " + techstate.curLevel + " " + techstate.maxLevel, buttonoptions))
                                     {
+                                        autoaddtechid = LDB.techs.dataArray[i].ID;
                                         auto_add_techid.Value = LDB.techs.dataArray[i].ID;
                                     }
                                 }
                             }
                         }
                     }
-                    autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate(), buttonoptions);
-                    autoAddFuel.Value = GUILayout.Toggle(autoAddFuel.Value, "自动添加燃料".getTranslate(), buttonoptions);
+                    autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate());
+                    autoAddFuel.Value = GUILayout.Toggle(autoAddFuel.Value, "自动添加燃料".getTranslate());
                     if (autoAddFuel.Value)
                     {
                         int rownum = fuelItems.Count / 6;
@@ -1285,15 +1291,15 @@ namespace Auxilaryfunction.Services
                             GUILayout.EndHorizontal();
                         }
                     }
-                    auto_setejector_bool.Value = GUILayout.Toggle(auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate(), buttonoptions);
-                    automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate(), buttonoptions);
-                    close_alltip_bool.Value = GUILayout.Toggle(close_alltip_bool.Value, "一键闭嘴".getTranslate(), buttonoptions);
+                    auto_setejector_bool.Value = GUILayout.Toggle(auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate());
+                    automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate());
+                    close_alltip_bool.Value = GUILayout.Toggle(close_alltip_bool.Value, "一键闭嘴".getTranslate());
                     noscaleuitech_bool.Value = GUILayout.Toggle(noscaleuitech_bool.Value, "科技面板选中不缩放".getTranslate(), buttonoptions);
-                    BluePrintSelectAll.Value = GUILayout.Toggle(BluePrintSelectAll.Value, "蓝图全选".getTranslate() + "(ctrl+A）", buttonoptions);
-                    BluePrintDelete.Value = GUILayout.Toggle(BluePrintDelete.Value, "蓝图删除".getTranslate() + "(ctrl+X）", buttonoptions);
-                    BluePrintRevoke.Value = GUILayout.Toggle(BluePrintRevoke.Value, "蓝图撤销".getTranslate() + "(ctrl+Z)", buttonoptions);
+                    BluePrintSelectAll.Value = GUILayout.Toggle(BluePrintSelectAll.Value, "蓝图全选".getTranslate() + "(ctrl+A）");
+                    BluePrintDelete.Value = GUILayout.Toggle(BluePrintDelete.Value, "蓝图删除".getTranslate() + "(ctrl+X）");
+                    BluePrintRevoke.Value = GUILayout.Toggle(BluePrintRevoke.Value, "蓝图撤销".getTranslate() + "(ctrl+Z)");
                     BluePrintSetRecipe.Value = GUILayout.Toggle(BluePrintSetRecipe.Value, "蓝图设置配方".getTranslate() + "(ctrl+F)", buttonoptions);
-                    bool temp = GUILayout.Toggle(ShowStationInfo.Value, "物流站信息显示".getTranslate(), buttonoptions);
+                    bool temp = GUILayout.Toggle(ShowStationInfo.Value, "物流站信息显示".getTranslate());
                     if (temp != ShowStationInfo.Value)
                     {
                         ShowStationInfo.Value = temp;
@@ -1306,8 +1312,8 @@ namespace Auxilaryfunction.Services
                         GUILayout.BeginHorizontal();
                         GUILayout.Space(30);
                         GUILayout.BeginVertical();
-                        bool temp1 = GUILayout.Toggle(!ShowStationInfoMode.Value, "详细模式".getTranslate(), buttonoptions);
-                        bool temp2 = GUILayout.Toggle(ShowStationInfoMode.Value, "简易模式".getTranslate(), buttonoptions);
+                        bool temp1 = GUILayout.Toggle(!ShowStationInfoMode.Value, "详细模式".getTranslate());
+                        bool temp2 = GUILayout.Toggle(ShowStationInfoMode.Value, "简易模式".getTranslate());
                         if (temp1 && temp2)
                         {
                             ShowStationInfoMode.Value = !ShowStationInfoMode.Value;
@@ -1317,7 +1323,7 @@ namespace Auxilaryfunction.Services
                     }
 
                     stationcopyItem_bool.Value = GUILayout.Toggle(stationcopyItem_bool.Value, "物流站物品设置复制粘贴".getTranslate(), buttonoptions);
-                    if (autoabsorttrash_bool.Value != GUILayout.Toggle(autoabsorttrash_bool.Value, "30s间隔自动吸收垃圾".getTranslate(), buttonoptions))
+                    if (autoabsorttrash_bool.Value != GUILayout.Toggle(autoabsorttrash_bool.Value, "30s间隔自动吸收垃圾".getTranslate()))
                     {
                         autoabsorttrash_bool.Value = !autoabsorttrash_bool.Value;
                         if (autoabsorttrash_bool.Value)
@@ -1327,9 +1333,9 @@ namespace Auxilaryfunction.Services
                     }
                     if (autoabsorttrash_bool.Value)
                     {
-                        onlygetbuildings.Value = GUILayout.Toggle(onlygetbuildings.Value, "只回收建筑".getTranslate(), buttonoptions);
+                        onlygetbuildings.Value = GUILayout.Toggle(onlygetbuildings.Value, "只回收建筑".getTranslate());
                     }
-                    if (autocleartrash_bool.Value != GUILayout.Toggle(autocleartrash_bool.Value, "30s间隔自动清除垃圾".getTranslate(), buttonoptions))
+                    if (autocleartrash_bool.Value != GUILayout.Toggle(autocleartrash_bool.Value, "30s间隔自动清除垃圾".getTranslate()))
                     {
                         autocleartrash_bool.Value = !autocleartrash_bool.Value;
                         if (autocleartrash_bool.Value)
@@ -1349,9 +1355,9 @@ namespace Auxilaryfunction.Services
 
                 GUILayout.BeginVertical();
                 {
-                    changeups = GUILayout.Toggle(changeups, "启动时间流速修改".getTranslate(), buttonoptions);
-                    GUILayout.Label("流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix), buttonoptions);
-                    string tempupsfixstr = GUILayout.TextField(string.Format("{0:N2}", upsfix), new[] { GUILayout.Height(heightdis), GUILayout.Width(5 * heightdis) });
+                    changeups = GUILayout.Toggle(changeups, "启动时间流速修改".getTranslate());
+                    GUILayout.Label("流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix));
+                    string tempupsfixstr = GUILayout.TextField(string.Format("{0:N2}", upsfix), new[] { GUILayout.Width(5 * heightdis) });
 
                     if (tempupsfixstr != string.Format("{0:N2}", upsfix) && float.TryParse(tempupsfixstr, out float tempupsfix))
                     {
@@ -1362,17 +1368,17 @@ namespace Auxilaryfunction.Services
                     upsfix = GUILayout.HorizontalSlider(upsfix, 0.01f, 10, HorizontalSlideroptions);
                     upsquickset.Value = GUILayout.Toggle(upsquickset.Value, "加速减速".getTranslate() + "(shift,'+''-')", buttonoptions);
 
-                    autosetSomevalue_bool.Value = GUILayout.Toggle(autosetSomevalue_bool.Value, "自动配置建筑".getTranslate(), buttonoptions);
-                    GUILayout.Label("人造恒星燃料数量".getTranslate() + "：" + auto_supply_starfuel.Value, buttonoptions);
+                    autosetSomevalue_bool.Value = GUILayout.Toggle(autosetSomevalue_bool.Value, "自动配置建筑".getTranslate());
+                    GUILayout.Label("人造恒星燃料数量".getTranslate() + "：" + auto_supply_starfuel.Value);
                     auto_supply_starfuel.Value = (int)GUILayout.HorizontalSlider(auto_supply_starfuel.Value, 4, 100, HorizontalSlideroptions);
                     if (GUILayout.Button("填充当前星球人造恒星".getTranslate(), buttonoptions)) AddFuelToAllStar();
-
-                    autosavetimechange.Value = GUILayout.Toggle(autosavetimechange.Value, "自动保存".getTranslate(), buttonoptions);
+                    _ = new GUILayoutOption[0];
+                    autosavetimechange.Value = GUILayout.Toggle(autosavetimechange.Value, "自动保存".getTranslate(), autosavetimechange.Value ? new GUILayoutOption[0] : buttonoptions);
                     if (autosavetimechange.Value)
                     {
                         GUILayout.Label("自动保存时间".getTranslate() + "/min：", buttonoptions);
                         int tempint = autosavetime.Value / 60;
-                        if (int.TryParse(Regex.Replace(GUILayout.TextField(tempint + "", new[] { GUILayout.Height(heightdis), GUILayout.Width(5 * heightdis) }), @"[^0-9]", ""), out tempint))
+                        if (int.TryParse(Regex.Replace(GUILayout.TextField(tempint + "", GUILayout.Height(heightdis), GUILayout.Width(5 * heightdis)), @"[^0-9]", ""), out tempint))
                         {
                             if (tempint < 5) tempint = 5;
                             if (tempint > 10000) tempint = 10000;
@@ -1381,18 +1387,17 @@ namespace Auxilaryfunction.Services
                     }
                     KeepBeltHeight.Value = GUILayout.Toggle(KeepBeltHeight.Value, "保持传送带高度(shift)".getTranslate(), buttonoptions);
                     SaveLastOpenBluePrintBrowserPathConfig.Value = GUILayout.Toggle(SaveLastOpenBluePrintBrowserPathConfig.Value, "记录上次蓝图路径".getTranslate(), buttonoptions);
-                    Quickstop_bool.Value = GUILayout.Toggle(Quickstop_bool.Value, "ctrl+空格快速开关".getTranslate(), buttonoptions);
+                    Quickstop_bool.Value = GUILayout.Toggle(Quickstop_bool.Value, "ctrl+空格快速开关".getTranslate());
                     GUILayout.BeginHorizontal();
                     GUILayout.Space(30);
-                    stopfactory = GUILayout.Toggle(stopfactory, "停止工厂".getTranslate(), buttonoptions);
+                    stopfactory = GUILayout.Toggle(stopfactory, "停止工厂".getTranslate());
                     GUILayout.EndHorizontal();
-                    autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate(), buttonoptions);
+                    autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate());
                     if (autonavigation_bool.Value)
                     {
-                        autowarpcommand.Value = GUILayout.Toggle(autowarpcommand.Value, "自动导航使用曲速".getTranslate(), buttonoptions);
-                        GUILayout.Label("自动使用翘曲器距离".getTranslate() + ":", buttonoptions);
+                        autowarpcommand.Value = GUILayout.Toggle(autowarpcommand.Value, "自动导航使用曲速".getTranslate());
+                        GUILayout.Label("自动使用翘曲器距离".getTranslate() + ":" + string.Format("{0:N2}", autowarpdistance.Value) + "光年".getTranslate());
                         autowarpdistance.Value = GUILayout.HorizontalSlider(autowarpdistance.Value, 0, 30, HorizontalSlideroptions);
-                        GUILayout.Label(string.Format("{0:N2}", autowarpdistance.Value) + "光年".getTranslate() + "\n", buttonoptions);
                     }
                 }
                 GUILayout.EndVertical();
