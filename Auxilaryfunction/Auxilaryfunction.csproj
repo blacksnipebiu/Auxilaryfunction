@@ -87,6 +87,9 @@
     <Compile Include="AuxilaryfunctionPatch.cs" />
     <Compile Include="AuxilaryTranslate.cs" />
     <Compile Include="Constant.cs" />
+    <Compile Include="NumberTranslate.cs" />
+    <Compile Include="Patch\GameTickPatch.cs" />
+    <Compile Include="Patch\PlayerAudioMutePatch.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -110,11 +113,15 @@
     <EmbeddedResource Include="450节点+框架+32壳面.txt" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="right.png" />
-    <EmbeddedResource Include="left.png" />
+    <EmbeddedResource Include="Resources\right.png" />
+    <EmbeddedResource Include="Resources\left.png" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="flat.png" />
+    <EmbeddedResource Include="Resources\flat.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\trashcan.png" />
+    <EmbeddedResource Include="Resources\trashcanOpen.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

@@ -1,9 +1,11 @@
-﻿using Auxilaryfunction.Services;
+﻿using Auxilaryfunction.Patch;
+using Auxilaryfunction.Services;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using UnityEngine;
@@ -16,80 +18,99 @@ namespace Auxilaryfunction
     [BepInPlugin(GUID, NAME, VERSION)]
     public class Auxilaryfunction : BaseUnityPlugin
     {
+        #region 测试
+        #endregion
+
+
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.2.1";
+        public const string VERSION = "2.5.6";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
         public static int autoaddtechid;
         public static int stationindex = 4;
         public static int locallogic;
         public static int remotelogic = 2;
-        public static int pointlayerid;
         public static int pointsignalid;
         public static Light SunLight;
-        public static List<int> assemblerpools = new List<int>();
-        public static List<int> labpools = new List<int>();
-        public static List<int> beltpools = new List<int>();
-        public static List<int> monitorpools = new List<int>();
-        public static List<int> ejectorpools = new List<int>();
-        public static List<int> powergenGammapools = new List<int>();
-        public static List<int> pointlayeridlist = new List<int>();
-        public static List<int> stationpools = new List<int>();
-        public static List<int> readyresearch = new List<int>();
-        public float slowconstructspeed = 1;
+        public static List<int> assemblerpools;
+        public static List<int> beltpools;
+        public static List<int> ejectorpools;
+        public static List<int> labpools;
+        public static List<int> monitorpools;
+        public static List<int> powergenGammapools;
+        public static List<int> powerexchangertools;
+        public static List<int> pointlayeridlist;
+        public static List<int> readyresearch;
+        public static List<int> stationpools;
+        public static List<int> turrentpools;
         private float trashfunctiontime;
-        public float autobuildtime;
         public static float batchnum = 1;
-        public static float upsfix = 1;
+
+        private static bool speedUpEnable;
+        public static bool SpeedUpEnable
+        {
+            get => speedUpEnable;
+            set
+            {
+                if (speedUpEnable == value) return;
+                speedUpEnable = value;
+                if (value)
+                {
+                    FPSController.SetFixUPS(SpeedMultiple * 60);
+                }
+                else
+                {
+                    FPSController.SetFixUPS(60);
+                }
+            }
+        }
+        private static float speedMultiple = 1;
+        public static float SpeedMultiple
+        {
+            get => speedMultiple;
+            set
+            {
+                if (speedMultiple == value) return;
+                speedMultiple = value;
+                if (SpeedUpEnable)
+                {
+                    FPSController.SetFixUPS(speedMultiple * 60);
+                }
+            }
+        }
         public static bool temp;
         public static bool simulatorrender;
         public static bool simulatorchanging;
-        public static bool ready;
-        public bool DysonBluePrint;
-        public bool constructframe;
-        public bool constructingshell;
-        public bool constructshell;
-        public bool slowconstruct = true;
-        public bool onlysinglelayer = true;
-        public bool firstStart = false;
-        public bool startdrawdyson;
+        public static bool HideDarkFogMonitor;
+        public static bool HideDarkFogAssaultTip;
+        public bool firstStart;
         public static bool ChangingQuickKey;
-        public bool auto_setejector_start;
-        public bool autoAddwarp_start;
-        public bool autoAddFuel_start;
         public static bool GameDataImported;
         public static Dictionary<int, List<int>> EjectorDictionary;
-        public static Player player => GameMain.mainPlayer;
+        public static Player player;
         public static PlanetData LocalPlanet => GameMain.localPlanet;
         public static BuildingParameters buildingParameters;
         public static int[,] stationcopyItem = new int[5, 6];
-        public Dictionary<int, List<List<int>>> shellnodeidlayer = new Dictionary<int, List<List<int>>>();
-        public Dictionary<int, List<int[]>> framenodeidlayer = new Dictionary<int, List<int[]>>();
-        public List<string> DysonSphereBluePrintNamelist = new List<string>();
-        public List<int[]> framenodeid = new List<int[]>();
-        public List<List<int>> shellnodeid = new List<List<int>>();
-        public List<DysonSphereLayer> constructinglayer = new List<DysonSphereLayer>();
 
         public static ERecipeType pointeRecipetype = ERecipeType.None;
-        public static bool closecollider;
-        public static bool stopfactory;
-        public static bool changeups;
+        public static bool StartAutoMovetounbuilt;
         public static bool autobuildgetitem;
-        public static readonly FieldInfo _uiGridSplit_sliderImg = AccessTools.Field(typeof(UIGridSplit), "sliderImg");
-        public static readonly FieldInfo _uiGridSplit_valueText = AccessTools.Field(typeof(UIGridSplit), "valueText");
 
         #region 配置菜单
-        public static ConfigEntry<bool> autoClearEmptyDyson;
+        public static ConfigEntry<bool> AutoNavigateToDarkFogHive;
+        public static ConfigEntry<int> AutoNavigateToDarkFogHiveKeepDistance;
         public static ConfigEntry<bool> SunLightOpen;
         public static ConfigEntry<bool> closeplayerflyaudio;
         public static ConfigEntry<bool> autosetSomevalue_bool;
         public static ConfigEntry<bool> noscaleuitech_bool;
-        public static ConfigEntry<bool> close_alltip_bool;
+        public static ConfigEntry<bool> TrashStorageWindow_bool;
         public static ConfigEntry<bool> autowarpcommand;
+        public static ConfigEntry<bool> autoAddPlayerVel;
         public static ConfigEntry<bool> autonavigation_bool;
-        public static ConfigEntry<bool> autocleartrash_bool;
         public static ConfigEntry<bool> autoabsorttrash_bool;
+        public static ConfigEntry<bool> onlygetbuildings;
+        public static ConfigEntry<bool> autocleartrash_bool;
         public static ConfigEntry<bool> stationcopyItem_bool;
         public static ConfigEntry<bool> BluePrintDelete;
         public static ConfigEntry<bool> BluePrintRevoke;
@@ -98,22 +119,26 @@ namespace Auxilaryfunction
         public static ConfigEntry<bool> norender_shipdrone_bool;
         public static ConfigEntry<bool> norender_lab_bool;
         public static ConfigEntry<bool> norender_beltitem;
+        public static ConfigEntry<bool> norender_DarkFog;
         public static ConfigEntry<bool> norender_dysonshell_bool;
         public static ConfigEntry<bool> norender_dysonswarm_bool;
         public static ConfigEntry<bool> norender_entity_bool;
         public static ConfigEntry<bool> norender_powerdisk_bool;
+        public static ConfigEntry<bool> CloseUIRandomTip;
+        public static ConfigEntry<bool> CloseUITutorialTip;
+        public static ConfigEntry<bool> CloseUIAdvisor;
+        public static ConfigEntry<bool> CloseMilestone;
         public static ConfigEntry<bool> autoaddtech_bool;
         public static ConfigEntry<bool> Quickstop_bool;
         public static ConfigEntry<bool> automovetounbuilt;
         public static ConfigEntry<bool> upsquickset;
-        public static ConfigEntry<bool> onlygetbuildings;
         public static ConfigEntry<bool> autosavetimechange;
         public static ConfigEntry<bool> auto_supply_station;
+        public static ConfigEntry<bool> autosetstationconfig;
         public static ConfigEntry<bool> auto_setejector_bool;
         public static ConfigEntry<bool> ShowStationInfo;
         public static ConfigEntry<bool> ShowStationInfoMode;
         public static ConfigEntry<bool> KeepBeltHeight;
-        public static ConfigEntry<bool> autoAddFuel;
         public static ConfigEntry<bool> autoAddwarp;
         public static ConfigEntry<double> stationwarpdist;
         public static ConfigEntry<bool> DysonPanelSingleLayer;
@@ -128,6 +153,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<int> autosavetime;
         public static ConfigEntry<int> stationshipdist;
         public static ConfigEntry<int> auto_supply_starfuel;
+        public static ConfigEntry<int> auto_supply_starfuelID;
         public static ConfigEntry<int> auto_supply_drone;
         public static ConfigEntry<int> auto_supply_ship;
         public static ConfigEntry<int> auto_supply_warp;
@@ -137,9 +163,9 @@ namespace Auxilaryfunction
         public static ConfigEntry<float> window_height;
         public static ConfigEntry<float> stationmaxpowerpertick;
         public static ConfigEntry<float> autowarpdistance;
+        public static ConfigEntry<float> autowarpdistanceEnergyPercent;
         public static ConfigEntry<float> DroneStartCarry;
         public static ConfigEntry<float> ShipStartCarry;
-        public static ConfigEntry<string> FuelFilterConfig;
         public static ConfigEntry<string> LastOpenBluePrintBrowserPathConfig;
         #endregion
 
@@ -152,21 +178,30 @@ namespace Auxilaryfunction
         public static GameObject tipPrefab;
         public static GameObject beltWindow;
         public static GameObject SpeakerPanel;
+        public static GameObject TurretWindow;
+        public static GameObject PowerExchangerWindow;
+        public static GameObject TrashStorageWindow;
+        public static GameObject TrashCanButton;
+        public static StorageComponent TrashStorage;
+        public static UITurretWindow uiturretWindow;
+        public static UIStorageWindow uiTrashStorageWindow;
+        public static UIPowerExchangerWindow uipowerExchangerWindow;
+        public static Harmony harmony;
 
         void Start()
         {
-            var harmony = new Harmony(GUID);
-            harmony.PatchAll(typeof(PlayerOperation));
+            harmony = new Harmony(GUID);
             harmony.PatchAll(typeof(AuxilaryfunctionPatch));
             AuxilaryTranslate.regallTranslate();
             trashfunctiontime = Time.time;
 
             {
-                QuickKey = Config.Bind("打开窗口快捷键", "Key", new KeyboardShortcut(KeyCode.Alpha2, KeyCode.LeftAlt));
+                QuickKey = Config.Bind("打开窗口快捷键", "Key", new KeyboardShortcut(KeyCode.LeftAlt, KeyCode.Alpha2));
                 tempShowWindow = QuickKey.Value;
                 auto_setejector_bool = Config.Bind("自动配置太阳帆弹射器", "auto_setejector_bool", false);
 
                 auto_supply_station = Config.Bind("自动配置新运输站", "auto_supply_station", false);
+                autosetstationconfig = Config.Bind("自动配置新运输站参数显示", "autosetstationconfig", true);
                 auto_supply_Courier = Config.Bind("自动填充配送机", "auto_supply_Courier", 10);
                 auto_supply_drone = Config.Bind("自动填充飞机数量", "auto_supply_drone", 10);
                 auto_supply_ship = Config.Bind("自动填充飞船数量", "auto_supply_ship", 5);
@@ -193,12 +228,16 @@ namespace Auxilaryfunction
                 onlygetbuildings = Config.Bind("只回收建筑", "onlygetbuildings", false);
 
                 autowarpcommand = Config.Bind("自动导航使用翘曲", "autowarpcommand", false);
-                close_alltip_bool = Config.Bind("关掉所有提示", "close_alltip_bool", false);
+                CloseUIRandomTip = Config.Bind("关闭建筑栏提示", "CloseUIRandomTip", false);
+                CloseUITutorialTip = Config.Bind("关闭教学提示", "CloseUITutorialTip", false);
+                CloseUIAdvisor = Config.Bind("关闭顾问", "CloseUIAdvisor", false);
+                CloseMilestone = Config.Bind("关闭里程碑", "CloseMilestone", false);
 
                 autoAddwarp = Config.Bind("自动添加翘曲器", "autoAddwarp", false);
-                autoAddFuel = Config.Bind("自动添加燃料", "autoAddFuel", false);
                 autonavigation_bool = Config.Bind("自动导航", "autonavigation_bool", false);
+                autoAddPlayerVel = Config.Bind("自动加速", "autoAddPlayerVel", false);
                 autowarpdistance = Config.Bind("自动使用翘曲器距离", "autowarpdistance", 0f);
+                autowarpdistanceEnergyPercent = Config.Bind("自动曲速能量阈值", "autowarpdistanceEnergyPercent", 0f);
                 autoaddtech_bool = Config.Bind("自动添加科技队列", "autoaddtech_bool", false);
                 auto_add_techid = Config.Bind("自动添加科技队列科技ID", "auto_add_techid", 0);
                 auto_add_techmaxLevel = Config.Bind("自动添加科技队列科技等级上限", "auto_add_techmaxLevel", 500);
@@ -212,6 +251,7 @@ namespace Auxilaryfunction
                 norender_beltitem = Config.Bind("不渲染传送带货物", "norender_beltitem", false);
                 norender_dysonshell_bool = Config.Bind("不渲染戴森壳", "norender_dysonshell_bool", false);
                 norender_dysonswarm_bool = Config.Bind("不渲染戴森云", "norender_dysonswarm_bool", false);
+                norender_DarkFog = Config.Bind("不渲染黑雾", "norender_DarkFog", false);
                 norender_entity_bool = Config.Bind("不渲染实体", "norender_entity_bool", false);
                 norender_powerdisk_bool = Config.Bind("不渲染电网覆盖", "norender_powerdisk_bool", false);
                 Quickstop_bool = Config.Bind("ctrl+空格开启暂停工厂和戴森球", "Quickstop_bool", false);
@@ -219,31 +259,66 @@ namespace Auxilaryfunction
                 upsquickset = Config.Bind("快速设置逻辑帧倍数", "upsquickset", false);
                 autosetSomevalue_bool = Config.Bind("自动配置建筑", "autosetSomevalue_bool", false);
                 auto_supply_starfuel = Config.Bind("人造恒星自动填充燃料数量", "auto_supply_starfuel", 4);
+                auto_supply_starfuelID = Config.Bind("人造恒星自动填充燃料ID", "auto_supply_starfuelID", 1803);
                 autosavetimechange = Config.Bind("自动保存", "autosavetimechange", false);
                 KeepBeltHeight = Config.Bind("保持传送带高度", "KeepBeltHeight", false);
                 autosavetime = Config.Bind("自动保存时间", "autosavetime", 25);
-                FuelFilterConfig = Config.Bind("自动填充燃料", "FuelFilterConfig", "");
-                autoClearEmptyDyson = Config.Bind("自动清除空戴森球", "autoClearEmptyDyson", false);
                 DysonPanelSingleLayer = Config.Bind("单层壳列表", "DysonPanelSingleLayer", true);
                 DysonPanelLayers = Config.Bind("多层壳列表", "DysonPanelLayers", true);
                 DysonPanelSwarm = Config.Bind("戴森云列表", "DysonPanelSwarm", true);
                 DysonPanelDysonSphere = Config.Bind("戴森壳列表", "DysonPanelDysonSphere", true);
+                TrashStorageWindow_bool = Config.Bind("背包垃圾桶", "TrashStorageWindow_bool", false);
                 window_height = Config.Bind("窗口高度", "window_height", 660f);
                 window_width = Config.Bind("窗口宽度", "window_width", 830f);
                 LastOpenBluePrintBrowserPathConfig = Config.Bind("上次打开蓝图路径", "LastOpenBluePrintBrowserPathConfig", "");
+                AutoNavigateToDarkFogHive = Config.Bind("自动导航至黑雾巢穴", "AutoNavigateToDarkFogHive", false);
+                AutoNavigateToDarkFogHiveKeepDistance = Config.Bind("自动导航至黑雾巢穴跟随距离", "AutoNavigateToDarkFogHiveKeepDistance", 400);
             }
+            if (closeplayerflyaudio.Value)
+            {
+                PlayerAudioMutePatch.Enable = true;
+            }
+            closeplayerflyaudio.SettingChanged += (t, e) =>
+            {
+                PlayerAudioMutePatch.Enable = closeplayerflyaudio.Value;
+            };
+            if (autonavigation_bool.Value)
+            {
+                PlayerOperation.Enable = true;
+            }
+            autonavigation_bool.SettingChanged += (t, e) =>
+            {
+                PlayerOperation.Enable = autonavigation_bool.Value;
+            };
+            if (SunLightOpen.Value)
+            {
+                SunLightPatch.Enable = SunLightOpen.Value;
+            }
+            SunLightOpen.SettingChanged += (t, e) =>
+            {
+                SunLightPatch.Enable = SunLightOpen.Value;
+            };
 
 
             scrollPosition[0] = 0;
             dysonBluePrintscrollPosition[0] = 0;
-            foreach (var item in LDB.items.dataArray)
+
+            if (QuickKey.Value.MainKey == KeyCode.Alpha2 && QuickKey.Value.Modifiers.Count() == 1 && QuickKey.Value.Modifiers.ElementAt(0) == KeyCode.LeftAlt)
             {
-                if (item.HeatValue > 0)
-                {
-                    fuelItems.Add(item.ID);
-                    FuelFilter.Add(item.ID, false);
-                }
+                QuickKey.Value = new KeyboardShortcut(KeyCode.LeftAlt, KeyCode.Alpha2);
             }
+
+            assemblerpools = new List<int>();
+            beltpools = new List<int>();
+            ejectorpools = new List<int>();
+            labpools = new List<int>();
+            monitorpools = new List<int>();
+            powergenGammapools = new List<int>();
+            powerexchangertools = new List<int>();
+            pointlayeridlist = new List<int>();
+            readyresearch = new List<int>();
+            stationpools = new List<int>();
+            turrentpools = new List<int>();
             var AuxilaryPanel = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.auxilarypanel")).LoadAsset<GameObject>("AuxilaryPanel");
             var ui_AuxilaryPanelPanel = UnityEngine.Object.Instantiate(AuxilaryPanel, UIRoot.instance.overlayCanvas.transform);
             guidraw = new GUIDraw(Math.Max(5, Math.Min(scale.Value, 35)), ui_AuxilaryPanelPanel);
@@ -254,15 +329,6 @@ namespace Auxilaryfunction
 
         void Update()
         {
-            if (Input.GetKeyDown(KeyCode.L))
-            {
-                foreach (var techstate in GameMain.history.techStates)
-                {
-                    int keyid = techstate.Key;
-                    var tech = GameMain.history.techStates[keyid];
-                    tech.hashUploaded = 0;
-                }
-            }
             AutoSaveTimeChange();
             GameUpdate();
             ChangeQuickKeyMethod();
@@ -271,13 +337,12 @@ namespace Auxilaryfunction
             {
                 if (Input.GetKey(KeyCode.LeftShift))
                 {
-                    if (Input.GetKey(KeyCode.KeypadPlus)) upsfix += 0.01f;
-                    if (Input.GetKey(KeyCode.KeypadMinus)) upsfix -= 0.01f;
-                    if (upsfix < 0.01) upsfix = 0.01f;
-                    else if (upsfix > 10) upsfix = 10;
+                    if (Input.GetKey(KeyCode.KeypadPlus)) SpeedMultiple += 0.01f;
+                    if (Input.GetKey(KeyCode.KeypadMinus)) SpeedMultiple -= 0.01f;
+                    if (SpeedMultiple < 0.01) SpeedMultiple = 0.01f;
+                    else if (SpeedMultiple > 10) SpeedMultiple = 10;
                 }
             }
-            SunLightSet();
         }
 
         private void SunLightSet()
@@ -296,7 +361,7 @@ namespace Auxilaryfunction
                 SunLight = Instantiate(GameMain.universeSimulator.LocalStarSimulator().sunLight, GameMain.mainPlayer.transform);
                 SunLight.enabled = true;
                 SunLight.transform.position = GameMain.mainPlayer.position + GameMain.mainPlayer.transform.up * 5;
-                SunLight.transform.rotation = Quaternion.LookRotation(-player.transform.up);
+                SunLight.transform.rotation = Quaternion.LookRotation(-GameMain.mainPlayer.transform.up);
                 SunLight.transform.localPosition = new Vector3(0, 5, 0);
                 SunLight.name = "PlayerLight";
                 SunLight.intensity = 1f;
@@ -330,10 +395,6 @@ namespace Auxilaryfunction
                 {
                     AutoAddwarp();
                 }
-                if (autoAddFuel.Value)
-                {
-                    AutoAddFuel();
-                }
                 if (autoaddtech_bool.Value && autoaddtechid > 0 && GameMain.history != null && GameMain.history.techQueueLength == 0)
                 {
                     TechState techstate = GameMain.history.techStates[autoaddtechid];
@@ -347,6 +408,10 @@ namespace Auxilaryfunction
                         GameMain.history.EnqueueTech(autoaddtechid);
                     }
                 }
+                if (automovetounbuilt.Value)
+                {
+                    AutoMovetounbuilt();
+                }
                 Thread.Sleep(1000);
             }
         }
@@ -355,6 +420,7 @@ namespace Auxilaryfunction
         {
             if (autosavetimechange.Value && UIAutoSave.autoSaveTime != autosavetime.Value)
             {
+                Debug.Log("AutoSaveTimeChange");
                 DSPGame.globalOption.autoSaveTime = autosavetime.Value;
                 DSPGame.globalOption.Apply();
                 UIAutoSave.autoSaveTime = autosavetime.Value;
@@ -365,21 +431,34 @@ namespace Auxilaryfunction
         {
             if (!GameDataImported)
             {
+                player = null;
                 firstStart = true;
-                closecollider = true;
-                StopAutoBuildThread();
-                readyresearch = new List<int>();
-                upsfix = 1;
+                readyresearch.Clear();
+                SpeedMultiple = 1;
                 autoaddtechid = 0;
                 blueprintopen = false;
                 simulatorrender = false;
+                PlayerOperation.FlyStatus = false;
+                PlayerOperation.Enable = false;
             }
             else
             {
+                if (GameMain.mainPlayer != null && player == null)
+                {
+                    player = GameMain.mainPlayer;
+                    player.controller.actionInspect.onInspecteeChange += (a, b) =>
+                    {
+                        if (b > 0)
+                        {
+                            guidraw.CloseTrashStorageWindow();
+                        }
+                    };
+                    PlayerOperation.Enable = true;
+                }
                 if (firstStart)
                 {
                     firstStart = false;
-                    ready = true;
+                    PlayerOperation.ClearFollow();
                     trashfunctiontime = Time.time;
                     ReLoadEjectorDic();
                 }
@@ -390,8 +469,149 @@ namespace Auxilaryfunction
                     TrashFunction();
                     EnqueueTech();
                     autoaddtechid = auto_add_techid.Value;
+                    SunLightSet();
                 }
 
+            }
+        }
+
+        private void AutoMovetounbuilt()
+        {
+            if (GameMain.localPlanet == null || GameMain.mainPlayer == null || GameMain.mainPlayer.movementState != EMovementState.Fly)
+            {
+                return;
+            }
+            if (!StartAutoMovetounbuilt)
+            {
+                return;
+            }
+            float mindistance = 3000;
+            int lasthasitempd = -1;
+            foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
+            {
+                if (pd.id == 0 || pd.itemRequired > 0) continue;
+                if (lasthasitempd == -1 || mindistance > (pd.pos - player.position).magnitude)
+                {
+                    lasthasitempd = pd.id;
+                    mindistance = (pd.pos - player.position).magnitude;
+                }
+            }
+            if (lasthasitempd == -1)
+            {
+                bool getitem = true;
+                foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
+                {
+                    if (pd.id == 0 || pd.protoId == 0) continue;
+                    if (player.package.GetItemCount(pd.protoId) > 0)
+                    {
+                        player.Order(new OrderNode() { target = pd.pos, type = EOrderType.Move }, false);
+                        getitem = false;
+                        break;
+                    }
+                }
+                if (getitem && autobuildgetitem)
+                {
+                    int[] warningCounts = GameMain.data.warningSystem.warningCounts;
+                    WarningData[] warningpools = GameMain.data.warningSystem.warningPool;
+                    List<int> getItem = new List<int>();
+                    int stackSize = 0;
+                    int packageGridLen = player.package.grids.Length;
+                    for (int j = packageGridLen - 1; j >= 0 && player.package.grids[j].count == 0; j--, stackSize++) { }
+                    for (int i = 1; i < GameMain.data.warningSystem.warningCursor && stackSize > 0; i++)
+                    {
+                        if (getItem.Contains(warningpools[i].detailId)) continue;
+                        if (player.package.GetItemCount(warningpools[i].detailId) > 0) break;
+                        getItem.Add(warningpools[i].detailId);
+                        FindItemAndMove(warningpools[i].detailId, warningCounts[warningpools[i].signalId]);
+                    }
+                }
+            }
+            else if (GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id != 0)
+            {
+                player.Order(new OrderNode() { target = GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos, type = EOrderType.Move }, false);
+                if ((GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos - player.position).magnitude > 30)
+                {
+                    player.currentOrder.targetReached = true;
+                }
+            }
+        }
+
+        private static void FindItemAndMove(int itemId, int itemCount)
+        {
+            if (LocalPlanet == null || LocalPlanet.factory == null || LocalPlanet.gasItems != null) return;
+            if (LDB.items == null || LDB.items.Select(itemId) == null) return;
+            int packageGridLen = player.package.grids.Length;
+            int stackMax;
+            int stackSize = 0;
+            if (player.package.grids[packageGridLen - 1].count != 0)
+            {
+                player.package.Sort();
+            }
+            for (int i = packageGridLen - 1; i >= 0; i--, stackSize++)
+            {
+                if (player.package.grids[i].count != 0) break;
+            }
+            stackMax = LDB.items.Select(itemId).StackSize * stackSize;
+            itemCount = stackMax > itemCount ? itemCount : stackMax;
+            PlanetFactory pf = LocalPlanet.factory;
+
+            if (pf.transport != null && pf.transport.stationPool != null)
+            {
+                int result = 0;
+                int resultinc = 0;
+                foreach (StationComponent sc in pf.transport.stationPool)
+                {
+                    if (itemCount == 0) break;
+                    if (sc == null || sc.storage == null) continue;
+                    int tempItemCount = itemCount;
+                    int tempItemId = itemId;
+                    sc.TakeItem(ref tempItemId, ref tempItemCount, out int inc);
+                    result += tempItemCount;
+                    itemCount -= tempItemCount;
+                    resultinc += inc;
+                }
+                player.TryAddItemToPackage(itemId, result, resultinc, false);
+            }
+
+            if (pf.factoryStorage != null && pf.factoryStorage.storagePool != null)
+            {
+                if (pf.factoryStorage.storagePool != null)
+                {
+                    foreach (StorageComponent sc in pf.factoryStorage.storagePool)
+                    {
+                        if (itemCount == 0) break;
+                        if (sc != null)
+                        {
+                            int temp = sc.TakeItem(itemId, itemCount, out int inc);
+                            itemCount -= temp;
+                            if (temp > 0)
+                            {
+                                player.TryAddItemToPackage(itemId, temp, inc, false);
+                            }
+                        }
+                    }
+                }
+                if (pf.factoryStorage.tankPool != null)
+                {
+                    foreach (TankComponent tc in pf.factoryStorage.tankPool)
+                    {
+                        if (itemCount == 0) break;
+                        if (tc.id > 0 && tc.fluidId > 0 && tc.fluidCount > 0 && itemId == tc.fluidId)
+                        {
+                            int tempItemCount = tc.fluidCount > itemCount ? itemCount : tc.fluidCount;
+
+                            int inc = (int)(tc.fluidInc / tc.fluidCount + 0.5) * tempItemCount;
+                            pf.factoryStorage.tankPool[tc.id].fluidCount -= tempItemCount;
+                            pf.factoryStorage.tankPool[tc.id].fluidInc -= inc;
+
+                            itemCount -= tempItemCount;
+                            if (tempItemCount > 0)
+                            {
+                                player.TryAddItemToPackage(itemId, tempItemCount, inc, false);
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -522,12 +742,12 @@ namespace Auxilaryfunction
                 {
                     LocalPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)60 * 16667;
                 }
-                sc.deliveryDrones = (int)(DroneStartCarry.Value * 10) * 10;
+                sc.deliveryDrones = DroneStartCarry.Value == 0 ? 1 : (int)(DroneStartCarry.Value * 10) * 10;
 
                 if (sc.isStellar)
                 {
                     sc.warpEnableDist = stationwarpdist.Value * GalaxyData.AU;
-                    sc.deliveryShips = (int)(ShipStartCarry.Value * 10) * 10;
+                    sc.deliveryShips = ShipStartCarry.Value == 0 ? 1 : (int)(ShipStartCarry.Value * 10) * 10;
                     sc.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
                 }
             }
@@ -637,11 +857,31 @@ namespace Auxilaryfunction
         {
             if (LocalPlanet == null) return;
             PlanetFactory fs = LocalPlanet.factory;
+            int fuelId = auto_supply_starfuelID.Value;
+            if (fuelId < 1803 || fuelId > 1804)
+            {
+                return;
+            }
             foreach (PowerGeneratorComponent pgc in fs.powerSystem.genPool)
             {
-                int inc;
                 if (pgc.fuelMask == 4 && pgc.fuelCount < auto_supply_starfuel.Value)
-                    fs.powerSystem.genPool[pgc.id].SetNewFuel(1803, (short)(player.package.TakeItem(1803, auto_supply_starfuel.Value - pgc.fuelCount, out inc) + pgc.fuelCount), (short)inc);
+                {
+                    int needNum = auto_supply_starfuel.Value - pgc.fuelCount;
+                    short fuelcount = ((short)player.package.TakeItem(fuelId, needNum, out int inc));
+                    if (fuelcount == 0)
+                    {
+                        return;
+                    }
+                    if (pgc.fuelCount == 0)
+                    {
+                        fs.powerSystem.genPool[pgc.id].SetNewFuel(fuelId, fuelcount, (short)inc);
+                    }
+                    else if (pgc.fuelCount < auto_supply_starfuel.Value && fuelId == pgc.fuelId)
+                    {
+                        fs.powerSystem.genPool[pgc.id].fuelCount += fuelcount;
+                        fs.powerSystem.genPool[pgc.id].fuelInc += (short)inc;
+                    }
+                }
             }
         }
 
@@ -692,7 +932,7 @@ namespace Auxilaryfunction
                     recipewindowy = (int)Input.mousePosition.y;
                     var assemblerPreviewpools = new List<int>();
 
-                    if (stationpools.Count + labpools.Count + assemblerpools.Count + beltpools.Count + monitorpools.Count + ejectorpools.Count + powergenGammapools.Count > 0)
+                    if (stationpools.Count + labpools.Count + assemblerpools.Count + beltpools.Count + monitorpools.Count + ejectorpools.Count + powergenGammapools.Count + turrentpools.Count + powerexchangertools.Count > 0)
                     {
                         InitBluePrintData();
                         return;
@@ -732,6 +972,14 @@ namespace Auxilaryfunction
                             {
                                 powergenGammapools.Add(build.factory.entityPool[bp.objId].powerGenId);
                             }
+                            else if (prefabDesc.isTurret)
+                            {
+                                turrentpools.Add(build.factory.entityPool[bp.objId].turretId);
+                            }
+                            else if (prefabDesc.isPowerExchanger)
+                            {
+                                powerexchangertools.Add(build.factory.entityPool[bp.objId].powerExcId);
+                            }
                         }
                     }
                     //组装机优先，其他次之，传送带再次之，检测器最后
@@ -746,7 +994,7 @@ namespace Auxilaryfunction
                                 if (pointeRecipetype != bp.item.prefabDesc.assemblerRecipeType)
                                 {
                                     pointeRecipetype = ERecipeType.None;
-                                    assemblerpools = new List<int>();
+                                    assemblerpools.Clear();
                                     break;
                                 }
                                 assemblerpools.Add(build.factory.entityPool[bp.objId].assemblerId);
@@ -756,6 +1004,49 @@ namespace Auxilaryfunction
                     else if (labpools.Count > 0 || ejectorpools.Count > 0 || stationpools.Count > 0 || powergenGammapools.Count > 0)
                     {
                         //无需操作
+                    }
+                    else if (powerexchangertools.Count > 0)
+                    {
+                        if (!PowerExchangerWindow.gameObject.activeSelf)
+                        {
+                            PowerExchangerWindow.gameObject.SetActive(true);
+
+                            PowerExchangerComponent powerExchangerComponent = GameMain.localPlanet.factory.powerSystem.excPool[powerexchangertools[0]];
+                            ItemProto itemProto = LDB.items.Select(powerExchangerComponent.emptyId);
+                            ItemProto itemProto2 = LDB.items.Select(powerExchangerComponent.fullId);
+                            uipowerExchangerWindow.emptyIcon.sprite = ((itemProto == null) ? null : itemProto.iconSprite);
+                            uipowerExchangerWindow.fullIcon.sprite = ((itemProto2 == null) ? null : itemProto2.iconSprite);
+                        }
+                        else
+                        {
+                            powerexchangertools.Clear();
+                            PowerExchangerWindow.gameObject.SetActive(false);
+                        }
+                    }
+                    else if (turrentpools.Count > 0)
+                    {
+                        if (!TurretWindow.gameObject.activeSelf)
+                        {
+                            TurretWindow.gameObject.SetActive(true);
+                            uiturretWindow.mode0Icon.sprite = uiturretWindow.fullTransparentSprite;
+                            uiturretWindow.mode0Floor.color = uiturretWindow.disableModeColor;
+                            uiturretWindow.mode1Icon.sprite = uiturretWindow.fullTransparentSprite;
+                            uiturretWindow.mode1Floor.color = uiturretWindow.disableModeColor;
+                            uiturretWindow.mode2Icon.sprite = uiturretWindow.fullTransparentSprite;
+                            uiturretWindow.mode2Floor.color = uiturretWindow.disableModeColor;
+                            uiturretWindow.mode3Icon.sprite = uiturretWindow.fullTransparentSprite;
+                            uiturretWindow.mode3Floor.color = uiturretWindow.disableModeColor;
+                            for (int i = 0; i < uiturretWindow.groupSelectionBtns.Length; i++)
+                            {
+                                UIButton uibutton = uiturretWindow.groupSelectionBtns[i];
+                                uibutton.highlighted = false;
+                            }
+                        }
+                        else
+                        {
+                            turrentpools.Clear();
+                            TurretWindow.gameObject.SetActive(false);
+                        }
                     }
                     else if (beltpools.Count > 0)
                     {
@@ -824,8 +1115,17 @@ namespace Auxilaryfunction
                     blue_copy.ResetBuildPreviews();
                     blue_copy.RefreshBlueprintData();
                 }
+
+                if (uiturretWindow != null && uiturretWindow.gameObject.activeSelf && Input.GetKeyDown(KeyCode.Mouse0) || Input.GetKeyDown(KeyCode.Mouse1) || Input.GetKeyDown(KeyCode.Mouse2))
+                {
+                    Camera worldCamera = UIRoot.instance.overlayCanvas.worldCamera;
+                    if (!RectTransformUtility.RectangleContainsScreenPoint(uiturretWindow.selectBoxRt, Input.mousePosition, worldCamera) && uiturretWindow.selectBoxRt.gameObject.activeSelf)
+                    {
+                        uiturretWindow.selectBoxRt.gameObject.SetActive(false);
+                    }
+                }
             }
-            else if (stationpools.Count + labpools.Count + assemblerpools.Count + beltpools.Count + monitorpools.Count + ejectorpools.Count + powergenGammapools.Count > 0)
+            else if (stationpools.Count + labpools.Count + assemblerpools.Count + beltpools.Count + monitorpools.Count + ejectorpools.Count + powergenGammapools.Count + turrentpools.Count + powerexchangertools.Count > 0)
             {
                 InitBluePrintData();
             }
@@ -844,35 +1144,27 @@ namespace Auxilaryfunction
 
         }
 
-        /// <summary>
-        /// 停止自动寻找建筑的进程
-        /// </summary>
-        public static void StopAutoBuildThread()
-        {
-            closecollider = !closecollider;
-            autobuildgetitem = false;
-            if (autobuildThread != null)
-            {
-                if (autobuildThread.ThreadState == ThreadState.WaitSleepJoin)
-                    autobuildThread.Interrupt();
-                else
-                    autobuildThread.Abort();
-                autobuildThread = null;
-            }
-        }
-
         public static void InitBluePrintData()
         {
             pointeRecipetype = ERecipeType.None;
-            stationpools = new List<int>();
-            assemblerpools = new List<int>();
-            labpools = new List<int>();
-            beltpools = new List<int>();
-            monitorpools = new List<int>();
-            powergenGammapools = new List<int>();
-            ejectorpools = new List<int>();
+            stationpools.Clear();
+            assemblerpools.Clear();
+            labpools.Clear();
+            beltpools.Clear();
+            monitorpools.Clear();
+            powergenGammapools.Clear();
+            turrentpools.Clear();
+            powerexchangertools.Clear();
+            ejectorpools.Clear();
             beltWindow.gameObject.SetActive(false);
             SpeakerPanel.gameObject.SetActive(false);
+            TurretWindow.gameObject.SetActive(false);
+            PowerExchangerWindow.gameObject.SetActive(false);
+            uipowerExchangerWindow.exchangerMode1UIButton.highlighted = false;
+            uipowerExchangerWindow.exchangerMode2UIButton.highlighted = true;
+            uipowerExchangerWindow.exchangerMode3UIButton.highlighted = false;
+            uipowerExchangerWindow.transition0.gameObject.SetActive(false);
+            uipowerExchangerWindow.transition1.gameObject.SetActive(false);
             SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(false);
             if (UISignalPicker.isOpened)
                 UISignalPicker.Close();
@@ -902,7 +1194,7 @@ namespace Auxilaryfunction
         {
             if (Quickstop_bool.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Space))
             {
-                stopfactory = !stopfactory;
+                GameTickPatch.Enable = !GameTickPatch.Enable;
             }
         }
 
@@ -913,6 +1205,10 @@ namespace Auxilaryfunction
         {
             if (Time.time - trashfunctiontime < 30)
                 return;
+            if (GameMain.data?.trashSystem == null)
+            {
+                return;
+            }
             trashfunctiontime = Time.time;
             if (autoabsorttrash_bool.Value) //回收函数
             {
@@ -949,36 +1245,6 @@ namespace Auxilaryfunction
                     return;
                 }
                 player.mecha.warpStorage.AddItem(itemID, count, inc, out _);
-            }
-        }
-
-        /// <summary>
-        /// 自动添加燃料
-        /// </summary>
-        private void AutoAddFuel()
-        {
-            if (player?.mecha != null && player.mecha.reactorStorage.isEmpty)
-            {
-                foreach (var itemID in fuelItems)
-                {
-                    if (!FuelFilter[itemID] || player.package.GetItemCount(itemID) == 0)
-                    {
-                        continue;
-                    }
-                    var item = LDB.items.Select(itemID);
-                    int tempitemID = itemID;
-                    int count = item.StackSize;
-                    while (!player.mecha.reactorStorage.isFull)
-                    {
-                        player.package.TakeTailItems(ref tempitemID, ref count, out int inc);
-                        if (tempitemID <= 0 || count <= 0)
-                        {
-                            break;
-                        }
-                        player.mecha.reactorStorage.AddItem(itemID, count, inc, out _);
-                        if (player.mecha.reactorStorage.isFull || player.mecha.reactorStorage.GetItemCount(itemID) > 100000) return;
-                    }
-                }
             }
         }
 
@@ -1062,7 +1328,7 @@ namespace Auxilaryfunction
                 }
             }
             if (left && right) { }
-            else if (!left && !right) tempShowWindow = new KeyboardShortcut((KeyCode)result[1], (KeyCode)result[0]);
+            else if (!left && !right) tempShowWindow = new KeyboardShortcut((KeyCode)result[0], (KeyCode)result[1]);
             else
             {
                 tempShowWindow = new KeyboardShortcut((KeyCode)Math.Max(result[0], result[1]));

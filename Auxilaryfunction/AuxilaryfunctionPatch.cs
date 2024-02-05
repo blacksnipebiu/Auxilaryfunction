@@ -1,7 +1,6 @@
 ﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using UnityEngine;
 using static Auxilaryfunction.Auxilaryfunction;
 
@@ -9,67 +8,6 @@ namespace Auxilaryfunction
 {
     public class AuxilaryfunctionPatch
     {
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(PostEffectController), "Update")]
-        public static void PostEffectControllerUpdatePatch(PostEffectController __instance)
-        {
-            if (SunLightOpen.Value && __instance.sunShaft != null && GameMain.localStar != null && GameMain.localPlanet != null && SunLight != null && !FactoryModel.whiteMode0)
-            {
-                float magnitude = GameCamera.main.transform.localPosition.magnitude;
-                if (GameMain.universeSimulator != null && GameMain.localStar.type != EStarType.BlackHole)
-                {
-                    StarSimulator starSimulator = GameMain.universeSimulator.LocalStarSimulator();
-                    if (starSimulator != null)
-                    {
-                        __instance.sunShaft.sunTransform = SunLight.transform;
-                        __instance.sunShaft.sunColor = GameMain.universeSimulator.sunshaftColor.Evaluate(starSimulator.sunColorParam);
-                        SunLight.shadowBias = Mathf.Clamp01((magnitude - 300f) / 700f) * 0.5f + 0.045f;
-                    }
-                }
-                __instance.sunShaft.enabled = (__instance.sunShaft.sunTransform != null);
-                __instance.sunShaft.sunShaftIntensity = 0.25f + Mathf.Clamp01((300f - GameMain.mainPlayer.position.magnitude + GameMain.localPlanet.realRadius) / 200f) * 1.25f;
-            }
-        }
-
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(StarSimulator), "LateUpdate")]
-        public static bool StarSimulatorLateUpdate(ref StarSimulator __instance, Material ___bodyMaterial, Material ___haloMaterial)
-        {
-            if (!SunLightOpen.Value || FactoryModel.whiteMode0 || GameMain.localStar != __instance.starData)
-            {
-                return true;
-            }
-            __instance.sunLight.enabled = false;
-            Shader.SetGlobalVector("_Global_SunDir", GameMain.mainPlayer.transform.up);
-            Shader.SetGlobalColor("_Global_SunsetColor0", Color.Lerp(Color.white, __instance.sunsetColor0, __instance.useSunsetColor));
-            Shader.SetGlobalColor("_Global_SunsetColor1", Color.Lerp(Color.white, __instance.sunsetColor1, __instance.useSunsetColor));
-            Shader.SetGlobalColor("_Global_SunsetColor2", Color.Lerp(Color.white, __instance.sunsetColor2, __instance.useSunsetColor));
-            ___bodyMaterial.renderQueue = 2981;
-            ___haloMaterial.renderQueue = 2981;
-            __instance.blackRenderer.enabled = false;
-            return false;
-        }
-
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(PlanetSimulator), "LateUpdate")]
-        public static bool PlanetSimulatorLateUpdatePatch(PlanetSimulator __instance)
-        {
-            PlanetData localPlanet = GameMain.localPlanet;
-            if (!GameDataImported || !SunLightOpen.Value || FactoryModel.whiteMode0 || localPlanet == null || localPlanet != __instance.planetData || SunLight == null)
-            {
-                return true;
-            }
-            Vector3 vector3 = GameMain.mainPlayer.transform.up;
-            if (__instance.surfaceRenderer?.Length != 0)
-                __instance.surfaceRenderer[0]?.sharedMaterial?.SetVector("_SunDir", vector3);
-            __instance.reformMat0?.SetVector("_SunDir", vector3);
-            __instance.reformMat1?.SetVector("_SunDir", vector3);
-            __instance.atmoMat?.SetVector("_SunDir", vector3);
-            __instance.atmoMatLate?.SetVector("_SunDir", vector3);
-            __instance.cloudSimulator?.OnLateUpdate();
-            return false;
-        }
-
         [HarmonyPrefix]
         [HarmonyPatch(typeof(GameLoader), "CreateLoader")]
         public static void GameLoaderCreateLoaderPrefix()
@@ -94,19 +32,23 @@ namespace Auxilaryfunction
             }
         }
 
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(UIDETopFunction), "SetDysonComboBox")]
-        public static void UIDETopFunctionSetDysonComboBoxPatch()
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(PowerSystem), "NewGeneratorComponent")]
+        public static void NewGeneratorComponentPatch(ref int __result, PowerSystem __instance)
         {
-            if (autoClearEmptyDyson.Value && GameMain.data?.dysonSpheres != null)
+            if (__instance.genPool[__result].fuelMask == 4)
             {
-                for (int i = 0; i < GameMain.data.dysonSpheres.Length; i++)
+                if (autosetSomevalue_bool.Value)
                 {
-                    var dysonsphere = GameMain.data.dysonSpheres[i];
-                    if (dysonsphere != null && dysonsphere.totalNodeCount == 0)
+                    int fuelId = auto_supply_starfuelID.Value;
+                    if (fuelId < 1803 || fuelId > 1804)
                     {
-                        if (dysonsphere.starData.index == (GameMain.localStar?.index ?? 0)) continue;
-                        GameMain.data.dysonSpheres[i] = null;
+                        return;
+                    }
+                    short fuelcount = (short)player.package.TakeItem(fuelId, auto_supply_starfuel.Value, out int inc);
+                    if (fuelcount != 0)
+                    {
+                        __instance.genPool[__result].SetNewFuel(fuelId, fuelcount, (short)inc);
                     }
                 }
             }
@@ -120,12 +62,44 @@ namespace Auxilaryfunction
                 EjectorDictionary[__instance.planet.id].Add(__result);
             else
             {
-                List<int> temp = new List<int>();
-                temp.Add(__result);
-                EjectorDictionary[__instance.planet.id] = temp;
+                EjectorDictionary[__instance.planet.id] = new List<int>
+                {
+                    __result
+                };
             }
 
             __instance.ejectorPool[__result].SetOrbit(1);
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(PlanetTransport), "NewStationComponent")]
+        public static void NewStationComponentPatch(ref StationComponent __result, PlanetTransport __instance)
+        {
+            if (auto_supply_station.Value && !__result.isCollector && !__result.isVeinCollector)
+            {
+                __result.idleDroneCount = player.package.TakeItem(5001, __result.isStellar ? auto_supply_drone.Value : (auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value), out _);
+                __result.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
+                __instance.planet.factory.powerSystem.consumerPool[__result.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
+                if (stationmaxpowerpertick.Value > 60 && !__result.isStellar)
+                {
+                    __instance.planet.factory.powerSystem.consumerPool[__result.pcId].workEnergyPerTick = (long)60 * 16667;
+                }
+
+                __result.deliveryDrones = DroneStartCarry.Value == 0 ? 1 : (int)(DroneStartCarry.Value * 10) * 10;
+                if (__result.isStellar)
+                {
+                    __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
+                    __result.warpEnableDist = stationwarpdist.Value * GalaxyData.AU;
+                    __result.deliveryShips = ShipStartCarry.Value == 0 ? 1 : (int)(ShipStartCarry.Value * 10) * 10;
+                    __result.idleShipCount = player.package.TakeItem(5002, auto_supply_ship.Value, out _);
+                    __result.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
+                    if (GameMain.data.history.TechUnlocked(3404)) __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
+                }
+            }
+            if (auto_supply_station.Value && __result.isVeinCollector)
+            {
+                __instance.factory.factorySystem.minerPool[__result.minerId].speed = veincollectorspeed.Value * 1000;
+            }
         }
 
         [HarmonyPrefix]
@@ -134,52 +108,6 @@ namespace Auxilaryfunction
         {
             if (EjectorDictionary[__instance.planet.id].Contains(id))
                 EjectorDictionary[__instance.planet.id].Remove(id);
-        }
-
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(GameData), "GameTick")]
-        public static bool GameTick1Patch(ref long time, GameData __instance)
-        {
-            if (stopfactory)
-            {
-                PerformanceMonitor.BeginSample(ECpuWorkEntry.Statistics);
-                if (!DSPGame.IsMenuDemo)
-                {
-                    __instance.statistics.PrepareTick();
-                    __instance.history.PrepareTick();
-                }
-                __instance.mainPlayer.packageUtility.Count();
-                PerformanceMonitor.EndSample(ECpuWorkEntry.Statistics);
-
-                if (__instance.localPlanet != null && __instance.localPlanet.factoryLoaded)
-                {
-                    PerformanceMonitor.BeginSample(ECpuWorkEntry.LocalPhysics);
-                    __instance.localPlanet.factory.cargoTraffic.ClearStates();
-                    __instance.localPlanet.physics.GameTick();
-                    PerformanceMonitor.EndSample(ECpuWorkEntry.LocalPhysics);
-                }
-                PerformanceMonitor.BeginSample(ECpuWorkEntry.Scenario);
-                if (__instance.guideMission != null)
-                {
-                    __instance.guideMission.GameTick();
-                }
-                PerformanceMonitor.EndSample(ECpuWorkEntry.Scenario);
-                PerformanceMonitor.BeginSample(ECpuWorkEntry.Player);
-                if (__instance.mainPlayer != null)
-                    __instance.mainPlayer.GameTick(time);
-                __instance.DetermineRelative();
-                PerformanceMonitor.EndSample(ECpuWorkEntry.Player);
-
-                if (__instance.localPlanet != null && __instance.localPlanet.factoryLoaded)
-                {
-                    PerformanceMonitor.BeginSample(ECpuWorkEntry.LocalAudio);
-                    __instance.localPlanet.audio.GameTick();
-                    PerformanceMonitor.EndSample(ECpuWorkEntry.LocalAudio);
-                }
-                __instance.preferences.Collect();
-                return false;
-            }
-            return true;
         }
 
         [HarmonyPostfix]
@@ -191,6 +119,7 @@ namespace Auxilaryfunction
                 __instance.dispenserPool[__result].idleCourierCount = player.package.TakeItem(5003, auto_supply_Courier.Value, out _);
             }
         }
+
         [HarmonyPostfix]
         [HarmonyPatch(typeof(UIBlueprintBrowser), "SetCurrentDirectory")]
         public static void UIBlueprintBrowserSetCurrentDirectory(string fullpath)
@@ -208,36 +137,6 @@ namespace Auxilaryfunction
             if (SaveLastOpenBluePrintBrowserPathConfig.Value && string.IsNullOrEmpty(__instance.openPath) && !string.IsNullOrEmpty(LastOpenBluePrintBrowserPathConfig.Value))
             {
                 __instance.openPath = LastOpenBluePrintBrowserPathConfig.Value;
-            }
-        }
-
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(PlanetTransport), "NewStationComponent")]
-        public static void NewStationComponentPatch(ref StationComponent __result, PlanetTransport __instance)
-        {
-            if (auto_supply_station.Value && !__result.isCollector && !__result.isVeinCollector)
-            {
-                __result.idleDroneCount = player.package.TakeItem(5001, __result.isStellar ? auto_supply_drone.Value : (auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value), out _);
-                __result.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
-                __instance.planet.factory.powerSystem.consumerPool[__result.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
-                if (stationmaxpowerpertick.Value > 60 && !__result.isStellar)
-                {
-                    __instance.planet.factory.powerSystem.consumerPool[__result.pcId].workEnergyPerTick = (long)60 * 16667;
-                }
-                __result.deliveryDrones = (int)(DroneStartCarry.Value * 10) * 10;
-                if (__result.isStellar)
-                {
-                    __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
-                    __result.warpEnableDist = stationwarpdist.Value * GalaxyData.AU;
-                    __result.deliveryShips = (int)(ShipStartCarry.Value * 10) * 10;
-                    __result.idleShipCount = player.package.TakeItem(5002, auto_supply_ship.Value, out _);
-                    __result.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
-                    if (GameMain.data.history.TechUnlocked(3404)) __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
-                }
-            }
-            if (auto_supply_station.Value && __result.isVeinCollector)
-            {
-                __instance.factory.factorySystem.minerPool[__result.minerId].speed = veincollectorspeed.Value * 1000;
             }
         }
 
@@ -287,9 +186,21 @@ namespace Auxilaryfunction
         [HarmonyPatch(typeof(LabRenderer), "Render")]
         public static bool LabRendererPatch(LabRenderer __instance)
         {
-            if (__instance.modelId == 70)
+            if (__instance.modelId == 70 || __instance.modelId == 455)
                 return !norender_lab_bool.Value && !simulatorrender;
             return true;
+        }
+
+        /// <summary>
+        /// 黑雾基地
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <returns></returns>
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(SectorModel), "LateUpdate")]
+        public static bool EnemyDFGroundRendererRenderPatch()
+        {
+            return !norender_DarkFog.Value && !simulatorrender;
         }
 
         [HarmonyPrefix]
@@ -311,6 +222,20 @@ namespace Auxilaryfunction
         public static bool UIPowerGizmoDrawAreaPatch()
         {
             return !norender_powerdisk_bool.Value && !simulatorrender;
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(UIDarkFogMonitor), "Determine")]
+        public static bool UIDarkFogMonitorDetermine()
+        {
+            return !HideDarkFogMonitor && !simulatorrender;
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(UIDarkFogAssaultTip), "Determine")]
+        public static bool UIDarkFogAssaultTipDetermine()
+        {
+            return !HideDarkFogAssaultTip && !simulatorrender;
         }
 
         [HarmonyPrefix]
@@ -383,25 +308,25 @@ namespace Auxilaryfunction
                 {
                     if (ObjectIsBeltOrSplitter(__instance, __instance.castObjectId))
                     {
-                        __instance.altitude = Altitude(__instance.castObjectPos, planetAux, __instance);
+                        __instance.altitude = Altitude(__instance.castObjectPos, planetAux);
                     }
                     else if (__instance.startObjectId != 0)
                     {
-                        __instance.altitude = Altitude(__instance.pathPoints[0], planetAux, __instance);
+                        __instance.altitude = Altitude(__instance.pathPoints[0], planetAux);
                     }
                 }
-                else if (Input.GetKey(KeyCode.LeftControl) && ObjectIsBeltOrSplitter(__instance, __instance.castObjectId))
-                {
-                    __instance.altitude = Altitude(__instance.castObjectPos, planetAux, __instance);
-                    if (__instance.altitude == 0)
-                    {
-                        __instance.altitude = 1;
-                    }
-                }
+                //else if (Input.GetKey(KeyCode.LeftControl) && ObjectIsBeltOrSplitter(__instance, __instance.castObjectId))
+                //{
+                //    __instance.altitude = Altitude(__instance.castObjectPos, planetAux);
+                //    if (__instance.altitude == 0)
+                //    {
+                //        __instance.altitude = 1;
+                //    }
+                //}
             }
         }
 
-        private static int Altitude(Vector3 pos, PlanetAuxData aux, BuildTool_Path buildtoolpath)
+        private static int Altitude(Vector3 pos, PlanetAuxData aux)
         {
             Vector3 b = aux.Snap(pos, true);
             return (int)Math.Round((double)(Vector3.Distance(pos, b) / 1.3333333f));
@@ -444,81 +369,49 @@ namespace Auxilaryfunction
             }
         }
 
-        //星图方向指引启动自动导航
+
         [HarmonyPrefix]
-        [HarmonyPatch(typeof(UIStarmap), "OnCursorFunction3Click")]
-        public static void AutonavigationPatch(UIStarmap __instance)
+        [HarmonyPatch(typeof(UIVariousPopupCard), "Refresh")]
+        public static bool UIVariousPopupCardRefresh(UIVariousPopupCard __instance)
         {
-            if (autonavigation_bool.Value)
+            if (CloseMilestone.Value)
             {
-                if (__instance.focusPlanet != null && __instance.focusPlanet.planet.id != GameMain.localPlanet?.id)
-                    PlayerOperation.fly = true;
-                else if (__instance.focusStar != null && __instance.focusStar.star.id != GameMain.localStar?.id)
-                    PlayerOperation.fly = true;
-                if (PlayerOperation.fly)
+                MilestoneProto milestoneProto = __instance.data as MilestoneProto;
+                if (milestoneProto != null)
                 {
-                    PlayerOperation.flyfocusPlanet = null;
-                    PlayerOperation.flyfocusStar = null;
+                    __instance._Close();
+                    return false;
                 }
             }
+            return true;
         }
 
         [HarmonyPrefix]
-        [HarmonyPatch(typeof(UIGeneralTips), "OnTechUnlocked")]
-        public static bool OnTechUnlockedPatch()
+        [HarmonyPatch(typeof(UIAdvisorTip), "RequestAdvisorTip")]
+        public static bool UIAdvisorTipRequestAdvisorTip()
         {
-            return !close_alltip_bool.Value;
+            return !CloseUIAdvisor.Value;
         }
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(UIRandomTip), "_OnOpen")]
         public static void UIBuildMenu_OnOpenPatch(ref UIRandomTip __instance)
         {
-            if (close_alltip_bool.Value)
+            if (CloseUIRandomTip.Value)
             {
                 __instance._Close();
             }
         }
 
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(UITutorialTip), "Determine")]
-        public static void UITutorialWindow_OnOpenPatch(UITutorialTip __instance)
-        {
-            if (close_alltip_bool.Value)
-            {
-                __instance._Close();
-            }
-        }
-
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(PowerSystem), "NewGeneratorComponent")]
-        public static void NewGeneratorComponentPatch(ref int __result, PowerSystem __instance)
-        {
-            if (__instance.genPool[__result].fuelMask == 4)
-            {
-                if (autosetSomevalue_bool.Value)
-                {
-                    short fuelcount = (short)player.package.TakeItem(1803, auto_supply_starfuel.Value, out int inc);
-                    if (fuelcount > 0)
-                    {
-                        __instance.genPool[__result].SetNewFuel(1803, fuelcount, (short)inc);
-                    }
-                }
-            }
-        }
-
         [HarmonyPrefix]
-        [HarmonyPatch(typeof(MilestoneSystem), "NotifyUnlockMilestone")]
-        public static bool UIMilestoneTipNotifyUnlockMilestonePatch()
+        [HarmonyPatch(typeof(UITutorialTip), "PopupTutorialTip")]
+        public static bool UITutorialTipPopupTutorialTip()
         {
-            return !close_alltip_bool.Value;
-        }
-
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(PlayerControlGizmo), "AddOrderGizmo")]
-        public static bool PlayerControlGizmoPatch()
-        {
-            return !closecollider;
+            if (CloseUITutorialTip.Value)
+            {
+                return false;
+            }
+            return true;
         }
 
         [HarmonyPrefix]
@@ -527,15 +420,6 @@ namespace Auxilaryfunction
         {
             if (noscaleuitech_bool.Value && (__instance.selected != null || __instance.centerViewNode != null)) return false;
             return true;
-        }
-
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(FPSController), "Update")]
-        public static void FPSControllerUpdatePatch()
-        {
-            if (!changeups)
-                return;
-            Time.fixedDeltaTime = 1 / (upsfix * 60);
         }
 
         [HarmonyPrefix]
@@ -572,158 +456,271 @@ namespace Auxilaryfunction
             }
         }
 
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(PlayerAudio), "Update")]
-        public static bool PlayerAudioUpdatePatch()
-        {
-            return !closeplayerflyaudio.Value;
-        }
-
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(PlayerFootsteps), "PlayFootstepSound")]
-        public static bool PlayerFootstepsPatch()
-        {
-            return !closeplayerflyaudio.Value;
-        }
     }
 
-    //操纵人物
-    [HarmonyPatch(typeof(PlayerController), "GetInput")]
     public class PlayerOperation
     {
+        private static Harmony _patch;
+        private static bool enable;
+        public static bool Enable
+        {
+            get => enable;
+            set
+            {
+                if (enable == value) return;
+                enable = value;
+                if (enable)
+                {
+                    _patch = Harmony.CreateAndPatchAll(typeof(PlayerOperation));
+                }
+                else
+                {
+                    _patch.UnpatchSelf();
+                    FlyStatus = false;
+                    ClearFollow();
+                }
+            }
+        }
         public static float t = 20;
-        public static bool fly;
-        public static PlanetData flyfocusPlanet = null;
-        public static StarData flyfocusStar = null;
-        private static StarData LocalStar => GameMain.localStar;
-        private static Mecha mecha => player.mecha;
+        public static int AuDis = (int)GalaxyData.AU;
+        public static bool FlyStatus;
 
+        private static Mecha mecha => player.mecha;
+        public static bool NeedNavigation => GameMain.mainPlayer.navigation.indicatorAstroId > 0 || GameMain.mainPlayer.navigation._indicatorMsgId > 0 || GameMain.mainPlayer.navigation._indicatorEnemyId > 0;
+
+        private static PlanetData focusPlanet;
+        private static StarData focusStar;
         private static double max_acc => player.controller.actionSail.max_acc;
         private static float maxSailSpeed => player.controller.actionSail.maxSailSpeed;
         private static float maxWarpSpeed => player.controller.actionSail.maxWarpSpeed;
         private static int indicatorAstroId => player.navigation.indicatorAstroId;
+        private static int indicatorMsgId => player.navigation.indicatorMsgId;
+        private static int indicatorEnemyId => player.navigation.indicatorEnemyId;
         private static bool CanWarp => LocalPlanet == null && autowarpcommand.Value && !player.warping && mecha.coreEnergy > mecha.warpStartPowerPerSpeed * maxWarpSpeed;
+        private static ESpaceGuideType guidetype;
+        public static void ClearFollow()
+        {
+            if (player?.navigation != null)
+            {
+                player.navigation.indicatorAstroId = 0;
+                player.navigation.indicatorMsgId = 0;
+                player.navigation.indicatorEnemyId = 0;
+            }
+            t = 20;
+            focusPlanet = null;
+            focusStar = null;
+            Debug.Log("Auxilaryfunction.ClearFollow");
+        }
 
+        //操纵人物
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(PlayerController), "GetInput")]
         public static void Postfix(PlayerController __instance)
         {
-            #region 寻找建筑
-            if (automovetounbuilt.Value && LocalPlanet != null && closecollider)
-            {
-                if (autobuildThread == null)
-                {
-                    autobuildThread = new Thread(delegate ()
-                    {
-                        while (closecollider)
-                        {
-                            try
-                            {
-                                float mindistance = 3000;
-                                int lasthasitempd = -1;
-                                foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
-                                {
-                                    if (pd.id == 0 || pd.itemRequired > 0) continue;
-                                    if (lasthasitempd == -1 || mindistance > (pd.pos - player.position).magnitude)
-                                    {
-                                        lasthasitempd = pd.id;
-                                        mindistance = (pd.pos - player.position).magnitude;
-                                    }
-                                }
-                                if (lasthasitempd == -1)
-                                {
-                                    bool getitem = true;
-                                    foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
-                                    {
-                                        if (pd.id == 0 || pd.protoId == 0) continue;
-                                        if (__instance.player.package.GetItemCount(pd.protoId) > 0)
-                                        {
-                                            __instance.player.Order(new OrderNode() { target = pd.pos, type = EOrderType.Move }, false);
-                                            getitem = false;
-                                            break;
-                                        }
-                                    }
-                                    if (getitem && autobuildgetitem)
-                                    {
-                                        int[] warningCounts = GameMain.data.warningSystem.warningCounts;
-                                        WarningData[] warningpools = GameMain.data.warningSystem.warningPool;
-                                        List<int> getItem = new List<int>();
-                                        int stackSize = 0;
-                                        int packageGridLen = player.package.grids.Length;
-                                        for (int j = packageGridLen - 1; j >= 0 && player.package.grids[j].count == 0; j--, stackSize++) { }
-                                        for (int i = 1; i < GameMain.data.warningSystem.warningCursor && stackSize > 0; i++)
-                                        {
-                                            if (getItem.Contains(warningpools[i].detailId)) continue;
-                                            if (player.package.GetItemCount(warningpools[i].detailId) > 0) break;
-                                            getItem.Add(warningpools[i].detailId);
-                                            FindItemAndMove(warningpools[i].detailId, warningCounts[warningpools[i].signalId]);
-                                        }
-                                    }
-                                }
-                                else if (GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id != 0)
-                                {
-                                    __instance.player.Order(new OrderNode() { target = GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos, type = EOrderType.Move }, false);
-                                    if ((GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos - __instance.player.position).magnitude > 30)
-                                    {
-                                        __instance.player.currentOrder.targetReached = true;
-                                    }
-                                }
-                                Thread.Sleep(2000);
-                            }
-                            catch
-                            {
-                                if (autobuildThread.ThreadState == ThreadState.WaitSleepJoin)
-                                    autobuildThread.Interrupt();
-                                else
-                                    autobuildThread.Abort();
-                            }
-                        }
-                    });
-                    autobuildThread.Start();
-                    autobuildThread.IsBackground = true;
-                }
-            }
-            #endregion
-
             #region 自动导航
-            if (fly && autonavigation_bool.Value && indicatorAstroId != 0)
+            if (autonavigation_bool.Value)
             {
-                if (indicatorAstroId == LocalStar?.id / 100 || indicatorAstroId == LocalPlanet?.id)
-                    fly = false;
-                if (!player.sailing)
-                    FlyAwayPlanet();
-                else
+                if (indicatorAstroId <= 1000000 && indicatorAstroId > 0)
                 {
-                    //如果是100的整数倍，根据id生成规则，一定是星系
-                    if (indicatorAstroId % 100 == 0)
+                    if (indicatorAstroId % 100 != 0)
                     {
-                        flyfocusStar = flyfocusStar ?? GameMain.galaxy.StarById(indicatorAstroId / 100);
-                        var uPosition = flyfocusStar.uPosition;
-                        if ((player.uPosition - uPosition).magnitude < 100_000)
+                        if (focusPlanet == null)
                         {
-                            fly = false;
-                            if (player.warping)
-                            {
-                                player.warpCommand = false;
-                            }
+                            FlyStatus = true;
+                            focusPlanet = GameMain.galaxy.PlanetById(indicatorAstroId);
+                            guidetype = ESpaceGuideType.Planet;
                         }
-                        else
+                        else if (focusPlanet.id != indicatorAstroId)
                         {
-                            FlyTo(uPosition);
-                            if (CanWarp && mecha.UseWarper())
-                            {
-                                player.warpCommand = true;
-                            }
+                            FlyStatus = true;
+                            focusPlanet = GameMain.galaxy.PlanetById(indicatorAstroId);
+                            guidetype = ESpaceGuideType.Planet;
                         }
                     }
                     else
                     {
-                        flyfocusPlanet = flyfocusPlanet ?? GameMain.galaxy.PlanetById(indicatorAstroId);
-                        var uPosition = flyfocusPlanet.uPosition;
-                        var radius = flyfocusPlanet.radius;
-                        var factoryLoaded = flyfocusPlanet.factoryLoaded;
-                        double distance = (player.uPosition - uPosition).magnitude;
+                        if (focusStar == null)
+                        {
+                            focusPlanet = null;
+                            FlyStatus = true;
+                            focusStar = GameMain.galaxy.StarById(indicatorAstroId / 100);
+                            guidetype = ESpaceGuideType.Star;
+                        }
+                        else if (focusStar.id != indicatorAstroId / 100)
+                        {
+                            FlyStatus = true;
+                            focusStar = GameMain.galaxy.StarById(indicatorAstroId / 100);
+                            guidetype = ESpaceGuideType.Star;
+                        }
+                    }
+                }
+                else if (indicatorAstroId > 1000000)
+                {
+                    if (focusPlanet != null || focusStar != null)
+                    {
+                        focusStar = null;
+                        focusPlanet = null;
+                    }
+                }
+                else if (indicatorAstroId == 0)
+                {
+                    if (focusPlanet != null || focusStar != null)
+                        ClearFollow();
+                }
+            }
+            if (autonavigation_bool.Value && FlyStatus && NeedNavigation)
+            {
+                if (indicatorAstroId <= 1000000 && indicatorAstroId == LocalPlanet?.id)
+                {
+                    FlyStatus = false;
+                    return;
+                }
+                else if (indicatorAstroId > 1000000 && !AutoNavigateToDarkFogHive.Value)
+                {
+                    FlyStatus = false;
+                    return;
+                }
+                if (!player.sailing)
+                {
+                    FlyAwayPlanet();
+                    return;
+                }
+
+                VectorLF3 uPosition;
+                if (focusPlanet != null)
+                {
+                    uPosition = focusPlanet.uPosition;
+                }
+                else if (focusStar != null)
+                {
+                    uPosition = focusStar.uPosition;
+                }
+                else if (indicatorAstroId > 1000000)
+                {
+                    uPosition = GameMain.data.spaceSector.astros[player.navigation.indicatorAstroId - 1000000].uPos;
+                    guidetype = ESpaceGuideType.DFHive;
+                }
+                else if (indicatorEnemyId != 0)
+                {
+                    ref EnemyData ptr = ref GameMain.data.spaceSector.enemyPool[indicatorEnemyId];
+                    GameMain.data.spaceSector.TransformFromAstro_ref(ptr.astroId, out uPosition, ref ptr.pos);
+                    guidetype = ESpaceGuideType.DFCarrier;
+                }
+                else if (indicatorMsgId != 0)
+                {
+                    if (indicatorMsgId > CosmicMessageProto.maxProtoId)
+                    {
+                        guidetype = ESpaceGuideType.DFCommunicator;
+                    }
+                    else
+                    {
+                        guidetype = ESpaceGuideType.CosmicMessage;
+                    }
+                    uPosition = GameMain.gameScenario.cosmicMessageManager.messages[player.navigation.indicatorMsgId].uPosition;
+                }
+                else
+                {
+                    return;
+                }
+
+                double distance = (player.uPosition - uPosition).magnitude;
+                bool canWarp = distance > autowarpdistance.Value * 2_400_000 && CanWarp && (mecha.coreEnergy * 100 / mecha.coreEnergyCap) >= autowarpdistanceEnergyPercent.Value;
+                bool needstop = false;
+                if (distance < 8000)
+                {
+                    needstop = true;
+                }
+                else if (distance < 100_000 && guidetype == ESpaceGuideType.Star)
+                {
+                    needstop = true;
+                }
+                else if (distance < AutoNavigateToDarkFogHiveKeepDistance.Value * 100 + 1000 && guidetype == ESpaceGuideType.DFHive)
+                {
+                    needstop = true;
+                }
+
+                if (player.warping && __instance.actionSail.currentWarpSpeed > 15000 && distance < AuDis * 70)
+                {
+                    if (distance > AuDis * 26)
+                    {
+                        if (__instance.actionSail.currentWarpSpeed > AuDis * 120)
+                        {
+                            __instance.actionSail.warpSpeedControl -= 0.008;
+                        }
+                    }
+                    else if (distance > AuDis * 20)
+                    {
+                        if (__instance.actionSail.currentWarpSpeed > AuDis * 80)
+                        {
+                            __instance.actionSail.warpSpeedControl -= 0.008;
+                        }
+                    }
+                    else if (distance > AuDis * 15)
+                    {
+                        if (__instance.actionSail.currentWarpSpeed > AuDis * 40)
+                        {
+                            __instance.actionSail.warpSpeedControl -= 0.008;
+                        }
+                        if (__instance.actionSail.currentWarpSpeed > AuDis * 80)
+                        {
+                            __instance.actionSail.warpSpeedControl -= 0.016;
+                        }
+                    }
+                    else if (distance > AuDis * 6)
+                    {
+                        if (__instance.actionSail.currentWarpSpeed > AuDis * 20)
+                        {
+                            __instance.actionSail.warpSpeedControl -= 0.008;
+                        }
+                        if (__instance.actionSail.currentWarpSpeed > AuDis * 40)
+                        {
+                            __instance.actionSail.warpSpeedControl -= 0.016;
+                        }
+                    }
+                    else if (distance > AuDis)
+                    {
+                        if (__instance.actionSail.currentWarpSpeed > AuDis)
+                        {
+                            __instance.actionSail.warpSpeedControl -= 0.008;
+                        }
+                        if (__instance.actionSail.currentWarpSpeed > AuDis * 20)
+                        {
+                            __instance.actionSail.warpSpeedControl -= 0.016;
+                        }
+                    }
+                }
+
+                if (guidetype == ESpaceGuideType.DFHive)
+                {
+                    var vector = default(Vector3);
+                    GameMain.spaceSector.astros[indicatorAstroId - 1000000].VelocityU(ref vector, out Vector3 followObjectVel);
+                    FollowTaget(uPosition, followObjectVel, false, true);
+                }
+                else if (distance > 100_000)
+                {
+                    FlyTo(uPosition);
+                }
+                else if (distance > 5000)
+                {
+                    if (guidetype == ESpaceGuideType.Star)
+                    {
+                        FlyStatus = false;
+                    }
+                    FlyTo(uPosition);
+                }
+                else
+                {
+                    if (indicatorEnemyId != 0)
+                    {
+                        FollowTaget(uPosition, GameMain.data.spaceSector.enemyPool[indicatorEnemyId].vel, false);
+                    }
+                    else if (focusPlanet != null)
+                    {
+                        var radius = focusPlanet.radius;
+                        var factoryLoaded = focusPlanet.factoryLoaded;
                         if (distance < radius + 500 && factoryLoaded)
                         {
-                            fly = false;
+                            FlyStatus = false;
                         }
                         else if (distance < radius + 1000 && !factoryLoaded)
                         {
@@ -741,48 +738,239 @@ namespace Auxilaryfunction
                         else
                         {
                             FlyTo(uPosition);
-                            if (player.warping && distance < 10_000)
-                            {
-                                player.warpCommand = false;
-                            }
-                            if (CanWarp && distance > autowarpdistance.Value * 2_400_000 && distance > 10_000 && mecha.UseWarper())
-                            {
-                                player.warpCommand = true;
-                            }
                         }
                     }
+                    else if (guidetype == ESpaceGuideType.DFCommunicator)
+                    {
+                        FollowTaget(uPosition, new VectorLF3(), true);
+                    }
                 }
-            }
-            if (!fly && (flyfocusPlanet != null || flyfocusStar != null))
-            {
-                flyfocusPlanet = null;
-                flyfocusStar = null;
-                t = 20;
+                if (player.warpCommand && needstop)
+                {
+                    player.warpCommand = false;
+                }
+                if (canWarp && !needstop && mecha.UseWarper() && distance > 10000)
+                {
+                    player.warpCommand = true;
+                }
+
             }
             #endregion
+        }
+
+        private static void FollowTaget(VectorLF3 target, VectorLF3 targetVel, bool targetIsStatic, bool isOrbit = false)
+        {
+            double distance = (player.uPosition - target).magnitude;
+            if (targetIsStatic)
+            {
+                var playertotagetnormalized = (target - player.uPosition).normalized;
+                var playerVelMagnitude = player.uVelocity.magnitude;
+                var targetVelnormalized = player.uVelocity.normalized;
+                float dot = Vector3.Dot(player.uVelocity, playertotagetnormalized);
+                var directVector = distance < 300 || dot < 0 ? targetVelnormalized : playertotagetnormalized;
+                int NumberSign = dot >= 0 ? 1 : -1;
+                if (distance > 6000)
+                {
+                    FlyTo(target);
+                }
+                else if (distance > 3000)
+                {
+                    var speeddis = 1000 * NumberSign - playerVelMagnitude;
+                    var acc = Math.Min(Math.Abs(speeddis), 10);
+                    acc = speeddis > 0 ? acc : -acc;
+                    player.uVelocity += directVector * acc;
+                    player.controller.actionSail.UseSailEnergy(acc);
+                }
+                else if (distance > 1500)
+                {
+                    var speeddis = 300 * NumberSign - playerVelMagnitude;
+                    var acc = Math.Min(Math.Abs(speeddis), 10);
+                    acc = speeddis > 0 ? acc : -acc;
+                    player.uVelocity += directVector * acc;
+                    player.controller.actionSail.UseSailEnergy(acc);
+                }
+                else if (distance > 300)
+                {
+                    var speeddis = 200 * NumberSign - playerVelMagnitude;
+                    var acc = Math.Min(Math.Abs(speeddis), 5);
+                    acc = speeddis > 0 ? acc : -acc;
+                    player.uVelocity += directVector * acc;
+                    player.controller.actionSail.UseSailEnergy(acc);
+                }
+                else if (distance > 5)
+                {
+                    var speeddis = distance * NumberSign - playerVelMagnitude;
+                    var acc = Math.Min(Math.Abs(speeddis), 5);
+                    acc = speeddis > 0 ? acc : -acc;
+                    player.uVelocity += directVector * acc;
+                    player.controller.actionSail.UseSailEnergy(acc);
+                }
+                player.uVelocity = directVector * player.uVelocity.magnitude;
+            }
+            else if (!isOrbit)
+            {
+                var targetVelnormalized = targetVel.normalized;
+                var playertotagetnormalized = (target - player.uPosition).normalized;
+                float dot = Vector3.Dot(targetVelnormalized, playertotagetnormalized);
+                var directVector = distance < 300 || dot < 0 ? targetVelnormalized : playertotagetnormalized;
+                int NumberSign = dot >= 0 ? 1 : -1;
+
+                var enemyVelMagnitude = targetVel.magnitude;
+                var playerVelMagnitude = player.uVelocity.magnitude;
+                if (distance > 5000)
+                {
+                    FlyTo(target);
+                }
+                else if (distance > 2000)
+                {
+                    var speeddis = enemyVelMagnitude - playerVelMagnitude + 800 * NumberSign;
+                    var acc = Math.Min(Math.Abs(speeddis), 5);
+                    acc = speeddis > 0 ? acc : -acc;
+                    player.uVelocity += directVector * acc;
+                    player.controller.actionSail.UseSailEnergy(acc);
+                }
+                else if (distance > 800)
+                {
+                    var speeddis = enemyVelMagnitude - playerVelMagnitude + 500 * NumberSign;
+                    var acc = Math.Min(Math.Abs(speeddis), 5);
+                    acc = speeddis > 0 ? acc : -acc;
+                    player.uVelocity += directVector * acc;
+                    player.controller.actionSail.UseSailEnergy(acc);
+                }
+                else if (distance > 400)
+                {
+                    var speeddis = enemyVelMagnitude - playerVelMagnitude + 300 * NumberSign;
+                    var acc = Math.Min(Math.Abs(speeddis), 5);
+                    acc = speeddis > 0 ? acc : -acc;
+                    player.uVelocity += directVector * acc;
+                    player.controller.actionSail.UseSailEnergy(acc);
+                }
+                else if (distance > 200)
+                {
+                    var speeddis = enemyVelMagnitude - playerVelMagnitude + 50 * NumberSign;
+                    var acc = Math.Min(Math.Abs(speeddis), 5);
+                    acc = speeddis > 0 ? acc : -acc;
+                    player.uVelocity += directVector * acc;
+                    player.controller.actionSail.UseSailEnergy(acc);
+                }
+                else
+                {
+                    var speeddis = enemyVelMagnitude - playerVelMagnitude;
+                    var acc = Math.Min(Math.Abs(speeddis), 1);
+                    acc = speeddis > 0 ? acc : -acc;
+                    player.uVelocity += directVector * acc;
+                    player.controller.actionSail.UseSailEnergy(acc);
+                }
+                player.uVelocity = directVector * player.uVelocity.magnitude;
+            }
+            else
+            {
+                var targetVelnormalized = targetVel.normalized;
+                var playertotagetnormalized = (target - player.uPosition).normalized;
+                VectorLF3 directVector = Vector3.Lerp(GameMain.mainPlayer.uVelocity.normalized, targetVelnormalized, 0.1f);
+
+                var enemyVelMagnitude = targetVel.magnitude;
+                var playerVelMagnitude = player.uVelocity.magnitude;
+                var keepdistance = AutoNavigateToDarkFogHiveKeepDistance.Value * 100;
+                if (distance > keepdistance + 1000)
+                {
+                    FlyTo(target);
+                    return;
+                }
+                else if (distance >= keepdistance + 200)
+                {
+                    directVector = Vector3.Lerp(GameMain.mainPlayer.uVelocity.normalized, playertotagetnormalized, 0.1F);
+                    if (enemyVelMagnitude >= playerVelMagnitude)
+                    {
+                        player.uVelocity += directVector * 3;
+                        player.controller.actionSail.UseSailEnergy(3);
+                    }
+                    else if (playerVelMagnitude - 5 > enemyVelMagnitude)
+                    {
+                        player.uVelocity -= directVector * 3;
+                        player.controller.actionSail.UseSailEnergy(3);
+                    }
+                }
+                else if (distance > keepdistance - 50 && distance < keepdistance + 200)
+                {
+                    var speeddis = enemyVelMagnitude - playerVelMagnitude;
+                    var acc = Math.Min(Math.Abs(speeddis), 3);
+                    acc = speeddis > 0 ? acc : -acc;
+                    player.uVelocity += player.uVelocity.normalized * acc;
+                    player.controller.actionSail.UseSailEnergy(acc);
+                }
+                else if (distance < keepdistance - 50)
+                {
+                    bool needAddVel = autoAddPlayerVel.Value;
+                    directVector = Vector3.Lerp(GameMain.mainPlayer.uVelocity.normalized, -playertotagetnormalized, 0.1F);
+                    if (needAddVel && playerVelMagnitude < enemyVelMagnitude + 150)
+                    {
+                        player.uVelocity += directVector * 3;
+                        player.controller.actionSail.UseSailEnergy(3);
+                    }
+                }
+                else
+                {
+                    return;
+                }
+                player.uVelocity = directVector * player.uVelocity.magnitude;
+            }
         }
 
         private static void FlyTo(VectorLF3 uPosition)
         {
             VectorLF3 direction = (uPosition - player.uPosition).normalized;
 
-            if (LocalPlanet != null)
-            {
-                VectorLF3 diff = player.uPosition - LocalPlanet.uPosition;
-                double altitude = diff.magnitude - LocalPlanet.radius;
-                float upFactor = Mathf.Clamp((float)((1000.0 - altitude) / 1000.0), 0.0f, 1.0f);
-                upFactor *= upFactor * upFactor;
-                direction = ((direction * (1.0f - upFactor)) + diff.normalized * upFactor).normalized;
-            }
+            bool needAddVel = autoAddPlayerVel.Value;
 
-            if (player.uVelocity.magnitude + max_acc >= maxSailSpeed)
+            if (GameMain.localStar != null)
+            {
+                PlanetData nearestPlanet = LocalPlanet;
+                double num = double.MaxValue;
+                if (nearestPlanet == null)
+                {
+                    foreach (var planet in GameMain.localStar.planets)
+                    {
+                        if (planet == null) continue;
+                        double magnitude = (player.uPosition - planet.uPosition).magnitude;
+                        if (magnitude < num)
+                        {
+                            nearestPlanet = planet;
+                            num = magnitude;
+                        }
+                    }
+                }
+                if (nearestPlanet != null && nearestPlanet != focusPlanet)
+                {
+                    if (num < 2000)
+                    {
+                        float dot = Vector3.Dot((player.uPosition - nearestPlanet.uPosition).normalized, direction);
+                        if (dot >= 0)
+                        {
+                            direction = (player.uPosition - nearestPlanet.uPosition).normalized;
+                        }
+                        else
+                        {
+                            var NormalVector = Vector3.Cross(direction, (player.uPosition - nearestPlanet.uPosition).normalized);
+                            direction = -Vector3.Cross(NormalVector, (player.uPosition - nearestPlanet.uPosition).normalized).normalized;
+                        }
+                    }
+                }
+            }
+            direction = Vector3.Lerp(player.uVelocity.normalized, direction, 1);
+
+            if (player.uVelocity.magnitude + 5 >= maxSailSpeed)
             {
                 player.uVelocity = direction * maxSailSpeed;
             }
             else
             {
-                player.uVelocity += direction * max_acc;
-                player.controller.actionSail.UseSailEnergy(max_acc);
+                if (needAddVel)
+                {
+                    player.uVelocity += direction * 5;
+                    player.controller.actionSail.UseSailEnergy(5);
+                }
+                player.uVelocity = direction * player.uVelocity.magnitude;
             }
         }
 
@@ -798,84 +986,199 @@ namespace Auxilaryfunction
         }
 
 
-        private static void FindItemAndMove(int itemId, int itemCount)
+    }
+
+    public static class SunLightPatch
+    {
+        private static Harmony _patch;
+        private static bool enable;
+        public static bool Enable
         {
-            if (LocalPlanet == null || LocalPlanet.factory == null || LocalPlanet.gasItems != null) return;
-            if (LDB.items == null || LDB.items.Select(itemId) == null) return;
-            int packageGridLen = player.package.grids.Length;
-            int stackMax;
-            int stackSize = 0;
-            if (player.package.grids[packageGridLen - 1].count != 0)
+            get => enable;
+            set
             {
-                player.package.Sort();
-            }
-            for (int i = packageGridLen - 1; i >= 0; i--, stackSize++)
-            {
-                if (player.package.grids[i].count != 0) break;
-            }
-            stackMax = LDB.items.Select(itemId).StackSize * stackSize;
-            itemCount = stackMax > itemCount ? itemCount : stackMax;
-            PlanetFactory pf = LocalPlanet.factory;
-
-            if (pf.transport != null && pf.transport.stationPool != null)
-            {
-                int result = 0;
-                int resultinc = 0;
-                foreach (StationComponent sc in pf.transport.stationPool)
+                if (enable == value) return;
+                enable = value;
+                if (enable)
                 {
-                    if (itemCount == 0) break;
-                    if (sc == null || sc.storage == null) continue;
-                    int tempItemCount = itemCount;
-                    int tempItemId = itemId;
-                    sc.TakeItem(ref tempItemId, ref tempItemCount, out int inc);
-                    result += tempItemCount;
-                    itemCount -= tempItemCount;
-                    resultinc += inc;
+                    _patch = Harmony.CreateAndPatchAll(typeof(SunLightPatch));
                 }
-                player.TryAddItemToPackage(itemId, result, resultinc, false);
-            }
-
-            if (pf.factoryStorage != null && pf.factoryStorage.storagePool != null)
-            {
-                if (pf.factoryStorage.storagePool != null)
+                else
                 {
-                    foreach (StorageComponent sc in pf.factoryStorage.storagePool)
-                    {
-                        if (itemCount == 0) break;
-                        if (sc != null)
-                        {
-                            int temp = sc.TakeItem(itemId, itemCount, out int inc);
-                            itemCount -= temp;
-                            if (temp > 0)
-                            {
-                                player.TryAddItemToPackage(itemId, temp, inc, false);
-                            }
-                        }
-                    }
-                }
-                if (pf.factoryStorage.tankPool != null)
-                {
-                    foreach (TankComponent tc in pf.factoryStorage.tankPool)
-                    {
-                        if (itemCount == 0) break;
-                        if (tc.id > 0 && tc.fluidId > 0 && tc.fluidCount > 0 && itemId == tc.fluidId)
-                        {
-                            int tempItemCount = tc.fluidCount > itemCount ? itemCount : tc.fluidCount;
-
-                            int inc = (int)(tc.fluidInc / tc.fluidCount + 0.5) * tempItemCount;
-                            pf.factoryStorage.tankPool[tc.id].fluidCount -= tempItemCount;
-                            pf.factoryStorage.tankPool[tc.id].fluidInc -= inc;
-
-                            itemCount -= tempItemCount;
-                            if (tempItemCount > 0)
-                            {
-                                player.TryAddItemToPackage(itemId, tempItemCount, inc, false);
-                            }
-                        }
-                    }
+                    _patch.UnpatchSelf();
                 }
             }
         }
+
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(PostEffectController), "Update")]
+        public static void PostEffectControllerUpdatePatch(PostEffectController __instance)
+        {
+            if (!SunLightOpen.Value || __instance.sunShaft == null || GameMain.localStar == null || GameMain.localPlanet == null || SunLight == null || FactoryModel.whiteMode0)
+            {
+                return;
+            }
+            float magnitude = GameCamera.main.transform.localPosition.magnitude;
+            if (GameMain.universeSimulator != null && GameMain.localStar.type != EStarType.BlackHole)
+            {
+                StarSimulator starSimulator = GameMain.universeSimulator.LocalStarSimulator();
+                if (starSimulator != null)
+                {
+                    __instance.sunShaft.sunTransform = SunLight.transform;
+                    __instance.sunShaft.sunColor = GameMain.universeSimulator.sunshaftColor.Evaluate(starSimulator.sunColorParam);
+                    SunLight.shadowBias = Mathf.Clamp01((magnitude - 300f) / 700f) * 0.5f + 0.045f;
+                }
+            }
+            __instance.sunShaft.enabled = (__instance.sunShaft.sunTransform != null);
+            __instance.sunShaft.sunShaftIntensity = 0.25f + Mathf.Clamp01((300f - GameMain.mainPlayer.position.magnitude + GameMain.localPlanet.realRadius) / 200f) * 1.25f;
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(StarSimulator), "LateUpdate")]
+        public static bool StarSimulatorLateUpdate(ref StarSimulator __instance, Material ___bodyMaterial, Material ___haloMaterial)
+        {
+            if (!SunLightOpen.Value || FactoryModel.whiteMode0 || GameMain.localStar != __instance.starData)
+            {
+                return true;
+            }
+            __instance.sunLight.enabled = false;
+            Shader.SetGlobalVector("_Global_SunDir", GameMain.mainPlayer.transform.up);
+            Shader.SetGlobalColor("_Global_SunsetColor0", Color.Lerp(Color.white, __instance.sunsetColor0, __instance.useSunsetColor));
+            Shader.SetGlobalColor("_Global_SunsetColor1", Color.Lerp(Color.white, __instance.sunsetColor1, __instance.useSunsetColor));
+            Shader.SetGlobalColor("_Global_SunsetColor2", Color.Lerp(Color.white, __instance.sunsetColor2, __instance.useSunsetColor));
+            ___bodyMaterial.renderQueue = 2981;
+            ___haloMaterial.renderQueue = 2981;
+            __instance.blackRenderer.enabled = false;
+            return false;
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(PlanetSimulator), "LateUpdate")]
+        public static bool PlanetSimulatorLateUpdatePatch(PlanetSimulator __instance)
+        {
+            PlanetData localPlanet = GameMain.localPlanet;
+            if (!GameDataImported || !SunLightOpen.Value || FactoryModel.whiteMode0 || localPlanet == null || localPlanet != __instance.planetData || SunLight == null)
+            {
+                return true;
+            }
+            Vector3 vector3 = GameMain.mainPlayer.transform.up;
+            if (__instance.surfaceRenderer?.Length != 0)
+                __instance.surfaceRenderer[0]?.sharedMaterial?.SetVector("_SunDir", vector3);
+            __instance.reformMat0?.SetVector("_SunDir", vector3);
+            __instance.reformMat1?.SetVector("_SunDir", vector3);
+            __instance.atmoMat?.SetVector("_SunDir", vector3);
+            __instance.atmoMatLate?.SetVector("_SunDir", vector3);
+            __instance.cloudSimulator?.OnLateUpdate();
+            if (__instance.oceanMat != null)
+            {
+                if (__instance.oceanRenderQueue > 2987)
+                {
+                    __instance.oceanMat.renderQueue = ((localPlanet == __instance.planetData) ? __instance.oceanRenderQueue : 2988);
+                }
+                __instance.oceanMat.SetColor("_Planet_WaterAmbientColor0", __instance.planetData.ambientDesc.waterAmbientColor0);
+                __instance.oceanMat.SetColor("_Planet_WaterAmbientColor1", __instance.planetData.ambientDesc.waterAmbientColor1);
+                __instance.oceanMat.SetColor("_Planet_WaterAmbientColor2", __instance.planetData.ambientDesc.waterAmbientColor2);
+            }
+            if (__instance.atmoTrans0 != null && __instance.planetData != null && !__instance.planetData.loading && !__instance.planetData.factoryLoading)
+            {
+                StarSimulator star = GameMain.universeSimulator.FindStarSimulator(__instance.planetData.star); ;
+                __instance.atmoTrans0.rotation = Camera.main.transform.localRotation;
+                Vector4 value = (GameCamera.generalTarget == null) ? Vector3.zero : GameCamera.generalTarget.position;
+                Vector3 position = GameCamera.main.transform.position;
+                if (value.sqrMagnitude == 0f)
+                {
+                    if (GameCamera.instance.isPlanetMode)
+                    {
+                        value = (position + GameCamera.main.transform.forward * 30f).normalized * __instance.planetData.realRadius;
+                    }
+                    else
+                    {
+                        value = GameMain.mainPlayer.position;
+                    }
+                }
+                Vector3 lhs = Camera.main.transform.localPosition - __instance.transform.localPosition;
+                float magnitude = lhs.magnitude;
+                VectorLF3 vectorLF = __instance.planetData.uPosition;
+                if (localPlanet != null)
+                {
+                    vectorLF = VectorLF3.zero;
+                }
+                else if (GameMain.mainPlayer != null)
+                {
+                    vectorLF -= GameMain.mainPlayer.uPosition;
+                }
+                float d = 1f;
+                Vector3 vector;
+                UniverseSimulator.VirtualMapping(vectorLF.x, vectorLF.y, vectorLF.z, position, out vector, out d);
+                float num = Vector3.Dot(lhs, Camera.main.transform.forward);
+                __instance.atmoTrans1.localPosition = new Vector3(0f, 0f, Mathf.Clamp(num + 10f, 0f, 320f));
+                float value2 = Mathf.Clamp01(8000f / magnitude);
+                float num2 = Mathf.Clamp01(4000f / magnitude);
+                float value3 = Mathf.Max(0f, magnitude / 6000f - 1f);
+                Vector4 vector2 = __instance.atmoMatRadiusParam;
+                vector2.z = vector2.x + (__instance.atmoMatRadiusParam.z - __instance.atmoMatRadiusParam.x) * (2.7f - num2 * 1.7f);
+                vector2 *= d;
+                __instance.atmoMat.SetVector("_PlanetPos", __instance.transform.localPosition);
+                __instance.atmoMat.SetVector("_SunDir", vector3);
+                __instance.atmoMat.SetVector("_PlanetRadius", vector2);
+                __instance.atmoMat.SetColor("_Color4", star.sunAtmosColor);
+                __instance.atmoMat.SetColor("_Sky4", star.sunriseAtmosColor);
+                __instance.atmoMat.SetVector("_LocalPos", value);
+                __instance.atmoMat.SetFloat("_SunRiseScatterPower", Mathf.Max(60f, (magnitude - __instance.planetData.realRadius * 2f) * 0.18f));
+                __instance.atmoMat.SetFloat("_IntensityControl", value2);
+                __instance.atmoMat.SetFloat("_DistanceControl", value3);
+                __instance.atmoMat.renderQueue = ((__instance.planetData == localPlanet) ? 2991 : 2989);
+                __instance.atmoMatLate.SetVector("_PlanetPos", __instance.transform.localPosition);
+                __instance.atmoMatLate.SetVector("_SunDir", vector3);
+                __instance.atmoMatLate.SetVector("_PlanetRadius", vector2);
+                __instance.atmoMatLate.SetColor("_Color4", star.sunAtmosColor);
+                __instance.atmoMatLate.SetColor("_Sky4", star.sunriseAtmosColor);
+                __instance.atmoMatLate.SetVector("_LocalPos", value);
+                __instance.atmoMatLate.SetFloat("_SunRiseScatterPower", Mathf.Max(60f, (magnitude - __instance.planetData.realRadius * 2f) * 0.18f));
+                __instance.atmoMatLate.SetFloat("_IntensityControl", value2);
+                __instance.atmoMatLate.SetFloat("_DistanceControl", value3);
+                if (__instance.planetData == localPlanet)
+                {
+                    __instance.atmoMatLate.renderQueue = 3200;
+                    __instance.atmoMatLate.SetInt("_StencilRef", 2);
+                    __instance.atmoMatLate.SetInt("_StencilComp", 3);
+                }
+                else
+                {
+                    __instance.atmoMatLate.renderQueue = 2989;
+                    __instance.atmoMatLate.SetInt("_StencilRef", 0);
+                    __instance.atmoMatLate.SetInt("_StencilComp", 1);
+                }
+            }
+            if (PerformanceMonitor.GpuProfilerOn)
+            {
+                if (__instance.surfaceRenderer != null)
+                {
+                    foreach (Renderer renderer in __instance.surfaceRenderer)
+                    {
+                        if (renderer != null && renderer.enabled && renderer.gameObject.activeInHierarchy)
+                        {
+                            PerformanceMonitor.RecordGpuWork(EGpuWorkEntry.Universe, 1, renderer.GetComponent<MeshFilter>().sharedMesh.vertexCount);
+                        }
+                    }
+                }
+                if (__instance.reformRenderer != null && __instance.reformRenderer.enabled && __instance.reformRenderer.gameObject.activeInHierarchy)
+                {
+                    PerformanceMonitor.RecordGpuWork(EGpuWorkEntry.Universe, 1, __instance.reformRenderer.GetComponent<MeshFilter>().sharedMesh.vertexCount);
+                }
+                if (__instance.oceanCollider != null && __instance.oceanCollider.gameObject.activeInHierarchy)
+                {
+                    MeshFilter component = __instance.oceanCollider.GetComponent<MeshFilter>();
+                    if (component != null)
+                    {
+                        PerformanceMonitor.RecordGpuWork(EGpuWorkEntry.Universe, 1, component.sharedMesh.vertexCount);
+                    }
+                }
+            }
+            return false;
+        }
+
     }
 
 }

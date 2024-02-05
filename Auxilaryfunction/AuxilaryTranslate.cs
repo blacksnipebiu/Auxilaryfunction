@@ -5,7 +5,7 @@ namespace Auxilaryfunction
     public static class AuxilaryTranslate
     {
         private static Dictionary<string, string> TranslateDict = new Dictionary<string, string>();
-        public static string getTranslate(this string s) => Localization.language != Language.zhCN && TranslateDict.ContainsKey(s) ? TranslateDict[s] : s;
+        public static string getTranslate(this string s) => Localization.CurrentLanguage.glyph == 0 && TranslateDict.ContainsKey(s) ? TranslateDict[s] : s;
         public static void regallTranslate()
         {
             TranslateDict.Clear();
@@ -64,7 +64,7 @@ namespace Auxilaryfunction
             TranslateDict.Add("不渲染电网覆盖", "Don't render power grid");
             TranslateDict.Add("关闭玩家走路飞行声音", "Turn off the player's walking and flying sound");
             TranslateDict.Add("自动添加翘曲器", "Auto add Warp");
-            TranslateDict.Add("自动添加燃料", "Auto add fuel");
+            TranslateDict.Add("自动添加机甲燃料", "Auto add fuel");
             TranslateDict.Add("停止工厂", "stop factory");
             TranslateDict.Add("ctrl+空格快速开关", "quick start and stop(ctrl+space)");
 
@@ -111,17 +111,17 @@ namespace Auxilaryfunction
             TranslateDict.Add("启动时间流速修改", "Start time flow rate modification");
             TranslateDict.Add("流速倍率", "Flow rate multiplier");
             TranslateDict.Add("加速减速", "Speed up and slow down");
-            TranslateDict.Add("自动配置建筑", "Automatic configuration of buildings");
+            TranslateDict.Add("自动填充人造恒星", "Auto add fuel to Artificial Star");
             TranslateDict.Add("人造恒星燃料数量", "Artificial Star fuel quantity");
             TranslateDict.Add("填充当前星球人造恒星", "Fill the current planet with artificial stars");
             TranslateDict.Add("保持传送带高度(shift)", "Keep belt height(shift)");
-            TranslateDict.Add("自动保存", "Autosave");
+            TranslateDict.Add("修改自动保存时长", "Modify AutosaveTime");
             TranslateDict.Add("自动保存时间", "Autosavetime");
 
             TranslateDict.Add("文字科技树", "Text technology tree");
             TranslateDict.Add("限制材料", "Restricted material");
             TranslateDict.Add("自动乱点", "Auto random select");
-            TranslateDict.Add("停止导航", "stop navigation");
+            TranslateDict.Add("暂停导航", "stop navigation");
             TranslateDict.Add("继续导航", "continue navigation");
             TranslateDict.Add("取消方向指示", "cacel Indicatior");
             TranslateDict.Add("辅助面板", "Auxilaryfunction");

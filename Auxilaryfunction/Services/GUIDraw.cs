@@ -1,4 +1,6 @@
-﻿using BepInEx.Configuration;
+﻿using Auxilaryfunction.Patch;
+using BepInEx.Configuration;
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -23,7 +25,8 @@ namespace Auxilaryfunction.Services
 {
     public class GUIDraw
     {
-        private int PanelIndex;
+        private int whichpannel;
+        private string[] menus;
         private int baseSize;
         private int heightdis;
         private float _windowwidth;
@@ -36,9 +39,7 @@ namespace Auxilaryfunction.Services
         public static int recipewindowy;
         private int[] locallogics = new int[5];
         private int[] remotelogics = new int[5];
-        public static List<int> fuelItems = new List<int>();
-        public static Dictionary<int, bool> FuelFilter = new Dictionary<int, bool>();
-        public static List<string> ConfigNames = new List<string>();
+        public static List<string> ConfigNames;
         public static Vector2 scrollPosition;
         public static Vector2 dysonBluePrintscrollPosition;
         public static ConfigEntry<int> scale;
@@ -46,7 +47,6 @@ namespace Auxilaryfunction.Services
         public static bool blueprintopen;
         public static bool showwindow;
         public static bool ChangeQuickKey;
-        public static bool autosetstationconfig;
         public static bool limitmaterial;
         private Color OrangeColor;
         private Color BlueColor;
@@ -86,16 +86,18 @@ namespace Auxilaryfunction.Services
                 }
             }
         }
-        public static List<float[]> boundaries = new List<float[]>();
-        GUIStyle normalstyle = new GUIStyle();
-        GUIStyle styleblue = new GUIStyle();
-        GUIStyle styleyellow = new GUIStyle();
+        public static List<float[]> boundaries;
+        GUIStyle normalstyle;
+        GUIStyle styleblue;
+        GUIStyle styleyellow;
         GUIStyle styleitemname = null;
         GUIStyle buttonstyleyellow = null;
         GUIStyle buttonstyleblue = null;
         GUIStyle labelstyle = null;
         GUIStyle whitestyle = null;
         GUIStyle nomarginButtonStyle = null;
+        private GUIStyle selectedButtonStyle;
+        private GUILayoutOption[] menusbuttonoptions;
         GUILayoutOption[] HorizontalSlideroptions;
         GUILayoutOption[] buttonoptions;
         GUILayoutOption[] iconbuttonoptions;
@@ -120,15 +122,24 @@ namespace Auxilaryfunction.Services
         public Sprite leftsprite;
         public Sprite rightsprite;
         public Sprite flatsprite;
+        public Sprite trashcan;
+        public Sprite trashcanOpen;
         private void Init()
         {
+            whichpannel = 1;
             RefreshBaseSize = true;
-            autosetstationconfig = true;
+            boundaries = new List<float[]>();
+            ConfigNames = new List<string>();
+            normalstyle = new GUIStyle();
+            styleblue = new GUIStyle();
+            styleyellow = new GUIStyle();
             MainWindowWidth = window_width.Value;
             MainWindowHeight = window_height.Value;
-            leftsprite = LoadImage("Auxilaryfunction.left.png");
-            rightsprite = LoadImage("Auxilaryfunction.right.png");
-            flatsprite = LoadImage("Auxilaryfunction.flat.png");
+            leftsprite = LoadImage("Auxilaryfunction.Resources.left.png");
+            rightsprite = LoadImage("Auxilaryfunction.Resources.right.png");
+            flatsprite = LoadImage("Auxilaryfunction.Resources.flat.png");
+            trashcan = LoadImage("Auxilaryfunction.Resources.trashcan.png");
+            trashcanOpen = LoadImage("Auxilaryfunction.Resources.trashcanOpen.png");
             OrangeColor = new Color(224f / 255, 139f / 255, 93f / 255);
             BlueColor = new Color(75f / 255, 172f / 255, 205f / 255);
             mytexture = new Texture2D(10, 10);
@@ -154,26 +165,12 @@ namespace Auxilaryfunction.Services
             ConfigNames.Add("运输机起送量");
             boundaries.Add(new float[] { 0.01f, 1 });
             ConfigNames.Add("运输船起送量");
-            boundaries.Add(new float[] { 0.1f, 1 });
+            boundaries.Add(new float[] { 0.01f, 1 });
             ConfigNames.Add("翘曲填充数量");
             boundaries.Add(new float[] { 0, 50 });
             ConfigNames.Add("大型采矿机采矿速率");
             boundaries.Add(new float[] { 10, 30 });
-
-            if (!string.IsNullOrEmpty(FuelFilterConfig.Value))
-            {
-                string[] temp = FuelFilterConfig.Value.Split(',');
-                foreach (var str in temp)
-                {
-                    if (str.Length > 3 && int.TryParse(str, out int itemID))
-                    {
-                        if (FuelFilter.ContainsKey(itemID))
-                        {
-                            FuelFilter[itemID] = true;
-                        }
-                    }
-                }
-            }
+            menus = new string[7] { "", "自动菜单", "渲染屏蔽", "便捷小功能", "文字科技树", "戴森球面板", "战斗" };
 
             styleblue.fontStyle = FontStyle.Bold;
             styleblue.fontSize = 20;
@@ -197,15 +194,49 @@ namespace Auxilaryfunction.Services
 
         public void GUIUpdate()
         {
-            if (QuickKey.Value.IsDown() && !ChangingQuickKey && ready)
+            if (!ChangingQuickKey && GameDataImported)
             {
-                showwindow = !showwindow;
-                if (showwindow)
+                bool isClick = false;
+                if (QuickKey.Value.Modifiers.Count() == 0)
                 {
-                    firstDraw = true;
+                    if (Input.GetKeyDown(QuickKey.Value.MainKey))
+                    {
+                        isClick = true;
+                    }
                 }
-                ui_AuxilaryPanelPanel.SetActive(showwindow);
+                else
+                {
+                    if (Input.GetKey(QuickKey.Value.MainKey))
+                    {
+                        isClick = true;
+                        foreach (var modify in QuickKey.Value.Modifiers)
+                        {
+                            if (!Input.GetKeyDown(modify))
+                            {
+                                isClick = false;
+                            }
+                        }
+                    }
+                }
+                if (isClick)
+                {
+                    showwindow = !showwindow;
+                    if (showwindow)
+                    {
+                        firstDraw = true;
+                    }
+                    ui_AuxilaryPanelPanel.SetActive(showwindow);
+                }
             }
+            //if (QuickKey.Value.IsPressed() && !ChangingQuickKey && GameDataImported)
+            //{
+            //    showwindow = !showwindow;
+            //    if (showwindow)
+            //    {
+            //        firstDraw = true;
+            //    }
+            //    ui_AuxilaryPanelPanel.SetActive(showwindow);
+            //}
             StationInfoWindowUpdate();
         }
 
@@ -242,6 +273,7 @@ namespace Auxilaryfunction.Services
                     margin = new RectOffset()
                 };
                 labelstyle.normal.textColor = GUI.skin.toggle.normal.textColor;
+                menusbuttonoptions = new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 4) };
                 HorizontalSlideroptions = new[] { GUILayout.Height(BaseSize), GUILayout.Width(BaseSize * 10) };
                 buttonoptions = new[] { GUILayout.Height(BaseSize * 2) };
                 iconbuttonoptions = new[] { GUILayout.Width(heightdis), GUILayout.Height(heightdis) };
@@ -256,6 +288,8 @@ namespace Auxilaryfunction.Services
                 buttonstyleblue.normal.textColor = styleblue.normal.textColor;
                 buttonstyleyellow = new GUIStyle(GUI.skin.button);
                 buttonstyleyellow.normal.textColor = styleyellow.normal.textColor;
+                selectedButtonStyle = new GUIStyle(GUI.skin.button);
+                selectedButtonStyle.normal.textColor = new Color32(215, 186, 245, 255);
             }
             if (showwindow)
             {
@@ -265,24 +299,22 @@ namespace Auxilaryfunction.Services
                 Rect window = new Rect(MainWindow_x, MainWindow_y, MainWindowWidth, MainWindowHeight);
                 GUI.DrawTexture(window, mytexture);
                 window = GUI.Window(20210827, window, MainWindow, "辅助面板".getTranslate() + "(" + VERSION + ")" + "ps:ctrl+↑↓");
-                int window2width = Localization.language != Language.zhCN ? 15 * BaseSize : 15 * BaseSize / 2;
-                Rect switchwindow = new Rect(MainWindow_x - window2width, MainWindow_y, window2width, 25 * BaseSize);
-                switchwindow = GUI.Window(202108228, switchwindow, SwitchWindow, "");
-                GUI.DrawTexture(switchwindow, mytexture);
             }
-            if (autonavigation_bool.Value && player?.navigation != null && player.navigation._indicatorAstroId != 0)
+            if (autonavigation_bool.Value && GameDataImported && GameMain.mainPlayer != null && PlayerOperation.NeedNavigation)
             {
                 GUILayout.BeginArea(new Rect(10, 250, 500, 300));
                 GUILayout.BeginHorizontal();
                 GUILayout.BeginVertical();
 
-                if (GUILayout.Button(PlayerOperation.fly ? "停止导航".getTranslate() : "继续导航".getTranslate(), GUILayout.MinHeight(heightdis)))
+                if (GUILayout.Button(PlayerOperation.FlyStatus ? "暂停导航".getTranslate() : "继续导航".getTranslate(), GUILayout.MinHeight(heightdis)))
                 {
-                    PlayerOperation.fly = !PlayerOperation.fly;
+                    PlayerOperation.FlyStatus = !PlayerOperation.FlyStatus;
                 }
                 if (GUILayout.Button("取消方向指示".getTranslate(), GUILayout.MinHeight(heightdis)))
                 {
-                    player.navigation._indicatorAstroId = 0;
+                    PlayerOperation.FlyStatus = false;
+                    UIRoot.instance?.uiGame?.dfMonitor?.trackingHives?.Clear();
+                    PlayerOperation.ClearFollow();
                 }
 
 
@@ -293,7 +325,7 @@ namespace Auxilaryfunction.Services
             }
 
             //LocalPlanet.factory.prebuildPool.ToList().Exists(x => x.protoId != 0)
-            if (automovetounbuilt.Value && player != null && LocalPlanet?.factory != null && player.movementState == EMovementState.Fly && LocalPlanet.factory.prebuildCount > 0)
+            if (automovetounbuilt.Value && player != null && LocalPlanet?.factory != null && player.movementState == EMovementState.Fly)
             {
                 for (int i = 1; i < GameMain.localPlanet.factory.prebuildCursor; i++)
                 {
@@ -303,32 +335,42 @@ namespace Auxilaryfunction.Services
                         GameMain.localPlanet.factory.RemovePrebuildWithComponents(preid);
                     }
                 }
-                if (GUI.Button(new Rect(10, 360, 150, 60), closecollider ? "停止寻找未完成建筑".getTranslate() : "开始寻找未完成建筑".getTranslate()))
+                if (LocalPlanet.factory.prebuildCount > 0)
                 {
-                    StopAutoBuildThread();
-                    player.gameObject.GetComponent<SphereCollider>().enabled = !closecollider;
-                    player.gameObject.GetComponent<CapsuleCollider>().enabled = !closecollider;
+                    if (GUI.Button(new Rect(10, 360, 150, 60), StartAutoMovetounbuilt ? "停止寻找未完成建筑".getTranslate() : "开始寻找未完成建筑".getTranslate()))
+                    {
+                        StartAutoMovetounbuilt = !StartAutoMovetounbuilt;
+                        player.gameObject.GetComponent<SphereCollider>().enabled = !StartAutoMovetounbuilt;
+                        player.gameObject.GetComponent<CapsuleCollider>().enabled = !StartAutoMovetounbuilt;
+                    }
+                    if (StartAutoMovetounbuilt && LocalPlanet.gasItems == null && GUI.Button(new Rect(10, 420, 150, 60), autobuildgetitem ? "停止自动补充材料".getTranslate() : "开始自动补充材料".getTranslate()))
+                    {
+                        autobuildgetitem = !autobuildgetitem;
+                    }
+                }
+                else
+                {
+                    StartAutoMovetounbuilt = false;
+                    player.gameObject.GetComponent<SphereCollider>().enabled = !StartAutoMovetounbuilt;
+                    player.gameObject.GetComponent<CapsuleCollider>().enabled = !StartAutoMovetounbuilt;
                 }
             }
-            else if (closecollider)
+            else if (StartAutoMovetounbuilt)
             {
-                StopAutoBuildThread();
+                StartAutoMovetounbuilt = false;
                 player.gameObject.GetComponent<SphereCollider>().enabled = true;
                 player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
-            }
-            if (closecollider && LocalPlanet.gasItems == null && GUI.Button(new Rect(10, 420, 150, 60), autobuildgetitem ? "停止自动补充材料".getTranslate() : "开始自动补充材料".getTranslate()))
-            {
-                autobuildgetitem = !autobuildgetitem;
             }
             BluePrintRecipeSet();
         }
 
         public void BluePrintRecipeSet()
         {
-            if (!blueprintopen)
+            if (!blueprintopen || LocalPlanet?.factory == null)
                 return;
             int tempwidth = 0;
             int tempheight = 0;
+            PlanetFactory factory = LocalPlanet.factory;
             if (pointeRecipetype != ERecipeType.None)
             {
                 List<RecipeProto> showrecipe = new List<RecipeProto>();
@@ -457,7 +499,10 @@ namespace Auxilaryfunction.Services
                                     player.TryAddItemToPackage(sc.storage[4].itemId, sc.storage[4].count, 0, false);
                                 LocalPlanet.factory.transport.SetStationStorage(stationpools[j], stationindex, 1210, (int)batchnum * 100, (ELogisticStorage)locallogic, (ELogisticStorage)remotelogic, player);
                             }
-                            else sc.name = StationNames[i];
+                            else
+                            {
+                                LocalPlanet.factory.WriteExtraInfoOnEntity(sc.entityId, StationNames[i]);
+                            }
                         }
                         stationpools.Clear();
                         break;
@@ -489,7 +534,6 @@ namespace Auxilaryfunction.Services
                 }
                 if (GUI.Button(new Rect(recipewindowx, Screen.height - recipewindowy + tempheight++ * 50, 130, 50), "粘贴物流站配方".getTranslate()))
                 {
-                    PlanetFactory factory = LocalPlanet.factory;
                     for (int j = 0; j < stationpools.Count; j++)
                     {
                         StationComponent sc = factory.transport.stationPool[stationpools[j]];
@@ -531,7 +575,6 @@ namespace Auxilaryfunction.Services
                     GUILayout.EndHorizontal();
                     if (GUILayout.Button("设置物流站逻辑"))
                     {
-                        PlanetFactory factory = LocalPlanet.factory;
                         for (int j = 0; j < stationpools.Count; j++)
                         {
                             StationComponent sc = factory.transport.stationPool[stationpools[j]];
@@ -552,7 +595,6 @@ namespace Auxilaryfunction.Services
             }
             else if (powergenGammapools.Count > 0)
             {
-                PlanetFactory factory = LocalPlanet.factory;
                 GUILayout.BeginArea(new Rect(recipewindowx, Screen.height - recipewindowy, BaseSize * 10, BaseSize * 10));
                 GUILayout.BeginVertical();
                 if (GUILayout.Button("直接发电".getTranslate()))
@@ -609,8 +651,14 @@ namespace Auxilaryfunction.Services
 
         private void StationInfoWindowUpdate()
         {
-            if (!ShowStationInfo.Value || GameMain.localPlanet?.factory == null)
+            if (!ShowStationInfo.Value || GameMain.localPlanet?.factory?.transport == null)
+            {
+                if (stationTip.activeSelf)
+                {
+                    stationTip.SetActive(false);
+                }
                 return;
+            }
             if (UIGame.viewMode == EViewMode.Normal || UIGame.viewMode == EViewMode.Globe)
             {
                 stationTip.SetActive(true);
@@ -788,12 +836,13 @@ namespace Auxilaryfunction.Services
                             var lastcountText = tip.transform.Find("countText" + storageNum);
                             lasticon.gameObject.SetActive(false);
                             int lastLine = storageNum;
-                            if (!string.IsNullOrEmpty(stationComponent.name))
+                            string stationComponentName = pd.factory.ReadExtraInfoOnEntity(stationComponent.entityId);
+                            if (!string.IsNullOrEmpty(stationComponentName))
                             {
                                 var lastcountTextPosition = lastcountText.GetComponent<RectTransform>().anchoredPosition3D;
                                 lastcountText.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(90, lastcountTextPosition.y, 0);
                                 lastcountText.GetComponent<Text>().fontSize = 18;
-                                lastcountText.GetComponent<Text>().text = stationComponent.name;
+                                lastcountText.GetComponent<Text>().text = stationComponentName;
                                 lastcountText.GetComponent<Text>().color = Color.white;
                                 lastcountText.gameObject.SetActive(true);
                                 tipWindowHeight += 27;
@@ -975,7 +1024,274 @@ namespace Auxilaryfunction.Services
                 }
             });
             #endregion
+            #region TurretWindow
+            TurretWindow = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Turret Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Blueprint Copy Mode").transform);
+            TurretWindow.GetComponent<RectTransform>().position = new Vector3(7.5f, 50, 20);
+            TurretWindow.name = "auxilaryfunction_TurretWindow";
+            TurretWindow.gameObject.SetActive(false);
+            Destroy(TurretWindow.transform.Find("details-desc").gameObject);
+            Destroy(TurretWindow.transform.Find("ammo-desc").gameObject);
+            Destroy(TurretWindow.transform.Find("supernova-desc/switch-button-1").gameObject);
+            Destroy(TurretWindow.transform.Find("supernova-desc/switch-button-2").gameObject);
+            Destroy(TurretWindow.transform.Find("supernova-desc/switch-button-3").gameObject);
+            Destroy(TurretWindow.transform.Find("supernova-desc/tap").gameObject);
+            Destroy(TurretWindow.transform.Find("supernova-desc/effect-desc").gameObject);
+            uiturretWindow = TurretWindow.GetComponent<UITurretWindow>();
+            uiturretWindow.phaseShiftGroup.SetActive(false);
+            uiturretWindow.supernovaGroup.SetActive(value: true);
+            uiturretWindow.supernovaBtnText.text = "超新星".Translate();
+            uiturretWindow.vsGroundRangeLabelRt.gameObject.SetActive(true);
+            uiturretWindow.vsGroundRangeTextRt.gameObject.SetActive(true);
+            uiturretWindow.vsSpaceRangeLabelRt.gameObject.SetActive(true);
+            uiturretWindow.vsSpaceRangeTextRt.gameObject.SetActive(true);
+            uiturretWindow.mode0Btn.button.interactable = true;
+            uiturretWindow.mode1Btn.button.interactable = true;
+            uiturretWindow.mode2Btn.button.interactable = true;
+            uiturretWindow.mode3Btn.button.interactable = true;
 
+            uiturretWindow.mode0Btn.tips.tipTitle = "地面按钮标题".Translate();
+            uiturretWindow.mode1Btn.tips.tipTitle = "低空按钮标题".Translate();
+            uiturretWindow.mode2Btn.tips.tipTitle = "高空按钮标题".Translate();
+            uiturretWindow.mode3Btn.tips.tipTitle = "太空按钮标题".Translate();
+            uiturretWindow.superNovaBtn.onClick += _ =>
+            {
+                foreach (var turretId in turrentpools)
+                {
+                    ref TurretComponent ptr = ref GameMain.localPlanet.factory.defenseSystem.turrets.buffer[turretId];
+                    if (ptr.id != turretId)
+                    {
+                        return;
+                    }
+                    if (ptr.inSupernova)
+                    {
+                        ptr.CancelSupernova();
+                    }
+                    else
+                    {
+                        ptr.SetSupernova();
+                    }
+                    if (ptr.inSupernova)
+                    {
+                        GameMain.gameScenario.NotifyOnSupernovaUITriggered();
+                    }
+                }
+            };
+            Action<int> tempOnVSModeButtonClicked = new Action<int>(value =>
+            {
+                Traverse.Create(uiturretWindow).Field("vsModeSelectIndex").SetValue(value);
+                uiturretWindow.selectBoxRt.gameObject.SetActive(true);
+                if (value == 0)
+                {
+                    uiturretWindow.selectBoxRt.SetParent(uiturretWindow.mode0Rt, false);
+                    return;
+                }
+                if (value == 1)
+                {
+                    uiturretWindow.selectBoxRt.SetParent(uiturretWindow.mode1Rt, false);
+                    return;
+                }
+                if (value == 2)
+                {
+                    uiturretWindow.selectBoxRt.SetParent(uiturretWindow.mode2Rt, false);
+                    return;
+                }
+                if (value == 3)
+                {
+                    uiturretWindow.selectBoxRt.SetParent(uiturretWindow.mode3Rt, false);
+                }
+            });
+            Action<int> tempGroupSelectionBtn_onClick = new Action<int>(value =>
+            {
+                foreach (var turretId in turrentpools)
+                {
+                    ref TurretComponent ptr = ref GameMain.localPlanet.factory.defenseSystem.turrets.buffer[turretId];
+                    if (ptr.id != turretId)
+                    {
+                        continue;
+                    }
+                    if (value == ptr.group)
+                    {
+                        ptr.SetGroup(0);
+                    }
+                    else
+                    {
+                        ptr.SetGroup(value);
+                    }
+                    for (int i = 0; i < uiturretWindow.groupSelectionBtns.Length; i++)
+                    {
+                        UIButton uibutton = uiturretWindow.groupSelectionBtns[i];
+                        uibutton.highlighted = (uibutton.data == ptr.group);
+                    }
+                }
+            });
+
+            var OnPrioritySelectButtonClicked = new Action<int>(value =>
+            {
+                var vsModeSelectIndex = (int)Traverse.Create(uiturretWindow).Field("vsModeSelectIndex").GetValue();
+                foreach (var turretId in turrentpools)
+                {
+                    ref TurretComponent ptr = ref GameMain.localPlanet.factory.defenseSystem.turrets.buffer[turretId];
+                    if (ptr.id != turretId)
+                    {
+                        continue;
+                    }
+                    VSLayerMask vsSettings = ptr.vsSettings;
+                    if (vsModeSelectIndex == 0)
+                    {
+                        ptr.vsSettings &= VSLayerMask.AirAngOrbitAndSpace;
+                    }
+                    else if (vsModeSelectIndex == 1)
+                    {
+                        ptr.vsSettings &= VSLayerMask.GroundAndOrbitAndSpace;
+                    }
+                    else if (vsModeSelectIndex == 2)
+                    {
+                        ptr.vsSettings &= VSLayerMask.GroundAndAirAndSpace;
+                    }
+                    else if (vsModeSelectIndex == 3)
+                    {
+                        ptr.vsSettings &= VSLayerMask.GroundAndAirAndOrbit;
+                    }
+                    ptr.vsSettings |= (VSLayerMask)(value << vsModeSelectIndex * 2);
+                    if (ptr.vsSettings != vsSettings)
+                    {
+                        ptr.Search(GameMain.localPlanet.factory, PlanetFactory.PrefabDescByModelIndex[GameMain.localPlanet.factory.entityPool[ptr.entityId].modelIndex], GameMain.gameTick);
+                    }
+                }
+                var modeIcons = new Image[4] { uiturretWindow.mode0Icon, uiturretWindow.mode1Icon, uiturretWindow.mode2Icon, uiturretWindow.mode3Icon };
+                var modeFloors = new Image[4] { uiturretWindow.mode0Floor, uiturretWindow.mode1Floor, uiturretWindow.mode2Floor, uiturretWindow.mode3Floor };
+                var mode0Btn = new UIButton[4] { uiturretWindow.mode0Btn, uiturretWindow.mode1Btn, uiturretWindow.mode2Btn, uiturretWindow.mode3Btn };
+                var tipText = new string[4] { "已关闭".Translate(), "低优先".Translate(), "均衡".Translate(), "高优先".Translate() };
+
+                if (value == 0)
+                {
+                    modeIcons[vsModeSelectIndex].sprite = uiturretWindow.fullTransparentSprite;
+                    modeFloors[vsModeSelectIndex].color = uiturretWindow.disableModeColor;
+                    mode0Btn[vsModeSelectIndex].tips.tipText = tipText[value];
+                }
+                else
+                {
+                    modeFloors[vsModeSelectIndex].color = Color.clear;
+                    switch (value)
+                    {
+                        case 1:
+                            modeIcons[vsModeSelectIndex].sprite = uiturretWindow.lowPrioritySprite;
+                            break;
+                        case 2:
+                            modeIcons[vsModeSelectIndex].sprite = uiturretWindow.normalPrioritySprite;
+                            break;
+                        case 3:
+                            modeIcons[vsModeSelectIndex].sprite = uiturretWindow.highPrioritySprite;
+                            break;
+                    }
+                    mode0Btn[vsModeSelectIndex].tips.tipText = tipText[value];
+                }
+                uiturretWindow.selectBoxRt.gameObject.SetActive(false);
+            });
+            uiturretWindow.mode0Btn.onClick += tempOnVSModeButtonClicked;
+            uiturretWindow.mode1Btn.onClick += tempOnVSModeButtonClicked;
+            uiturretWindow.mode2Btn.onClick += tempOnVSModeButtonClicked;
+            uiturretWindow.mode3Btn.onClick += tempOnVSModeButtonClicked;
+            uiturretWindow.select0Btn.onClick += OnPrioritySelectButtonClicked;
+            uiturretWindow.select1Btn.onClick += OnPrioritySelectButtonClicked;
+            uiturretWindow.select2Btn.onClick += OnPrioritySelectButtonClicked;
+            uiturretWindow.select3Btn.onClick += OnPrioritySelectButtonClicked;
+            uiturretWindow.clearMagBtn.onClick += (_) =>
+            {
+                foreach (var turretId in turrentpools)
+                {
+                    ref TurretComponent ptr = ref GameMain.localPlanet.factory.defenseSystem.turrets.buffer[turretId];
+                    if (ptr.id != turretId)
+                    {
+                        continue;
+                    }
+                    if (ptr.itemId == 0)
+                    {
+                        continue;
+                    }
+                    int upCount = player.TryAddItemToPackage((int)ptr.itemId, (int)ptr.itemCount, (int)ptr.itemInc, false, 0, false);
+                    UIItemup.Up(ptr.itemId, upCount);
+                    ptr.ClearItem();
+                }
+            };
+            for (int i = 0; i < uiturretWindow.groupSelectionBtns.Length; i++)
+            {
+                uiturretWindow.groupSelectionBtns[i].onClick += tempGroupSelectionBtn_onClick;
+            }
+
+
+            #endregion
+            #region PowerExchangerWindow
+            PowerExchangerWindow = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Power Exchanger Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Blueprint Copy Mode").transform);
+            PowerExchangerWindow.GetComponent<RectTransform>().position = new Vector3(7.5f, 50, 20);
+            PowerExchangerWindow.name = "PowerExchangerWindow";
+            PowerExchangerWindow.gameObject.SetActive(false);
+            Destroy(PowerExchangerWindow.transform.Find("power-network-desc").gameObject);
+            Destroy(PowerExchangerWindow.transform.Find("power-network-desc").gameObject);
+            Destroy(PowerExchangerWindow.transform.Find("exchanger-desc/power-state/power-text").gameObject);
+            uipowerExchangerWindow = PowerExchangerWindow.GetComponent<UIPowerExchangerWindow>();
+            Vector2 transition0Pos = uipowerExchangerWindow.transition0.anchoredPosition;
+            Vector2 transition1Pos = uipowerExchangerWindow.transition1.anchoredPosition;
+            Action<int> OnModeButtonClick = new Action<int>(targetState =>
+            {
+                foreach (var powerexchangerid in powerexchangertools)
+                {
+                    GameMain.localPlanet.factory.powerSystem.excPool[powerexchangerid].targetState = (float)targetState;
+                }
+
+                switch (targetState)
+                {
+                    case -1:
+                        uipowerExchangerWindow.exchangerMode1UIButton.highlighted = true;
+                        uipowerExchangerWindow.exchangerMode2UIButton.highlighted = false;
+                        uipowerExchangerWindow.exchangerMode3UIButton.highlighted = false;
+                        uipowerExchangerWindow.transition0.anchoredPosition = transition0Pos;
+                        uipowerExchangerWindow.transition1.anchoredPosition = transition1Pos;
+                        if (!uipowerExchangerWindow.transition0.gameObject.activeSelf && !uipowerExchangerWindow.transition1.gameObject.activeSelf)
+                        {
+                            uipowerExchangerWindow.transition0.gameObject.SetActive(true);
+                            uipowerExchangerWindow.transition1.gameObject.SetActive(true);
+                        }
+                        break;
+                    case 0:
+                        uipowerExchangerWindow.exchangerMode1UIButton.highlighted = false;
+                        uipowerExchangerWindow.exchangerMode2UIButton.highlighted = true;
+                        uipowerExchangerWindow.exchangerMode3UIButton.highlighted = false;
+                        if (uipowerExchangerWindow.transition0.gameObject.activeSelf && uipowerExchangerWindow.transition1.gameObject.activeSelf)
+                        {
+                            uipowerExchangerWindow.transition0.gameObject.SetActive(false);
+                            uipowerExchangerWindow.transition1.gameObject.SetActive(false);
+                        }
+                        break;
+                    case 1:
+                        uipowerExchangerWindow.exchangerMode1UIButton.highlighted = false;
+                        uipowerExchangerWindow.exchangerMode2UIButton.highlighted = false;
+                        uipowerExchangerWindow.exchangerMode3UIButton.highlighted = true;
+                        uipowerExchangerWindow.transition0.anchoredPosition = transition1Pos;
+                        uipowerExchangerWindow.transition1.anchoredPosition = transition0Pos;
+                        if (!uipowerExchangerWindow.transition0.gameObject.activeSelf && !uipowerExchangerWindow.transition1.gameObject.activeSelf)
+                        {
+                            uipowerExchangerWindow.transition0.gameObject.SetActive(true);
+                            uipowerExchangerWindow.transition1.gameObject.SetActive(true);
+                        }
+                        break;
+                }
+            });
+            uipowerExchangerWindow.exchangerMode1UIButton.onClick += OnModeButtonClick;
+            uipowerExchangerWindow.exchangerMode2UIButton.onClick += OnModeButtonClick;
+            uipowerExchangerWindow.exchangerMode3UIButton.onClick += OnModeButtonClick;
+            uipowerExchangerWindow.emptyIncs[0].enabled = false;
+            uipowerExchangerWindow.emptyIncs[1].enabled = false;
+            uipowerExchangerWindow.emptyIncs[2].enabled = false;
+            uipowerExchangerWindow.fullIncs[0].enabled = false;
+            uipowerExchangerWindow.fullIncs[1].enabled = false;
+            uipowerExchangerWindow.fullIncs[2].enabled = false;
+            uipowerExchangerWindow.emptyCountWarning.gameObject.SetActive(false);
+            uipowerExchangerWindow.fullCountWarning.gameObject.SetActive(false);
+
+
+            #endregion
+            #region StationWindow
             stationTip = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks"), GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs").transform);
             stationTip.name = "stationTip";
             Destroy(stationTip.GetComponent<UIVeinDetail>());
@@ -1075,6 +1391,75 @@ namespace Auxilaryfunction.Services
             tipPrefab.transform.Find("icon").gameObject.SetActive(false);
             for (int i = 0; i < maxCount; ++i)
                 tips[i] = Instantiate(tipPrefab, stationTip.transform);
+            #endregion
+            #region TrashStorageWindow
+            TrashCanButton = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Game Menu/button-1-bg"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Player Inventory").transform);
+            TrashCanButton.transform.Find("button-1/icon").GetComponent<Image>().sprite = trashcan;
+            TrashCanButton.transform.Find("button-1/icon").GetComponent<RectTransform>().sizeDelta = new Vector2(22, 22);
+            TrashCanButton.transform.localPosition = new Vector3(630, -60, 0);
+            TrashCanButton.GetComponent<RectTransform>().sizeDelta = new Vector2(40, 40);
+            TrashCanButton.GetComponent<RectTransform>().anchorMin = new Vector2(1, 1);
+            TrashCanButton.GetComponent<RectTransform>().anchorMax = new Vector2(1, 1);
+            TrashCanButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-58, -65);
+            TrashCanButton.GetComponent<UIButton>().tips.tipTitle = "垃圾桶".getTranslate();
+            TrashCanButton.GetComponent<UIButton>().tips.tipText = "开关显示垃圾桶，垃圾桶关闭后自动清理内部物品".getTranslate();
+            TrashCanButton.GetComponent<UIButton>().onClick += (_) =>
+            {
+                bool isOpen = !TrashStorageWindow.activeSelf;
+                if (isOpen)
+                {
+                    UIRoot.instance.uiGame.ShutAllFunctionWindow();
+                    TrashStorageWindow.SetActive(isOpen);
+                    TrashCanButton.transform.Find("button-1/icon").GetComponent<Image>().sprite = trashcanOpen;
+                    uiTrashStorageWindow.storageUI._Free();
+                    uiTrashStorageWindow.storageUI._Init(TrashStorage);
+                    uiTrashStorageWindow.storageUI._Open();
+                    uiTrashStorageWindow.storageUI.OnStorageDataChanged();
+                }
+                else
+                {
+                    CloseTrashStorageWindow();
+                }
+            };
+
+            TrashStorage = new StorageComponent(30);
+            TrashStorageWindow = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Storage Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Player Inventory").transform);
+            TrashStorageWindow.name = "TrashStorageWindow";
+
+            Destroy(TrashStorageWindow.transform.Find("filter-group").gameObject);
+            Destroy(TrashStorageWindow.transform.Find("panel-bg/drag-trigger").gameObject);
+            Destroy(TrashStorageWindow.transform.Find("bans-bar").gameObject);
+
+            uiTrashStorageWindow = TrashStorageWindow.GetComponent<UIStorageWindow>();
+            uiTrashStorageWindow.windowTrans.anchorMin = new Vector2(1, 1);
+            uiTrashStorageWindow.windowTrans.anchorMax = new Vector2(1, 1);
+            uiTrashStorageWindow.windowTrans.anchoredPosition = new Vector2(-14, -25);
+            uiTrashStorageWindow.windowTrans.pivot = new Vector2(0, 1);
+            uiTrashStorageWindow.windowTrans.sizeDelta = new Vector2(uiTrashStorageWindow.windowTrans.sizeDelta.x, 240);
+            uiTrashStorageWindow.titleText.text = "垃圾桶".getTranslate();
+            uiTrashStorageWindow.storageUI._Create();
+            var sortbtn = uiTrashStorageWindow.transform.Find("panel-bg/btn-box/sort-btn").GetComponent<UIButton>();
+            sortbtn.onClick += (_) =>
+            {
+                TrashStorage.Sort(true);
+            };
+            UIButton closebutton = TrashStorageWindow.transform.Find("panel-bg/btn-box/close-btn").GetComponent<UIButton>();
+            closebutton.onClick += (_) =>
+            {
+                CloseTrashStorageWindow();
+            };
+            TrashStorageWindow.SetActive(false);
+            TrashCanButton.SetActive(TrashStorageWindow_bool.Value);
+            #endregion
+
+        }
+
+        public void CloseTrashStorageWindow()
+        {
+            TrashCanButton.transform.Find("button-1/icon").GetComponent<Image>().sprite = trashcan;
+            TrashStorageWindow.SetActive(false);
+            uiTrashStorageWindow.storageUI._Free();
+            TrashStorage.Clear();
         }
 
         private void SetSignalId(int signalId)
@@ -1085,332 +1470,431 @@ namespace Auxilaryfunction.Services
         }
 
         #region 窗口UI
-        private void SwitchWindow(int winId)
+        private void MainWindow(int winId)
+        {
+            GUILayout.BeginArea(new Rect(10, 20, MainWindowWidth, MainWindowHeight));
+
+            GUILayout.BeginVertical();
+
+            GUILayout.BeginHorizontal();
+            for (int i = 1; i <= 6; i++)
+            {
+                if (whichpannel == i)
+                {
+                    GUILayout.Button(menus[i].getTranslate(), selectedButtonStyle, menusbuttonoptions);
+                }
+                else
+                {
+                    if (GUILayout.Button(menus[i].getTranslate(), menusbuttonoptions)) { whichpannel = i; }
+                }
+            }
+            GUILayout.EndHorizontal();
+
+            scrollPosition = GUILayout.BeginScrollView(scrollPosition, new[] { GUILayout.Width(MainWindowWidth - 20), GUILayout.Height(MainWindowHeight - heightdis * 2) });
+
+            switch (whichpannel)
+            {
+                case 1:
+                    DefaultPanel();
+                    break;
+                case 2:
+                    DisablePaintingPanel();
+                    break;
+                case 3:
+                    EasyUsePanel();
+                    break;
+                case 4:
+                    TextTechPanel();
+                    break;
+                case 5:
+                    DysonPanel();
+                    break;
+                case 6:
+                    BattlePanel();
+                    break;
+            }
+
+
+            GUILayout.EndScrollView();
+            GUILayout.EndVertical();
+            GUILayout.EndArea();
+        }
+
+        private void DefaultPanel()
         {
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical();
-            string[] menus = new string[3] { "默认面板", "文字科技树", "戴森球面板" };
-            for (int i = 0; i < 3; i++)
             {
-                bool temp = GUILayout.Toggle(PanelIndex == i, menus[i].getTranslate());
-                if (temp)
+                GUILayout.BeginHorizontal();
+                auto_supply_station.Value = GUILayout.Toggle(auto_supply_station.Value, "自动配置新运输站".getTranslate(), buttonoptions);
+                autosetstationconfig.Value = GUILayout.Toggle(autosetstationconfig.Value, "配置参数".getTranslate(), buttonoptions);
+                GUILayout.EndHorizontal();
+                if (autosetstationconfig.Value)
                 {
-                    PanelIndex = i;
+                    for (int i = 0; i < ConfigNames.Count; i++)
+                    {
+                        GUILayout.BeginHorizontal();
+                        string showinfo = "";
+                        switch (i)
+                        {
+                            case 0:
+                                auto_supply_Courier.Value = (int)GUILayout.HorizontalSlider(auto_supply_Courier.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                showinfo = auto_supply_Courier.Value + " ";
+                                break;
+                            case 1:
+                                auto_supply_drone.Value = (int)GUILayout.HorizontalSlider(auto_supply_drone.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                showinfo = auto_supply_drone.Value + " ";
+                                break;
+                            case 2:
+                                auto_supply_ship.Value = (int)GUILayout.HorizontalSlider(auto_supply_ship.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                showinfo = auto_supply_ship.Value + " ";
+                                break;
+                            case 3:
+                                stationmaxpowerpertick.Value = (int)GUILayout.HorizontalSlider(stationmaxpowerpertick.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                showinfo = (int)stationmaxpowerpertick.Value + "MW ";
+                                break;
+                            case 4:
+                                stationdronedist.Value = (int)GUILayout.HorizontalSlider(stationdronedist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                showinfo = stationdronedist.Value + "° ";
+                                break;
+                            case 5:
+                                stationshipdist.Value = (int)GUILayout.HorizontalSlider(stationshipdist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                showinfo = (stationshipdist.Value == 61 ? "∞ " : stationshipdist.Value + "ly ");
+                                break;
+                            case 6:
+                                stationwarpdist.Value = (int)GUILayout.HorizontalSlider((float)stationwarpdist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                if (stationwarpdist.Value == 0) stationwarpdist.Value = 0.5;
+                                showinfo = stationwarpdist.Value + "AU ";
+                                break;
+                            case 7:
+                                DroneStartCarry.Value = GUILayout.HorizontalSlider(DroneStartCarry.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                DroneStartCarry.Value = DroneStartCarry.Value == 0 ? 0.01f : DroneStartCarry.Value;
+                                showinfo = ((int)(DroneStartCarry.Value * 10) * 10 == 0 ? "1" : "" + (int)(DroneStartCarry.Value * 10) * 10) + "% ";
+                                break;
+                            case 8:
+                                ShipStartCarry.Value = GUILayout.HorizontalSlider(ShipStartCarry.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                showinfo = ((int)(ShipStartCarry.Value * 10) * 10 == 0 ? "1" : "" + (int)(ShipStartCarry.Value * 10) * 10) + "% ";
+                                break;
+                            case 9:
+                                auto_supply_warp.Value = (int)GUILayout.HorizontalSlider(auto_supply_warp.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                showinfo = auto_supply_warp.Value + " ";
+                                break;
+                            case 10:
+                                veincollectorspeed.Value = (int)GUILayout.HorizontalSlider(veincollectorspeed.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                                showinfo = veincollectorspeed.Value / 10.0f + " ";
+                                break;
+                        }
+                        GUILayout.Label(showinfo + ConfigNames[i].getTranslate(), labelstyle, buttonoptions);
+                        GUILayout.EndHorizontal();
+                    }
+                }
+                if (GUILayout.Button("铺满轨道采集器".getTranslate(), buttonoptions)) SetGasStation();
+                if (GUILayout.Button("批量配置当前星球物流站".getTranslate(), buttonoptions)) ChangeAllStationConfig();
+                if (GUILayout.Button("填充当前星球配送机飞机飞船、翘曲器".getTranslate(), buttonoptions)) AddDroneShipToStation();
+                if (GUILayout.Button("批量配置当前星球大型采矿机采矿速率".getTranslate(), buttonoptions)) ChangeAllVeinCollectorSpeedConfig();
+            }
+            GUILayout.EndVertical();
+            GUILayout.Space(20);
+
+            GUILayout.BeginVertical();
+            {
+                autosetSomevalue_bool.Value = GUILayout.Toggle(autosetSomevalue_bool.Value, "自动填充人造恒星".getTranslate());
+                GUILayout.BeginHorizontal();
+                for (int j = 0; j < 2; j++)
+                {
+                    int itemID = 1803 + j;
+                    GUIStyle style = normalstyle;
+                    if (auto_supply_starfuelID.Value == itemID)
+                        style = whitestyle;
+                    if (GUILayout.Button(LDB.items.Select(itemID).iconSprite.texture, style, GUILayout.Height(heightdis), GUILayout.Width(heightdis)))
+                    {
+                        auto_supply_starfuelID.Value = itemID;
+                    }
+                }
+                GUILayout.EndHorizontal();
+                GUILayout.Label("人造恒星燃料数量".getTranslate() + "：" + auto_supply_starfuel.Value);
+                auto_supply_starfuel.Value = (int)GUILayout.HorizontalSlider(auto_supply_starfuel.Value, 1, 100, HorizontalSlideroptions);
+                if (GUILayout.Button("填充当前星球人造恒星".getTranslate(), buttonoptions)) AddFuelToAllStar();
+
+                if (autoaddtech_bool.Value != GUILayout.Toggle(autoaddtech_bool.Value, "自动添加科技队列".getTranslate()))
+                {
+                    autoaddtech_bool.Value = !autoaddtech_bool.Value;
+                    if (!autoaddtech_bool.Value)
+                    {
+                        autoaddtechid = 0;
+                        auto_add_techid.Value = 0;
+                    }
+                }
+                if (autoaddtech_bool.Value)
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("科技等级上限".getTranslate() + ":");
+                    string t = GUILayout.TextField(auto_add_techmaxLevel.Value.ToString(), new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 3) });
+                    GUILayout.EndHorizontal();
+                    bool reset = !int.TryParse(Regex.Replace(t, @"^[^0-9]", ""), out int maxlevel);
+                    if (maxlevel != 0)
+                    {
+                        auto_add_techmaxLevel.Value = Math.Min(maxlevel, 10000);
+                    }
+                    var pointtech = LDB.techs.Select(auto_add_techid.Value);
+                    var name = "未选择".getTranslate();
+                    if (pointtech != null)
+                    {
+                        TechState techstate = GameMain.history.techStates[pointtech.ID];
+                        if (techstate.curLevel != techstate.maxLevel)
+                        {
+                            name = pointtech.name + "level" + techstate.curLevel;
+                        }
+                        if (reset)
+                        {
+                            auto_add_techmaxLevel.Value = techstate.maxLevel;
+                        }
+                    }
+                    if (GUILayout.Button(name, buttonoptions))
+                    {
+                        selectautoaddtechid = !selectautoaddtechid;
+                    }
+                    if (LDB.techs.dataArray != null && selectautoaddtechid)
+                    {
+                        for (int i = 0; i < LDB.techs.dataArray.Length; i++)
+                        {
+                            TechState techstate = GameMain.history.techStates[LDB.techs.dataArray[i].ID];
+                            if (techstate.curLevel < techstate.maxLevel && techstate.maxLevel > 10)
+                            {
+                                if (GUILayout.Button(LDB.techs.dataArray[i].name + " " + techstate.curLevel + " " + techstate.maxLevel, buttonoptions))
+                                {
+                                    autoaddtechid = LDB.techs.dataArray[i].ID;
+                                    auto_add_techid.Value = LDB.techs.dataArray[i].ID;
+                                }
+                            }
+                        }
+                    }
+                }
+                auto_setejector_bool.Value = GUILayout.Toggle(auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate());
+                if (autoabsorttrash_bool.Value != GUILayout.Toggle(autoabsorttrash_bool.Value, "30s间隔自动吸收垃圾".getTranslate()))
+                {
+                    autoabsorttrash_bool.Value = !autoabsorttrash_bool.Value;
+                    if (autoabsorttrash_bool.Value)
+                    {
+                        autocleartrash_bool.Value = false;
+                    }
+                }
+                if (autoabsorttrash_bool.Value)
+                {
+                    onlygetbuildings.Value = GUILayout.Toggle(onlygetbuildings.Value, "只回收建筑".getTranslate());
+                }
+                if (autocleartrash_bool.Value != GUILayout.Toggle(autocleartrash_bool.Value, "30s间隔自动清除垃圾".getTranslate()))
+                {
+                    autocleartrash_bool.Value = !autocleartrash_bool.Value;
+                    if (autocleartrash_bool.Value)
+                    {
+                        autoabsorttrash_bool.Value = false;
+                        onlygetbuildings.Value = false;
+                    }
                 }
             }
             GUILayout.EndVertical();
+
+            GUILayout.Space(30);
+            GUILayout.BeginVertical();
+            GUILayout.Label("机甲自动化");
+            autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate());
+
+            automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate());
+
+            autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate());
+            if (autonavigation_bool.Value)
+            {
+                GUILayout.BeginHorizontal();
+
+                GUILayout.Space(20);
+                GUILayout.BeginVertical();
+                autoAddPlayerVel.Value = GUILayout.Toggle(autoAddPlayerVel.Value, "自动加速".getTranslate());
+                autowarpcommand.Value = GUILayout.Toggle(autowarpcommand.Value, "自动导航使用曲速".getTranslate());
+                GUILayout.Label("自动曲速最低距离".getTranslate() + ":" + string.Format("{0:N2}", autowarpdistance.Value) + "光年".getTranslate());
+                autowarpdistance.Value = GUILayout.HorizontalSlider(autowarpdistance.Value, 0, 15, HorizontalSlideroptions);
+                GUILayout.Label("自动曲速最低能量".getTranslate() + ":" + string.Format("{0:N2}", autowarpdistanceEnergyPercent.Value) + "%");
+                autowarpdistanceEnergyPercent.Value = GUILayout.HorizontalSlider(autowarpdistanceEnergyPercent.Value, 0, 95, HorizontalSlideroptions);
+                autowarpdistanceEnergyPercent.Value = (int)(autowarpdistanceEnergyPercent.Value / 5 * 5);
+                GUILayout.EndVertical();
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.EndVertical();
+
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
-
         }
-        private void MainWindow(int winId)
+
+        private void DisablePaintingPanel()
         {
-            if (PanelIndex == 1)
+            GUILayout.BeginHorizontal();
+
+            GUILayout.BeginVertical();
             {
-                TextTechPanel();
-            }
-            else if (PanelIndex == 2)
-            {
-                DysonPanel();
-            }
-            else
-            {
-                scrollPosition = GUILayout.BeginScrollView(scrollPosition);
-                GUILayout.BeginHorizontal();
-                GUILayout.BeginVertical();
+                GUILayout.Label("模型屏蔽");
+                norender_dysonshell_bool.Value = GUILayout.Toggle(norender_dysonshell_bool.Value, "不渲染戴森壳".getTranslate());
+                norender_dysonswarm_bool.Value = GUILayout.Toggle(norender_dysonswarm_bool.Value, "不渲染戴森云".getTranslate());
+                norender_lab_bool.Value = GUILayout.Toggle(norender_lab_bool.Value, "不渲染研究站".getTranslate());
+                norender_beltitem.Value = GUILayout.Toggle(norender_beltitem.Value, "不渲染传送带货物".getTranslate());
+                norender_DarkFog.Value = GUILayout.Toggle(norender_DarkFog.Value, "不渲染黑雾".getTranslate());
+                norender_shipdrone_bool.Value = GUILayout.Toggle(norender_shipdrone_bool.Value, "不渲染运输船和飞机".getTranslate());
+                norender_entity_bool.Value = GUILayout.Toggle(norender_entity_bool.Value, "不渲染实体".getTranslate());
+                if (simulatorrender != GUILayout.Toggle(simulatorrender, "不渲染全部".getTranslate()))
                 {
-                    GUILayout.BeginHorizontal();
-                    auto_supply_station.Value = GUILayout.Toggle(auto_supply_station.Value, "自动配置新运输站".getTranslate(), buttonoptions);
-                    autosetstationconfig = GUILayout.Toggle(autosetstationconfig, "配置参数".getTranslate(), buttonoptions);
-                    GUILayout.EndHorizontal();
-                    if (autosetstationconfig && auto_supply_station.Value)
-                    {
-                        for (int i = 0; i < ConfigNames.Count; i++)
-                        {
-                            GUILayout.BeginHorizontal();
-                            string showinfo = "";
-                            switch (i)
-                            {
-                                case 0:
-                                    auto_supply_Courier.Value = (int)GUILayout.HorizontalSlider(auto_supply_Courier.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    showinfo = auto_supply_Courier.Value + " ";
-                                    break;
-                                case 1:
-                                    auto_supply_drone.Value = (int)GUILayout.HorizontalSlider(auto_supply_drone.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    showinfo = auto_supply_drone.Value + " ";
-                                    break;
-                                case 2:
-                                    auto_supply_ship.Value = (int)GUILayout.HorizontalSlider(auto_supply_ship.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    showinfo = auto_supply_ship.Value + " ";
-                                    break;
-                                case 3:
-                                    stationmaxpowerpertick.Value = (int)GUILayout.HorizontalSlider(stationmaxpowerpertick.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    showinfo = (int)stationmaxpowerpertick.Value + "MW ";
-                                    break;
-                                case 4:
-                                    stationdronedist.Value = (int)GUILayout.HorizontalSlider(stationdronedist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    showinfo = stationdronedist.Value + "° ";
-                                    break;
-                                case 5:
-                                    stationshipdist.Value = (int)GUILayout.HorizontalSlider(stationshipdist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    showinfo = (stationshipdist.Value == 61 ? "∞ " : stationshipdist.Value + "ly ");
-                                    break;
-                                case 6:
-                                    stationwarpdist.Value = (int)GUILayout.HorizontalSlider((float)stationwarpdist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    if (stationwarpdist.Value == 0) stationwarpdist.Value = 0.5;
-                                    showinfo = stationwarpdist.Value + "AU ";
-                                    break;
-                                case 7:
-                                    DroneStartCarry.Value = GUILayout.HorizontalSlider(DroneStartCarry.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    DroneStartCarry.Value = DroneStartCarry.Value == 0 ? 0.01f : DroneStartCarry.Value;
-                                    showinfo = ((int)(DroneStartCarry.Value * 10) * 10 == 0 ? "1" : "" + (int)(DroneStartCarry.Value * 10) * 10) + "% ";
-                                    break;
-                                case 8:
-                                    ShipStartCarry.Value = GUILayout.HorizontalSlider(ShipStartCarry.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    showinfo = (int)(ShipStartCarry.Value * 10) * 10 + "% ";
-                                    break;
-                                case 9:
-                                    auto_supply_warp.Value = (int)GUILayout.HorizontalSlider(auto_supply_warp.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    showinfo = auto_supply_warp.Value + " ";
-                                    break;
-                                case 10:
-                                    veincollectorspeed.Value = (int)GUILayout.HorizontalSlider(veincollectorspeed.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                    showinfo = veincollectorspeed.Value / 10.0f + " ";
-                                    break;
-                            }
-                            GUILayout.Label(showinfo + ConfigNames[i].getTranslate(), labelstyle, buttonoptions);
-                            GUILayout.EndHorizontal();
-                        }
-                    }
-                    if (GUILayout.Button("铺满轨道采集器".getTranslate(), buttonoptions)) SetGasStation();
-                    if (GUILayout.Button("批量配置当前星球物流站".getTranslate(), buttonoptions)) ChangeAllStationConfig();
-                    if (GUILayout.Button("填充当前星球配送机飞机飞船、翘曲器".getTranslate(), buttonoptions)) AddDroneShipToStation();
-                    if (GUILayout.Button("批量配置当前星球大型采矿机采矿速率".getTranslate(), buttonoptions)) ChangeAllVeinCollectorSpeedConfig();
-                    norender_dysonshell_bool.Value = GUILayout.Toggle(norender_dysonshell_bool.Value, "不渲染戴森壳".getTranslate());
-                    norender_dysonswarm_bool.Value = GUILayout.Toggle(norender_dysonswarm_bool.Value, "不渲染戴森云".getTranslate());
-                    norender_lab_bool.Value = GUILayout.Toggle(norender_lab_bool.Value, "不渲染研究站".getTranslate());
-                    norender_beltitem.Value = GUILayout.Toggle(norender_beltitem.Value, "不渲染传送带货物".getTranslate());
-                    norender_powerdisk_bool.Value = GUILayout.Toggle(norender_powerdisk_bool.Value, "不渲染电网覆盖".getTranslate());
-                    norender_shipdrone_bool.Value = GUILayout.Toggle(norender_shipdrone_bool.Value, "不渲染运输船和飞机".getTranslate());
-                    norender_entity_bool.Value = GUILayout.Toggle(norender_entity_bool.Value, "不渲染实体".getTranslate());
-                    if (simulatorrender != GUILayout.Toggle(simulatorrender, "不渲染全部".getTranslate()))
-                    {
-                        simulatorrender = !simulatorrender;
-                        simulatorchanging = true;
-                    }
-                    SunLightOpen.Value = GUILayout.Toggle(SunLightOpen.Value, "夜灯".getTranslate());
-                    closeplayerflyaudio.Value = GUILayout.Toggle(closeplayerflyaudio.Value, "关闭玩家走路飞行声音".getTranslate());
+                    simulatorrender = !simulatorrender;
+                    simulatorchanging = true;
                 }
-                GUILayout.EndVertical();
-                GUILayout.Space(20);
+            }
+            GUILayout.EndVertical();
 
-                GUILayout.BeginVertical();
+            GUILayout.Space(30);
+
+            GUILayout.BeginVertical();
+            {
+                GUILayout.Label("UI屏蔽");
+                norender_powerdisk_bool.Value = GUILayout.Toggle(norender_powerdisk_bool.Value, "不渲染电网覆盖".getTranslate());
+                CloseUIRandomTip.Value = GUILayout.Toggle(CloseUIRandomTip.Value, "关闭建筑栏提示".getTranslate());
+                CloseUITutorialTip.Value = GUILayout.Toggle(CloseUITutorialTip.Value, "关闭教学提示".getTranslate());
+                CloseUIAdvisor.Value = GUILayout.Toggle(CloseUIAdvisor.Value, "关闭顾问".getTranslate());
+                CloseMilestone.Value = GUILayout.Toggle(CloseMilestone.Value, "关闭里程碑提示".getTranslate());
+                if (HideDarkFogMonitor != GUILayout.Toggle(HideDarkFogMonitor, "隐藏黑雾威胁度检测".getTranslate()))
                 {
-                    if (autoaddtech_bool.Value != GUILayout.Toggle(autoaddtech_bool.Value, "自动添加科技队列".getTranslate()))
-                    {
-                        autoaddtech_bool.Value = !autoaddtech_bool.Value;
-                        if (!autoaddtech_bool.Value)
-                        {
-                            autoaddtechid = 0;
-                            auto_add_techid.Value = 0;
-                        }
-                    }
-                    if (autoaddtech_bool.Value)
-                    {
-                        GUILayout.Label("自动添加科技等级上限".getTranslate() + ":");
-                        string t = GUILayout.TextField(auto_add_techmaxLevel.Value.ToString(), new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 3) });
-                        bool reset = !int.TryParse(Regex.Replace(t, @"^[^0-9]", ""), out int maxlevel);
-                        if (maxlevel != 0)
-                        {
-                            auto_add_techmaxLevel.Value = maxlevel;
-                        }
-                        var pointtech = LDB.techs.Select(auto_add_techid.Value);
-                        var name = "未选择".getTranslate();
-                        if (pointtech != null)
-                        {
-                            TechState techstate = GameMain.history.techStates[pointtech.ID];
-                            if (techstate.curLevel != techstate.maxLevel)
-                            {
-                                name = pointtech.name + "level" + techstate.curLevel;
-                            }
-                            if (reset)
-                            {
-                                auto_add_techmaxLevel.Value = techstate.maxLevel;
-                            }
-                        }
-                        if (GUILayout.Button(name, buttonoptions))
-                        {
-                            selectautoaddtechid = !selectautoaddtechid;
-                        }
-                        if (LDB.techs.dataArray != null && selectautoaddtechid)
-                        {
-                            for (int i = 0; i < LDB.techs.dataArray.Length; i++)
-                            {
-                                TechState techstate = GameMain.history.techStates[LDB.techs.dataArray[i].ID];
-                                if (techstate.curLevel < techstate.maxLevel && techstate.maxLevel > 10)
-                                {
-                                    if (GUILayout.Button(LDB.techs.dataArray[i].name + " " + techstate.curLevel + " " + techstate.maxLevel, buttonoptions))
-                                    {
-                                        autoaddtechid = LDB.techs.dataArray[i].ID;
-                                        auto_add_techid.Value = LDB.techs.dataArray[i].ID;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate());
-                    autoAddFuel.Value = GUILayout.Toggle(autoAddFuel.Value, "自动添加燃料".getTranslate());
-                    if (autoAddFuel.Value)
-                    {
-                        int rownum = fuelItems.Count / 6;
-                        rownum = fuelItems.Count % 6 > 0 ? rownum + 1 : rownum;
-                        int index = 0;
-                        for (int i = 0; i < rownum; i++)
-                        {
-                            GUILayout.BeginHorizontal();
-                            for (int j = 0; j < 6 && index < fuelItems.Count; j++, index++)
-                            {
-                                int itemID = fuelItems[index];
-                                GUIStyle style = normalstyle;
-                                if (FuelFilter[itemID])
-                                    style = whitestyle;
-                                if (GUILayout.Button(LDB.items.Select(itemID).iconSprite.texture, style, GUILayout.Height(heightdis), GUILayout.Width(heightdis)))
-                                {
-                                    FuelFilter[itemID] = !FuelFilter[itemID];
-                                    string result = "";
-                                    foreach (var item in FuelFilter)
-                                    {
-                                        if (item.Value)
-                                        {
-                                            result += item.Key + ",";
-                                        }
-                                    }
-                                    FuelFilterConfig.Value = result;
-                                }
-                            }
-                            GUILayout.EndHorizontal();
-                        }
-                    }
-                    auto_setejector_bool.Value = GUILayout.Toggle(auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate());
-                    automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate());
-                    close_alltip_bool.Value = GUILayout.Toggle(close_alltip_bool.Value, "一键闭嘴".getTranslate());
-                    noscaleuitech_bool.Value = GUILayout.Toggle(noscaleuitech_bool.Value, "科技面板选中不缩放".getTranslate(), buttonoptions);
-                    BluePrintSelectAll.Value = GUILayout.Toggle(BluePrintSelectAll.Value, "蓝图全选".getTranslate() + "(ctrl+A）");
-                    BluePrintDelete.Value = GUILayout.Toggle(BluePrintDelete.Value, "蓝图删除".getTranslate() + "(ctrl+X）");
-                    BluePrintRevoke.Value = GUILayout.Toggle(BluePrintRevoke.Value, "蓝图撤销".getTranslate() + "(ctrl+Z)");
-                    BluePrintSetRecipe.Value = GUILayout.Toggle(BluePrintSetRecipe.Value, "蓝图设置配方".getTranslate() + "(ctrl+F)", buttonoptions);
-                    bool temp = GUILayout.Toggle(ShowStationInfo.Value, "物流站信息显示".getTranslate());
-                    if (temp != ShowStationInfo.Value)
-                    {
-                        ShowStationInfo.Value = temp;
-                        if (!temp)
-                            for (int index = 0; index < maxCount; ++index)
-                                tips[index].SetActive(false);
-                    }
-                    if (temp)
-                    {
-                        GUILayout.BeginHorizontal();
-                        GUILayout.Space(30);
-                        GUILayout.BeginVertical();
-                        bool temp1 = GUILayout.Toggle(!ShowStationInfoMode.Value, "详细模式".getTranslate());
-                        bool temp2 = GUILayout.Toggle(ShowStationInfoMode.Value, "简易模式".getTranslate());
-                        if (temp1 && temp2)
-                        {
-                            ShowStationInfoMode.Value = !ShowStationInfoMode.Value;
-                        }
-                        GUILayout.EndVertical();
-                        GUILayout.EndHorizontal();
-                    }
-
-                    stationcopyItem_bool.Value = GUILayout.Toggle(stationcopyItem_bool.Value, "物流站物品设置复制粘贴".getTranslate(), buttonoptions);
-                    if (autoabsorttrash_bool.Value != GUILayout.Toggle(autoabsorttrash_bool.Value, "30s间隔自动吸收垃圾".getTranslate()))
-                    {
-                        autoabsorttrash_bool.Value = !autoabsorttrash_bool.Value;
-                        if (autoabsorttrash_bool.Value)
-                        {
-                            autocleartrash_bool.Value = false;
-                        }
-                    }
-                    if (autoabsorttrash_bool.Value)
-                    {
-                        onlygetbuildings.Value = GUILayout.Toggle(onlygetbuildings.Value, "只回收建筑".getTranslate());
-                    }
-                    if (autocleartrash_bool.Value != GUILayout.Toggle(autocleartrash_bool.Value, "30s间隔自动清除垃圾".getTranslate()))
-                    {
-                        autocleartrash_bool.Value = !autocleartrash_bool.Value;
-                        if (autocleartrash_bool.Value)
-                        {
-                            autoabsorttrash_bool.Value = false;
-                            onlygetbuildings.Value = false;
-                        }
-                    }
-                    ChangeQuickKey = GUILayout.Toggle(ChangeQuickKey, !ChangeQuickKey ? "改变窗口快捷键".getTranslate() : "点击确认".getTranslate(), buttonoptions);
-                    if (ChangeQuickKey)
-                    {
-                        GUILayout.Label(tempShowWindow.ToString(), labelstyle);
-                    }
+                    HideDarkFogMonitor = !HideDarkFogMonitor;
+                    UIRoot.instance.uiGame.dfMonitor.gameObject.SetActive(!HideDarkFogMonitor);
                 }
-                GUILayout.EndVertical();
-                GUILayout.Space(20);
-
-                GUILayout.BeginVertical();
+                if (HideDarkFogAssaultTip != GUILayout.Toggle(HideDarkFogAssaultTip, "隐藏黑雾入侵提示".getTranslate()))
                 {
-                    changeups = GUILayout.Toggle(changeups, "启动时间流速修改".getTranslate());
-                    GUILayout.Label("流速倍率".getTranslate() + ":" + string.Format("{0:N2}", upsfix));
-                    string tempupsfixstr = GUILayout.TextField(string.Format("{0:N2}", upsfix), new[] { GUILayout.Width(5 * heightdis) });
+                    HideDarkFogAssaultTip = !HideDarkFogAssaultTip;
+                    UIRoot.instance.uiGame.dfAssaultTip.gameObject.SetActive(!HideDarkFogAssaultTip);
+                }
+            }
+            GUILayout.EndVertical();
 
-                    if (tempupsfixstr != string.Format("{0:N2}", upsfix) && float.TryParse(tempupsfixstr, out float tempupsfix))
-                    {
-                        if (tempupsfix < 0.01) tempupsfix = 0.01f;
-                        if (tempupsfix > 10) tempupsfix = 10;
-                        upsfix = tempupsfix;
-                    }
-                    upsfix = GUILayout.HorizontalSlider(upsfix, 0.01f, 10, HorizontalSlideroptions);
-                    upsquickset.Value = GUILayout.Toggle(upsquickset.Value, "加速减速".getTranslate() + "(shift,'+''-')", buttonoptions);
+            GUILayout.Space(30);
 
-                    autosetSomevalue_bool.Value = GUILayout.Toggle(autosetSomevalue_bool.Value, "自动配置建筑".getTranslate());
-                    GUILayout.Label("人造恒星燃料数量".getTranslate() + "：" + auto_supply_starfuel.Value);
-                    auto_supply_starfuel.Value = (int)GUILayout.HorizontalSlider(auto_supply_starfuel.Value, 4, 100, HorizontalSlideroptions);
-                    if (GUILayout.Button("填充当前星球人造恒星".getTranslate(), buttonoptions)) AddFuelToAllStar();
-                    _ = new GUILayoutOption[0];
-                    autosavetimechange.Value = GUILayout.Toggle(autosavetimechange.Value, "自动保存".getTranslate(), autosavetimechange.Value ? new GUILayoutOption[0] : buttonoptions);
-                    if (autosavetimechange.Value)
-                    {
-                        GUILayout.Label("自动保存时间".getTranslate() + "/min：", buttonoptions);
-                        int tempint = autosavetime.Value / 60;
-                        if (int.TryParse(Regex.Replace(GUILayout.TextField(tempint + "", GUILayout.Height(heightdis), GUILayout.Width(5 * heightdis)), @"[^0-9]", ""), out tempint))
-                        {
-                            if (tempint < 5) tempint = 5;
-                            if (tempint > 10000) tempint = 10000;
-                            autosavetime.Value = tempint * 60;
-                        }
-                    }
-                    KeepBeltHeight.Value = GUILayout.Toggle(KeepBeltHeight.Value, "保持传送带高度(shift)".getTranslate(), buttonoptions);
-                    SaveLastOpenBluePrintBrowserPathConfig.Value = GUILayout.Toggle(SaveLastOpenBluePrintBrowserPathConfig.Value, "记录上次蓝图路径".getTranslate(), buttonoptions);
-                    Quickstop_bool.Value = GUILayout.Toggle(Quickstop_bool.Value, "ctrl+空格快速开关".getTranslate());
+            GUILayout.BeginVertical();
+            {
+                GUILayout.Label("声音屏蔽");
+                closeplayerflyaudio.Value = GUILayout.Toggle(closeplayerflyaudio.Value, "关闭玩家走路飞行声音".getTranslate());
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.FlexibleSpace();
+
+
+
+            GUILayout.EndHorizontal();
+        }
+
+        private void EasyUsePanel()
+        {
+            GUILayout.BeginHorizontal();
+
+            GUILayout.BeginVertical();
+            {
+                GUILayout.Label("蓝图功能优化".getTranslate());
+                BluePrintSelectAll.Value = GUILayout.Toggle(BluePrintSelectAll.Value, "蓝图全选".getTranslate() + "(ctrl+A）");
+                BluePrintDelete.Value = GUILayout.Toggle(BluePrintDelete.Value, "蓝图删除".getTranslate() + "(ctrl+X）");
+                BluePrintRevoke.Value = GUILayout.Toggle(BluePrintRevoke.Value, "蓝图撤销".getTranslate() + "(ctrl+Z)");
+                BluePrintSetRecipe.Value = GUILayout.Toggle(BluePrintSetRecipe.Value, "蓝图设置配方".getTranslate() + "(ctrl+F)");
+                SaveLastOpenBluePrintBrowserPathConfig.Value = GUILayout.Toggle(SaveLastOpenBluePrintBrowserPathConfig.Value, "记录上次蓝图路径".getTranslate(), buttonoptions);
+
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.Space(30);
+
+            GUILayout.BeginVertical();
+            {
+                GUILayout.Label("物流站功能优化".getTranslate());
+                bool temp = GUILayout.Toggle(ShowStationInfo.Value, "物流站信息显示".getTranslate());
+                if (temp != ShowStationInfo.Value)
+                {
+                    ShowStationInfo.Value = temp;
+                    if (!temp)
+                        for (int index = 0; index < maxCount; ++index)
+                            tips[index].SetActive(false);
+                }
+                if (temp)
+                {
                     GUILayout.BeginHorizontal();
                     GUILayout.Space(30);
-                    stopfactory = GUILayout.Toggle(stopfactory, "停止工厂".getTranslate());
-                    GUILayout.EndHorizontal();
-                    autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate());
-                    if (autonavigation_bool.Value)
+                    GUILayout.BeginVertical();
+                    bool temp1 = GUILayout.Toggle(!ShowStationInfoMode.Value, "详细模式".getTranslate());
+                    bool temp2 = GUILayout.Toggle(ShowStationInfoMode.Value, "简易模式".getTranslate());
+                    if (temp1 && temp2)
                     {
-                        autowarpcommand.Value = GUILayout.Toggle(autowarpcommand.Value, "自动导航使用曲速".getTranslate());
-                        GUILayout.Label("自动使用翘曲器距离".getTranslate() + ":" + string.Format("{0:N2}", autowarpdistance.Value) + "光年".getTranslate());
-                        autowarpdistance.Value = GUILayout.HorizontalSlider(autowarpdistance.Value, 0, 30, HorizontalSlideroptions);
+                        ShowStationInfoMode.Value = !ShowStationInfoMode.Value;
                     }
+                    GUILayout.EndVertical();
+                    GUILayout.EndHorizontal();
                 }
-                GUILayout.EndVertical();
+                stationcopyItem_bool.Value = GUILayout.Toggle(stationcopyItem_bool.Value, "物流站物品设置复制粘贴".getTranslate(), buttonoptions);
+                ChangeQuickKey = GUILayout.Toggle(ChangeQuickKey, !ChangeQuickKey ? "改变窗口快捷键".getTranslate() : "点击确认".getTranslate(), buttonoptions);
+                if (ChangeQuickKey)
+                {
+                    GUILayout.Label(tempShowWindow.ToString(), labelstyle);
+                }
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.Space(30);
+
+
+            GUILayout.BeginVertical();
+            {
+                SpeedUpEnable = GUILayout.Toggle(SpeedUpEnable, "启动时间流速修改".getTranslate());
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("流速倍率".getTranslate() + ":");
+                string tempupsfixstr = GUILayout.TextField(string.Format("{0:N2}", SpeedMultiple), GUILayout.MinWidth(heightdis * 3));
+                if (tempupsfixstr != string.Format("{0:N2}", SpeedMultiple) && float.TryParse(tempupsfixstr, out float tempupsfix))
+                {
+                    if (tempupsfix < 0.01) tempupsfix = 0.01f;
+                    if (tempupsfix > 10) tempupsfix = 10;
+                    SpeedMultiple = tempupsfix;
+                }
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
-                GUILayout.EndScrollView();
+                SpeedMultiple = GUILayout.HorizontalSlider(SpeedMultiple, 0.01f, 10, HorizontalSlideroptions);
+                upsquickset.Value = GUILayout.Toggle(upsquickset.Value, "加速减速".getTranslate() + "(shift,'+''-')", buttonoptions);
+
+                autosavetimechange.Value = GUILayout.Toggle(autosavetimechange.Value, "修改自动保存时长".getTranslate(), autosavetimechange.Value ? new GUILayoutOption[0] : buttonoptions);
+                if (autosavetimechange.Value)
+                {
+                    GUILayout.Label("自动保存时间".getTranslate() + "/min：", buttonoptions);
+                    int tempint = autosavetime.Value / 60;
+                    if (int.TryParse(Regex.Replace(GUILayout.TextField(tempint + "", GUILayout.Height(heightdis), GUILayout.Width(5 * heightdis)), @"[^0-9]", ""), out tempint))
+                    {
+                        if (tempint < 1) tempint = 1;
+                        if (tempint > 10000) tempint = 10000;
+                        autosavetime.Value = tempint * 60;
+                    }
+                }
+                KeepBeltHeight.Value = GUILayout.Toggle(KeepBeltHeight.Value, "保持传送带高度(shift)".getTranslate(), buttonoptions);
+                Quickstop_bool.Value = GUILayout.Toggle(Quickstop_bool.Value, "ctrl+空格快速开关".getTranslate());
+                GUILayout.BeginHorizontal();
+                GUILayout.Space(30);
+                GameTickPatch.Enable = GUILayout.Toggle(GameTickPatch.Enable, "停止工厂".getTranslate());
+                GUILayout.EndHorizontal();
+
+                noscaleuitech_bool.Value = GUILayout.Toggle(noscaleuitech_bool.Value, "科技面板选中不缩放".getTranslate(), buttonoptions);
+                if (TrashStorageWindow_bool.Value != GUILayout.Toggle(TrashStorageWindow_bool.Value, "背包垃圾桶".getTranslate(), buttonoptions))
+                {
+                    TrashStorageWindow_bool.Value = !TrashStorageWindow_bool.Value;
+                    TrashCanButton.SetActive(TrashStorageWindow_bool.Value);
+                }
+                SunLightOpen.Value = GUILayout.Toggle(SunLightOpen.Value, "夜灯".getTranslate());
+
             }
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+
+            GUILayout.EndHorizontal();
         }
 
         private void TextTechPanel()
         {
-            scrollPosition = GUILayout.BeginScrollView(scrollPosition);
-
             int buttonwidth = heightdis * 5;
             int colnum = (int)MainWindowWidth / buttonwidth;
             var propertyicon = UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture;
@@ -1475,7 +1959,7 @@ namespace Auxilaryfunction.Services
             var techList = new List<int>();
             foreach (TechProto tp in LDB.techs.dataArray)
             {
-                if (tp.ID > 2000) break;
+                if (tp.ID > 2000 || tp.IsHiddenTech || tp.IsObsolete) break;
                 if (readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || GameMain.history.TechUnlocked(tp.ID)) continue;
                 if (limitmaterial)
                 {
@@ -1537,7 +2021,7 @@ namespace Auxilaryfunction.Services
             techList = new List<int>();
             foreach (TechProto tp in LDB.techs.dataArray)
             {
-                if (tp.ID < 2000 || readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || tp.MaxLevel > 100 || GameMain.history.TechUnlocked(tp.ID)) continue;
+                if (tp.ID < 2000 || readyresearch.Contains(tp.ID) || tp.IsObsolete || tp.IsHiddenTech || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || tp.MaxLevel > 100 || GameMain.history.TechUnlocked(tp.ID)) continue;
                 if (limitmaterial)
                 {
                     bool condition = true;
@@ -1595,8 +2079,8 @@ namespace Auxilaryfunction.Services
                 GUILayout.EndHorizontal();
             }
             GUILayout.EndVertical();
-            GUILayout.EndScrollView();
         }
+
         private void DysonPanel()
         {
             bool[] dysonlayers = new bool[11];
@@ -1612,7 +2096,6 @@ namespace Auxilaryfunction.Services
                 }
             }
 
-            scrollPosition = GUILayout.BeginScrollView(scrollPosition);
             GUILayout.BeginHorizontal();
             #region 左侧面板
             GUILayout.BeginVertical();
@@ -1723,14 +2206,6 @@ namespace Auxilaryfunction.Services
                     }
                 }
             }
-            if (autoClearEmptyDyson.Value != GUILayout.Toggle(autoClearEmptyDyson.Value, "自动清除空戴森球".getTranslate()))
-            {
-                autoClearEmptyDyson.Value = !autoClearEmptyDyson.Value;
-                if (autoClearEmptyDyson.Value)
-                {
-                    UIMessageBox.Show(ErrorTitle.getTranslate(), "每次打开戴森球面板都会自动进行清理".getTranslate(), "确定".Translate(), 3, null);
-                }
-            }
 
 
             GUILayout.Label("当前选中".getTranslate() + ":" +
@@ -1771,8 +2246,174 @@ namespace Auxilaryfunction.Services
             #endregion
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
-            GUILayout.EndScrollView();
         }
+
+        private void BattlePanel()
+        {
+            GUILayout.BeginHorizontal();
+
+            GUILayout.BeginVertical();
+            GUILayout.BeginHorizontal();
+            AutoNavigateToDarkFogHive.Value = GUILayout.Toggle(AutoNavigateToDarkFogHive.Value, "黑雾巢穴自动导航");
+            AutoNavigateToDarkFogHiveKeepDistance.Value = (int)GUILayout.HorizontalSlider(AutoNavigateToDarkFogHiveKeepDistance.Value, 10, 240);
+            GUILayout.Label("跟随距离：" + NumberTranslate.DistanceTranslate(AutoNavigateToDarkFogHiveKeepDistance.Value * 100));
+            GUILayout.EndHorizontal();
+            if (GameMain.data?.spaceSector?.dfHives != null)
+            {
+                int num = 0;
+                List<string> originstars = new List<string>();
+                List<string> targetstars = new List<string>();
+                List<string> showdistances = new List<string>();
+                List<string> showremaindistances = new List<string>();
+                List<int> enermyIds = new List<int>();
+                var spacesector = GameMain.data.spaceSector;
+                foreach (var dfHive in spacesector.dfHives)
+                {
+                    if (dfHive == null)
+                        continue;
+                    for (EnemyDFHiveSystem enemyDFHiveSystem = dfHive; enemyDFHiveSystem != null; enemyDFHiveSystem = enemyDFHiveSystem.nextSibling)
+                    {
+                        foreach (var t in enemyDFHiveSystem.tinders.buffer)
+                        {
+                            if (t.id <= 0 || t.enemyId <= 0)
+                            {
+                                continue;
+                            }
+                            var pos = GameMain.data.spaceSector.enemyPool[t.enemyId].pos;
+                            if (pos.magnitude < 1000)
+                            {
+                                continue;
+                            }
+                            var targetStar = spacesector.GetHiveByAstroId(t.targetHiveAstroId)?.starData;
+                            if (targetStar != null)
+                            {
+                                string targetStarName = spacesector.GetHiveByAstroId(t.targetHiveAstroId)?.starData?.displayName ?? "无".getTranslate();
+                                targetstars.Add(targetStarName);
+                                double remaindis = (pos - targetStar.uPosition).magnitude;
+                                showremaindistances.Add(NumberTranslate.DistanceTranslate(remaindis));
+                            }
+                            num++;
+                            originstars.Add(spacesector.GetHiveByAstroId(t.originHiveAstroId)?.starData?.displayName ?? "无".getTranslate());
+                            double distance = (player.uPosition - pos).magnitude;
+                            showdistances.Add(NumberTranslate.DistanceTranslate(distance));
+                            enermyIds.Add(t.enemyId);
+                        }
+                    }
+                }
+                GUILayout.Space(30);
+                GUILayout.Label("火种列表");
+                if (num == 0)
+                {
+                    GUILayout.Label("无火种");
+                }
+                else
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.BeginVertical();
+                    GUILayout.Label("出发星系");
+                    for (int i = 0; i < num; i++)
+                    {
+                        GUILayout.Label(originstars[i]);
+                    }
+                    GUILayout.EndVertical();
+                    GUILayout.BeginVertical();
+                    GUILayout.Label("目标星系");
+                    for (int i = 0; i < num; i++)
+                    {
+                        GUILayout.Label(targetstars[i]);
+                    }
+                    GUILayout.EndVertical();
+                    GUILayout.BeginVertical();
+                    GUILayout.Label("与玩家距离");
+                    for (int i = 0; i < num; i++)
+                    {
+                        GUILayout.Label(showdistances[i]);
+                    }
+                    GUILayout.EndVertical();
+                    GUILayout.BeginVertical();
+                    GUILayout.Label("离目标星系距离");
+                    for (int i = 0; i < num; i++)
+                    {
+                        GUILayout.Label(showremaindistances[i]);
+                    }
+                    GUILayout.EndVertical();
+                    GUILayout.BeginVertical();
+                    GUILayout.Label("");
+                    for (int i = 0; i < num; i++)
+                    {
+                        if (GUILayout.Button("导航"))
+                        {
+                            if (autonavigation_bool.Value)
+                            {
+                                GameMain.mainPlayer.navigation.indicatorEnemyId = enermyIds[i];
+                            }
+                            else
+                            {
+                                UIMessageBox.Show("自动导航失败", "未启用自动导航", "确定".Translate(), 3);
+                            }
+                        }
+                    }
+                    GUILayout.EndVertical();
+                    GUILayout.EndHorizontal();
+                }
+
+            }
+            if (GameMain.gameScenario?.cosmicMessageManager?.messageSimulators != null)
+            {
+                int num = 0;
+                GUILayout.Space(30);
+                List<string> showdistances = new List<string>();
+                List<CosmicMessageData> CosmicMessageDatas = new List<CosmicMessageData>();
+                foreach (var t in GameMain.gameScenario.cosmicMessageManager.messageSimulators)
+                {
+                    if (t?.messageData == null)
+                        continue;
+                    num++;
+                    double distance = (player.uPosition - t.messageData.uPosition).magnitude;
+                    showdistances.Add(NumberTranslate.DistanceTranslate(distance));
+                    CosmicMessageDatas.Add(t.messageData);
+                }
+
+                GUILayout.Label("通讯器列表");
+                if (num == 0)
+                {
+                    GUILayout.Label("无通讯器");
+                }
+                else
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.BeginVertical();
+                    GUILayout.Label("与玩家距离");
+                    for (int i = 0; i < num; i++)
+                    {
+                        GUILayout.Label(showdistances[i]);
+                    }
+                    GUILayout.EndVertical();
+                    GUILayout.BeginVertical();
+                    GUILayout.Label("");
+                    for (int i = 0; i < num; i++)
+                    {
+                        if (GUILayout.Button("导航"))
+                        {
+                            if (autonavigation_bool.Value)
+                            {
+                                player.navigation.indicatorMsgId = CosmicMessageDatas[i].protoId;
+                                PlayerOperation.FlyStatus = true;
+                            }
+                            else
+                            {
+                                UIMessageBox.Show("自动导航失败", "未启用自动导航", "确定".Translate(), 3);
+                            }
+                        }
+                    }
+                    GUILayout.EndVertical();
+                    GUILayout.EndHorizontal();
+                }
+            }
+            GUILayout.EndVertical();
+            GUILayout.EndHorizontal();
+        }
+
         private void DysonBluePrintDataDraw(List<TempDysonBlueprintData> datalist)
         {
             GUILayout.BeginHorizontal();
