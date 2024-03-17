@@ -361,6 +361,35 @@ namespace Auxilaryfunction.Services
                 player.gameObject.GetComponent<SphereCollider>().enabled = true;
                 player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
             }
+
+            if (automovetodarkfog.Value && player != null && LocalPlanet?.factory != null && player.movementState == EMovementState.Fly)
+            {
+                if (LocalPlanet.factory.enemyCount > 0)
+                {
+                    if (GUI.Button(new Rect(10, 490, 150, 60), StartAutoMovetoDarkfog ? "停止飞向黑雾基地".getTranslate() : "开始飞向黑雾基地".getTranslate()))
+                    {
+                        StartAutoMovetoDarkfog = !StartAutoMovetoDarkfog;
+                        player.gameObject.GetComponent<SphereCollider>().enabled = !StartAutoMovetoDarkfog;
+                        player.gameObject.GetComponent<CapsuleCollider>().enabled = !StartAutoMovetoDarkfog;
+                    }
+                    if (StartAutoMovetoDarkfog && GUI.Button(new Rect(10, 560, 150, 60), autoRemoveRuin ? "停止自动填埋".getTranslate() : "开始自动填埋".getTranslate()))
+                    {
+                        autoRemoveRuin = !autoRemoveRuin;
+                    }
+                }
+                else
+                {
+                    StartAutoMovetoDarkfog = false;
+                    player.gameObject.GetComponent<SphereCollider>().enabled = true;
+                    player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
+                }
+            }
+            else if (StartAutoMovetoDarkfog)
+            {
+                StartAutoMovetoDarkfog = false;
+                player.gameObject.GetComponent<SphereCollider>().enabled = true;
+                player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
+            }
             BluePrintRecipeSet();
         }
 
@@ -1701,6 +1730,7 @@ namespace Auxilaryfunction.Services
             autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate());
 
             automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate());
+            automovetodarkfog.Value = GUILayout.Toggle(automovetodarkfog.Value, "自动飞向地面黑雾基地".getTranslate());
 
             autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate());
             if (autonavigation_bool.Value)
