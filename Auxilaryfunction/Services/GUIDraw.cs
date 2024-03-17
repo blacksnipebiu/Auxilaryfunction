@@ -1700,7 +1700,11 @@ namespace Auxilaryfunction.Services
             GUILayout.Label("机甲自动化");
             autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate());
 
-            automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate());
+            automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate() + $":{automovetoPrebuildSecondElapse.Value}s");
+            if (automovetounbuilt.Value)
+            {
+                automovetoPrebuildSecondElapse.Value = (int)GUILayout.HorizontalSlider(automovetoPrebuildSecondElapse.Value, 1, 10, HorizontalSlideroptions);
+            }
 
             autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate());
             if (autonavigation_bool.Value)
@@ -1844,19 +1848,19 @@ namespace Auxilaryfunction.Services
 
             GUILayout.BeginVertical();
             {
-                SpeedUpEnable = GUILayout.Toggle(SpeedUpEnable, "启动时间流速修改".getTranslate());
+                SpeedUpPatch.Enable = GUILayout.Toggle(SpeedUpPatch.Enable, "启动时间流速修改".getTranslate());
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("流速倍率".getTranslate() + ":");
-                string tempupsfixstr = GUILayout.TextField(string.Format("{0:N2}", SpeedMultiple), GUILayout.MinWidth(heightdis * 3));
-                if (tempupsfixstr != string.Format("{0:N2}", SpeedMultiple) && float.TryParse(tempupsfixstr, out float tempupsfix))
+                string tempupsfixstr = GUILayout.TextField(string.Format("{0:N2}", SpeedUpPatch.SpeedMultiple), GUILayout.MinWidth(heightdis * 3));
+                if (tempupsfixstr != string.Format("{0:N2}", SpeedUpPatch.SpeedMultiple) && float.TryParse(tempupsfixstr, out float tempupsfix))
                 {
                     if (tempupsfix < 0.01) tempupsfix = 0.01f;
                     if (tempupsfix > 10) tempupsfix = 10;
-                    SpeedMultiple = tempupsfix;
+                    SpeedUpPatch.SpeedMultiple = tempupsfix;
                 }
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
-                SpeedMultiple = GUILayout.HorizontalSlider(SpeedMultiple, 0.01f, 10, HorizontalSlideroptions);
+                SpeedUpPatch.SpeedMultiple = GUILayout.HorizontalSlider(SpeedUpPatch.SpeedMultiple, 0.01f, 10, HorizontalSlideroptions);
                 upsquickset.Value = GUILayout.Toggle(upsquickset.Value, "加速减速".getTranslate() + "(shift,'+''-')", buttonoptions);
 
                 autosavetimechange.Value = GUILayout.Toggle(autosavetimechange.Value, "修改自动保存时长".getTranslate(), autosavetimechange.Value ? new GUILayoutOption[0] : buttonoptions);

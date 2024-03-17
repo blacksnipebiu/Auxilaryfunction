@@ -26,7 +26,7 @@ namespace Auxilaryfunction.Patch
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(GameData), "GameTick")]
-        public static bool GameTick1Patch(ref long time, GameData __instance)
+        public static bool GameTick1Path(ref long time, GameData __instance)
         {
             PerformanceMonitor.BeginSample(ECpuWorkEntry.Statistics);
             if (!DSPGame.IsMenuDemo)
@@ -36,17 +36,21 @@ namespace Auxilaryfunction.Patch
             }
             __instance.mainPlayer.packageUtility.Count();
             PerformanceMonitor.EndSample(ECpuWorkEntry.Statistics);
-
-            PerformanceMonitor.BeginSample(ECpuWorkEntry.Skill);
-            __instance.spaceSector.skillSystem.PrepareTick();
-            PerformanceMonitor.EndSample(ECpuWorkEntry.Skill);
             __instance.spaceSector.skillSystem.CollectTempStates();
-
             if (__instance.localPlanet != null && __instance.localPlanet.factoryLoaded)
             {
                 PerformanceMonitor.BeginSample(ECpuWorkEntry.LocalPhysics);
                 __instance.localPlanet.factory.cargoTraffic.ClearStates();
                 __instance.localPlanet.physics.GameTick();
+                PerformanceMonitor.EndSample(ECpuWorkEntry.LocalPhysics);
+            }
+            if (__instance.spaceSector != null)
+            {
+                PerformanceMonitor.BeginSample(ECpuWorkEntry.LocalPhysics);
+                if (!DSPGame.IsMenuDemo)
+                {
+                    __instance.spaceSector.physics.GameTick();
+                }
                 PerformanceMonitor.EndSample(ECpuWorkEntry.LocalPhysics);
             }
             PerformanceMonitor.BeginSample(ECpuWorkEntry.Scenario);
@@ -57,40 +61,37 @@ namespace Auxilaryfunction.Patch
             PerformanceMonitor.EndSample(ECpuWorkEntry.Scenario);
             PerformanceMonitor.BeginSample(ECpuWorkEntry.Player);
             if (__instance.mainPlayer != null)
+            {
                 __instance.mainPlayer.GameTick(time);
+            }
             __instance.DetermineRelative();
+            __instance.mainPlayer.packageUtility.Count();
             __instance.spaceSector.skillSystem.CollectPlayerStates();
             PerformanceMonitor.EndSample(ECpuWorkEntry.Player);
-
-            if (__instance.localPlanet != null && __instance.localPlanet.factoryLoaded)
-            {
-                PerformanceMonitor.BeginSample(ECpuWorkEntry.LocalAudio);
-                __instance.localPlanet.audio.GameTick();
-                PerformanceMonitor.EndSample(ECpuWorkEntry.LocalAudio);
-            }
             PerformanceMonitor.BeginSample(ECpuWorkEntry.Factory);
             PerformanceMonitor.BeginSample(ECpuWorkEntry.PowerSystem);
             for (int j = 0; j < __instance.factoryCount; j++)
             {
-                Assert.NotNull(__instance.factories[j]);
                 if (__instance.factories[j] != null)
                 {
                     __instance.factories[j].BeforeGameTick(time);
                 }
             }
             PerformanceMonitor.EndSample(ECpuWorkEntry.PowerSystem);
-            PerformanceMonitor.BeginSample(ECpuWorkEntry.Construction);
-            for (int k = 0; k < __instance.factoryCount; k++)
-            {
-                bool isActive = GameMain.localPlanet == __instance.factories[k].planet;
-                if (__instance.factories[k].constructionSystem != null)
-                {
-                    __instance.factories[k].constructionSystem.GameTick(time, isActive, false);
-                }
-            }
-            PerformanceMonitor.EndSample(ECpuWorkEntry.Construction);
             if (GameMain.multithreadSystem.multithreadSystemEnable)
             {
+                PerformanceMonitor.BeginSample(ECpuWorkEntry.Construction);
+                for (int k = 0; k < __instance.factoryCount; k++)
+                {
+                    bool isActive = GameMain.localPlanet == __instance.factories[k].planet;
+                    if (__instance.factories[k].constructionSystem != null)
+                    {
+                        __instance.factories[k].constructionSystem.GameTick(time, isActive, false);
+                        __instance.factories[k].constructionSystem.ExcuteDeferredTargetChange();
+                    }
+                }
+                PerformanceMonitor.EndSample(ECpuWorkEntry.Construction);
+
                 PerformanceMonitor.BeginSample(ECpuWorkEntry.Digital);
                 for (int num5 = 0; num5 < __instance.factoryCount; num5++)
                 {
@@ -104,32 +105,37 @@ namespace Auxilaryfunction.Patch
             }
             PerformanceMonitor.EndSample(ECpuWorkEntry.Factory);
 
+            PerformanceMonitor.BeginSample(ECpuWorkEntry.Trash);
+            __instance.trashSystem.GameTick(time);
+            PerformanceMonitor.EndSample(ECpuWorkEntry.Trash);
 
-            PerformanceMonitor.BeginSample(ECpuWorkEntry.Combat);
-            PerformanceMonitor.BeginSample(ECpuWorkEntry.Defense);
-            if (GameMain.multithreadSystem.multithreadSystemEnable)
+            if (__instance.localPlanet != null && __instance.localPlanet.factoryLoaded)
             {
-                for (int num14 = 0; num14 < __instance.factoryCount; num14++)
-                {
-                    bool isActive7 = GameMain.localPlanet == __instance.factories[num14].planet;
-                    __instance.factories[num14].defenseSystem.GameTick(time, isActive7);
-                    __instance.factories[num14].planetATField.GameTick(time, isActive7);
-                }
+                PerformanceMonitor.BeginSample(ECpuWorkEntry.LocalAudio);
+                __instance.localPlanet.audio.GameTick();
+                PerformanceMonitor.EndSample(ECpuWorkEntry.LocalAudio);
             }
-            else
+            PerformanceMonitor.BeginSample(ECpuWorkEntry.Statistics);
+            if (!DSPGame.IsMenuDemo)
             {
-                for (int num15 = 0; num15 < __instance.factoryCount; num15++)
-                {
-                    bool isActive8 = GameMain.localPlanet == __instance.factories[num15].planet;
-                    __instance.factories[num15].defenseSystem.GameTick(time, isActive8);
-                    __instance.factories[num15].planetATField.GameTick(time, isActive8);
-                }
+                __instance.statistics.GameTick(time);
             }
-            PerformanceMonitor.EndSample(ECpuWorkEntry.Defense);
-            PerformanceMonitor.EndSample(ECpuWorkEntry.Combat);
+            PerformanceMonitor.EndSample(ECpuWorkEntry.Statistics);
+            PerformanceMonitor.BeginSample(ECpuWorkEntry.Digital);
+            if (!DSPGame.IsMenuDemo)
+            {
+                __instance.warningSystem.GameTick(time);
+            }
+            PerformanceMonitor.EndSample(ECpuWorkEntry.Digital);
+            PerformanceMonitor.BeginSample(ECpuWorkEntry.Scenario);
+            __instance.milestoneSystem.GameTick(time);
+            PerformanceMonitor.EndSample(ECpuWorkEntry.Scenario);
+            PerformanceMonitor.BeginSample(ECpuWorkEntry.Statistics);
+            __instance.history.AfterTick();
+            __instance.statistics.AfterTick();
+            PerformanceMonitor.EndSample(ECpuWorkEntry.Statistics);
             __instance.preferences.Collect();
             return false;
         }
-
     }
 }

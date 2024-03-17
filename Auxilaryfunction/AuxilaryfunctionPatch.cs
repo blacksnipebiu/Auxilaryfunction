@@ -32,6 +32,7 @@ namespace Auxilaryfunction
             }
         }
 
+
         [HarmonyPostfix]
         [HarmonyPatch(typeof(PowerSystem), "NewGeneratorComponent")]
         public static void NewGeneratorComponentPatch(ref int __result, PowerSystem __instance)
@@ -756,6 +757,18 @@ namespace Auxilaryfunction
 
             }
             #endregion
+        }
+
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(PlayerControlGizmo), "AddOrderGizmo")]
+        public static bool DisableAddOrderGizmo()
+        {
+            if (StartAutoMovetounbuilt)
+            {
+                return false;
+            }
+            return true;
         }
 
         private static void FollowTaget(VectorLF3 target, VectorLF3 targetVel, bool targetIsStatic, bool isOrbit = false)

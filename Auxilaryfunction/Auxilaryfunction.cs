@@ -24,9 +24,10 @@ namespace Auxilaryfunction
 
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.5.6";
+        public const string VERSION = "2.5.8";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
+        public static int automovetoPrebuildSecondElapseCounter;
         public static int autoaddtechid;
         public static int stationindex = 4;
         public static int locallogic;
@@ -47,38 +48,6 @@ namespace Auxilaryfunction
         private float trashfunctiontime;
         public static float batchnum = 1;
 
-        private static bool speedUpEnable;
-        public static bool SpeedUpEnable
-        {
-            get => speedUpEnable;
-            set
-            {
-                if (speedUpEnable == value) return;
-                speedUpEnable = value;
-                if (value)
-                {
-                    FPSController.SetFixUPS(SpeedMultiple * 60);
-                }
-                else
-                {
-                    FPSController.SetFixUPS(60);
-                }
-            }
-        }
-        private static float speedMultiple = 1;
-        public static float SpeedMultiple
-        {
-            get => speedMultiple;
-            set
-            {
-                if (speedMultiple == value) return;
-                speedMultiple = value;
-                if (SpeedUpEnable)
-                {
-                    FPSController.SetFixUPS(speedMultiple * 60);
-                }
-            }
-        }
         public static bool temp;
         public static bool simulatorrender;
         public static bool simulatorchanging;
@@ -163,6 +132,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<float> window_height;
         public static ConfigEntry<float> stationmaxpowerpertick;
         public static ConfigEntry<float> autowarpdistance;
+        public static ConfigEntry<float> automovetoPrebuildSecondElapse;
         public static ConfigEntry<float> autowarpdistanceEnergyPercent;
         public static ConfigEntry<float> DroneStartCarry;
         public static ConfigEntry<float> ShipStartCarry;
@@ -256,6 +226,7 @@ namespace Auxilaryfunction
                 norender_powerdisk_bool = Config.Bind("不渲染电网覆盖", "norender_powerdisk_bool", false);
                 Quickstop_bool = Config.Bind("ctrl+空格开启暂停工厂和戴森球", "Quickstop_bool", false);
                 automovetounbuilt = Config.Bind("自动走向未完成建筑", "automovetounbuilt", false);
+                automovetoPrebuildSecondElapse = Config.Bind("自动走向未完成建筑时间间隔", "automovetoPrebuildSecondElapse", 1f);
                 upsquickset = Config.Bind("快速设置逻辑帧倍数", "upsquickset", false);
                 autosetSomevalue_bool = Config.Bind("自动配置建筑", "autosetSomevalue_bool", false);
                 auto_supply_starfuel = Config.Bind("人造恒星自动填充燃料数量", "auto_supply_starfuel", 4);
@@ -337,10 +308,10 @@ namespace Auxilaryfunction
             {
                 if (Input.GetKey(KeyCode.LeftShift))
                 {
-                    if (Input.GetKey(KeyCode.KeypadPlus)) SpeedMultiple += 0.01f;
-                    if (Input.GetKey(KeyCode.KeypadMinus)) SpeedMultiple -= 0.01f;
-                    if (SpeedMultiple < 0.01) SpeedMultiple = 0.01f;
-                    else if (SpeedMultiple > 10) SpeedMultiple = 10;
+                    if (Input.GetKey(KeyCode.KeypadPlus)) SpeedUpPatch.SpeedMultiple += 0.01f;
+                    if (Input.GetKey(KeyCode.KeypadMinus)) SpeedUpPatch.SpeedMultiple -= 0.01f;
+                    if (SpeedUpPatch.SpeedMultiple < 0.01) SpeedUpPatch.SpeedMultiple = 0.01f;
+                    else if (SpeedUpPatch.SpeedMultiple > 10) SpeedUpPatch.SpeedMultiple = 10;
                 }
             }
         }
@@ -410,7 +381,14 @@ namespace Auxilaryfunction
                 }
                 if (automovetounbuilt.Value)
                 {
-                    AutoMovetounbuilt();
+                    try
+                    {
+                        AutoMovetounbuilt();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
                 }
                 Thread.Sleep(1000);
             }
@@ -434,7 +412,7 @@ namespace Auxilaryfunction
                 player = null;
                 firstStart = true;
                 readyresearch.Clear();
-                SpeedMultiple = 1;
+                SpeedUpPatch.SpeedMultiple = 1;
                 autoaddtechid = 0;
                 blueprintopen = false;
                 simulatorrender = false;
@@ -446,14 +424,17 @@ namespace Auxilaryfunction
                 if (GameMain.mainPlayer != null && player == null)
                 {
                     player = GameMain.mainPlayer;
-                    player.controller.actionInspect.onInspecteeChange += (a, b) =>
+                    player.controller.actionInspect.onInspecteeChange += (_, b) =>
                     {
                         if (b > 0)
                         {
                             guidraw.CloseTrashStorageWindow();
                         }
                     };
-                    PlayerOperation.Enable = true;
+                    if (autonavigation_bool.Value)
+                    {
+                        PlayerOperation.Enable = true;
+                    }
                 }
                 if (firstStart)
                 {
@@ -477,23 +458,29 @@ namespace Auxilaryfunction
 
         private void AutoMovetounbuilt()
         {
-            if (GameMain.localPlanet == null || GameMain.mainPlayer == null || GameMain.mainPlayer.movementState != EMovementState.Fly)
-            {
-                return;
-            }
             if (!StartAutoMovetounbuilt)
             {
                 return;
             }
+            if (GameMain.localPlanet == null || GameMain.mainPlayer == null || GameMain.mainPlayer.movementState != EMovementState.Fly)
+            {
+                return;
+            }
+            automovetoPrebuildSecondElapseCounter++;
+            if (automovetoPrebuildSecondElapseCounter < automovetoPrebuildSecondElapse.Value)
+            {
+                return;
+            }
+            automovetoPrebuildSecondElapseCounter -= (int)automovetoPrebuildSecondElapse.Value;
             float mindistance = 3000;
             int lasthasitempd = -1;
             foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
             {
                 if (pd.id == 0 || pd.itemRequired > 0) continue;
-                if (lasthasitempd == -1 || mindistance > (pd.pos - player.position).magnitude)
+                if (lasthasitempd == -1 || mindistance > (pd.pos - GameMain.mainPlayer.position).magnitude)
                 {
                     lasthasitempd = pd.id;
-                    mindistance = (pd.pos - player.position).magnitude;
+                    mindistance = (pd.pos - GameMain.mainPlayer.position).magnitude;
                 }
             }
             if (lasthasitempd == -1)
@@ -502,9 +489,9 @@ namespace Auxilaryfunction
                 foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
                 {
                     if (pd.id == 0 || pd.protoId == 0) continue;
-                    if (player.package.GetItemCount(pd.protoId) > 0)
+                    if (GameMain.mainPlayer.package.GetItemCount(pd.protoId) > 0)
                     {
-                        player.Order(new OrderNode() { target = pd.pos, type = EOrderType.Move }, false);
+                        lasthasitempd = pd.id;
                         getitem = false;
                         break;
                     }
@@ -526,13 +513,9 @@ namespace Auxilaryfunction
                     }
                 }
             }
-            else if (GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id != 0)
+            else if (lasthasitempd != -1 && lasthasitempd != 0 && lasthasitempd == GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id)
             {
-                player.Order(new OrderNode() { target = GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos, type = EOrderType.Move }, false);
-                if ((GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos - player.position).magnitude > 30)
-                {
-                    player.currentOrder.targetReached = true;
-                }
+                GameMain.mainPlayer.Order(OrderNode.MoveTo(GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos.normalized * GameMain.localPlanet.realRadius), false);
             }
         }
 
