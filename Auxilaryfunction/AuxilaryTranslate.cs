@@ -69,6 +69,7 @@ namespace Auxilaryfunction
             TranslateDict.Add("ctrl+空格快速开关", "quick start and stop(ctrl+space)");
 
             TranslateDict.Add("自动飞向未完成建筑", "Auto fly to unfinished buildings");
+            TranslateDict.Add("自动飞向地面黑雾基地", "Autp fly to dark fog on ground");
             TranslateDict.Add("自动添加科技队列", "Auto add tech queue");
             TranslateDict.Add("未选择", "no selected");
             TranslateDict.Add("自动配置太阳帆弹射器", "Auto set Ejector");
