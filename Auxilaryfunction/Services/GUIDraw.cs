@@ -1730,7 +1730,7 @@ namespace Auxilaryfunction.Services
             autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate());
 
             automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate());
-            automovetodarkfog.Value = GUILayout.Toggle(automovetodarkfog.Value, "自动飞向地面黑雾".getTranslate());
+            automovetodarkfog.Value = GUILayout.Toggle(automovetodarkfog.Value, "自动飞向地面黑雾基地".getTranslate());
 
             autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate());
             if (autonavigation_bool.Value)
