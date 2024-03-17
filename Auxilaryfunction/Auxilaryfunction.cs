@@ -96,6 +96,9 @@ namespace Auxilaryfunction
         public static ERecipeType pointeRecipetype = ERecipeType.None;
         public static bool StartAutoMovetounbuilt;
         public static bool autobuildgetitem;
+        public static bool StartAutoMovetoDarkfog;
+        public static bool autoRemoveRuin;
+        public static int autoRemoveRuinId = -1;
 
         #region 配置菜单
         public static ConfigEntry<bool> AutoNavigateToDarkFogHive;
@@ -131,6 +134,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<bool> autoaddtech_bool;
         public static ConfigEntry<bool> Quickstop_bool;
         public static ConfigEntry<bool> automovetounbuilt;
+        public static ConfigEntry<bool> automovetodarkfog;
         public static ConfigEntry<bool> upsquickset;
         public static ConfigEntry<bool> autosavetimechange;
         public static ConfigEntry<bool> auto_supply_station;
@@ -256,6 +260,7 @@ namespace Auxilaryfunction
                 norender_powerdisk_bool = Config.Bind("不渲染电网覆盖", "norender_powerdisk_bool", false);
                 Quickstop_bool = Config.Bind("ctrl+空格开启暂停工厂和戴森球", "Quickstop_bool", false);
                 automovetounbuilt = Config.Bind("自动走向未完成建筑", "automovetounbuilt", false);
+                automovetodarkfog = Config.Bind("自动飞向地面黑雾基地", "automovetodarkfog", false);
                 upsquickset = Config.Bind("快速设置逻辑帧倍数", "upsquickset", false);
                 autosetSomevalue_bool = Config.Bind("自动配置建筑", "autosetSomevalue_bool", false);
                 auto_supply_starfuel = Config.Bind("人造恒星自动填充燃料数量", "auto_supply_starfuel", 4);
@@ -412,6 +417,10 @@ namespace Auxilaryfunction
                 {
                     AutoMovetounbuilt();
                 }
+                if (automovetodarkfog.Value)
+                {
+                    AutoMoveToDarkfog();
+                }
                 Thread.Sleep(1000);
             }
         }
@@ -470,6 +479,12 @@ namespace Auxilaryfunction
                     EnqueueTech();
                     autoaddtechid = auto_add_techid.Value;
                     SunLightSet();
+
+                    if (autoRemoveRuin && autoRemoveRuinId >= 0 && player?.controller?.actionBuild?.reformTool != null)
+                    {
+                        player.controller.actionBuild.reformTool.RemoveBasePit(autoRemoveRuinId);
+                    }
+                    autoRemoveRuinId = -1;
                 }
 
             }
@@ -533,6 +548,49 @@ namespace Auxilaryfunction
                 {
                     player.currentOrder.targetReached = true;
                 }
+            }
+        }
+
+        private void AutoMoveToDarkfog()
+        {
+            autoRemoveRuinId = -1;
+            if (GameMain.localPlanet == null || GameMain.mainPlayer == null || GameMain.mainPlayer.movementState != EMovementState.Fly)
+            {
+                return;
+            }
+            if (!StartAutoMovetoDarkfog)
+            {
+                return;
+            }
+            EnemyDFGroundSystem enemySystem = GameMain.localPlanet.factory.enemySystem;
+            float mindistance = 100000000;
+            DFGBaseComponent baseComponent = null;
+            for (int i = 1; i < enemySystem.bases.cursor; i++)
+            {
+                if (enemySystem.bases[i] != null && enemySystem.bases[i].id == i
+                    && (autoRemoveRuin || enemySystem.CheckBaseCanRemoved(i) != 0))
+                {
+                    Vector3 pos = GameMain.localPlanet.factory.enemyPool[enemySystem.bases[i].enemyId].pos;
+                    if (baseComponent == null || mindistance > (pos - player.position).magnitude)
+                    {
+                        baseComponent = enemySystem.bases[i];
+                        mindistance = (pos - player.position).magnitude;
+                    }
+                }
+            }
+            if (baseComponent == null)
+            {
+                return;
+            }
+            Vector3 targetPos = GameMain.localPlanet.factory.enemyPool[baseComponent.enemyId].pos;
+            player.Order(new OrderNode() { target = targetPos, type = EOrderType.Move }, false);
+            if ((targetPos - player.position).magnitude > 30)
+            {
+                player.currentOrder.targetReached = true;
+            }
+            if (autoRemoveRuin && enemySystem.CheckBaseCanRemoved(baseComponent.id) == 0)
+            {
+                autoRemoveRuinId = baseComponent.ruinId;
             }
         }
 
