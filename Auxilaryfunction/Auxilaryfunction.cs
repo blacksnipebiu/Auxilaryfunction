@@ -1,8 +1,17 @@
-﻿using System;
+﻿using Auxilaryfunction.Patch;
+using Auxilaryfunction.Services;
+using BepInEx;
+using BepInEx.Configuration;
+using HarmonyLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using UnityEngine;
+using UnityEngine.UI;
+using static Auxilaryfunction.Constant;
+using static Auxilaryfunction.Services.GUIDraw;
 
 namespace Auxilaryfunction
 {
@@ -15,7 +24,7 @@ namespace Auxilaryfunction
 
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.5.8";
+        public const string VERSION = "2.5.9";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
         public static int automovetoPrebuildSecondElapseCounter;
@@ -386,151 +395,151 @@ namespace Auxilaryfunction
                         Console.WriteLine(ex.ToString());
                     }
                 }
-                AutoMovetounbuilt();
-            }
-            if (automovetodarkfog.Value)
-            {
-                AutoMoveToDarkfog();
-            }
-            Thread.Sleep(1000);
-        }
-    }
-
-    private void AutoSaveTimeChange()
-    {
-        if (autosavetimechange.Value && UIAutoSave.autoSaveTime != autosavetime.Value)
-        {
-            Debug.Log("AutoSaveTimeChange");
-            DSPGame.globalOption.autoSaveTime = autosavetime.Value;
-            DSPGame.globalOption.Apply();
-            UIAutoSave.autoSaveTime = autosavetime.Value;
-        }
-    }
-
-    private void GameUpdate()
-    {
-        if (!GameDataImported)
-        {
-            player = null;
-            firstStart = true;
-            readyresearch.Clear();
-            SpeedUpPatch.SpeedMultiple = 1;
-            autoaddtechid = 0;
-            blueprintopen = false;
-            simulatorrender = false;
-            PlayerOperation.FlyStatus = false;
-            PlayerOperation.Enable = false;
-        }
-        else
-        {
-            if (GameMain.mainPlayer != null && player == null)
-            {
-                player = GameMain.mainPlayer;
-                player.controller.actionInspect.onInspecteeChange += (_, b) =>
+                if (automovetodarkfog.Value)
                 {
-                    if (b > 0)
+                    try
                     {
-                        guidraw.CloseTrashStorageWindow();
+                        AutoMoveToDarkfog();
                     }
-                };
-                if (autonavigation_bool.Value)
-                {
-                    PlayerOperation.Enable = true;
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
                 }
+                Thread.Sleep(1000);
             }
-            if (firstStart)
+        }
+
+
+        private void AutoSaveTimeChange()
+        {
+            if (autosavetimechange.Value && UIAutoSave.autoSaveTime != autosavetime.Value)
             {
-                firstStart = false;
-                PlayerOperation.ClearFollow();
-                trashfunctiontime = Time.time;
-                ReLoadEjectorDic();
+                Debug.Log("AutoSaveTimeChange");
+                DSPGame.globalOption.autoSaveTime = autosavetime.Value;
+                DSPGame.globalOption.Apply();
+                UIAutoSave.autoSaveTime = autosavetime.Value;
+            }
+        }
+
+        private void GameUpdate()
+        {
+            if (!GameDataImported)
+            {
+                player = null;
+                firstStart = true;
+                readyresearch.Clear();
+                SpeedUpPatch.SpeedMultiple = 1;
+                autoaddtechid = 0;
+                blueprintopen = false;
+                simulatorrender = false;
+                PlayerOperation.FlyStatus = false;
+                PlayerOperation.Enable = false;
             }
             else
             {
-                StartAndStopGame();
-                BluePrintoptimize();
-                TrashFunction();
-                EnqueueTech();
-                autoaddtechid = auto_add_techid.Value;
-                SunLightSet();
-
-                if (autoRemoveRuin && autoRemoveRuinId >= 0 && player?.controller?.actionBuild?.reformTool != null)
+                if (GameMain.mainPlayer != null && player == null)
                 {
-                    player.controller.actionBuild.reformTool.RemoveBasePit(autoRemoveRuinId);
+                    player = GameMain.mainPlayer;
+                    player.controller.actionInspect.onInspecteeChange += (_, b) =>
+                    {
+                        if (b > 0)
+                        {
+                            guidraw.CloseTrashStorageWindow();
+                        }
+                    };
+                    if (autonavigation_bool.Value)
+                    {
+                        PlayerOperation.Enable = true;
+                    }
                 }
-                autoRemoveRuinId = -1;
+                if (firstStart)
+                {
+                    firstStart = false;
+                    PlayerOperation.ClearFollow();
+                    trashfunctiontime = Time.time;
+                    ReLoadEjectorDic();
+                }
+                else
+                {
+                    StartAndStopGame();
+                    BluePrintoptimize();
+                    TrashFunction();
+                    EnqueueTech();
+                    autoaddtechid = auto_add_techid.Value;
+                    SunLightSet();
+
+                    if (autoRemoveRuin && autoRemoveRuinId >= 0 && player?.controller?.actionBuild?.reformTool != null)
+                    {
+                        player.controller.actionBuild.reformTool.RemoveBasePit(autoRemoveRuinId);
+                    }
+                    autoRemoveRuinId = -1;
+                }
+
             }
+        }
 
-        }
-    }
-
-    private void AutoMovetounbuilt()
-    {
-        if (!StartAutoMovetounbuilt)
+        private void AutoMovetounbuilt()
         {
-            return;
-        }
-        if (GameMain.localPlanet == null || GameMain.mainPlayer == null || GameMain.mainPlayer.movementState != EMovementState.Fly)
-        {
-            return;
-        }
-        automovetoPrebuildSecondElapseCounter++;
-        if (automovetoPrebuildSecondElapseCounter < automovetoPrebuildSecondElapse.Value)
-        {
-            return;
-        }
-        automovetoPrebuildSecondElapseCounter -= (int)automovetoPrebuildSecondElapse.Value;
-        float mindistance = 3000;
-        int lasthasitempd = -1;
-        foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
-        {
-            if (pd.id == 0 || pd.itemRequired > 0) continue;
-            if (lasthasitempd == -1 || mindistance > (pd.pos - GameMain.mainPlayer.position).magnitude)
+            if (!StartAutoMovetounbuilt)
             {
-                lasthasitempd = pd.id;
-                mindistance = (pd.pos - GameMain.mainPlayer.position).magnitude;
+                return;
             }
-        }
-        if (lasthasitempd == -1)
-        {
-            bool getitem = true;
+            if (GameMain.localPlanet == null || GameMain.mainPlayer == null || GameMain.mainPlayer.movementState != EMovementState.Fly)
+            {
+                return;
+            }
+            automovetoPrebuildSecondElapseCounter++;
+            if (automovetoPrebuildSecondElapseCounter < automovetoPrebuildSecondElapse.Value)
+            {
+                return;
+            }
+            automovetoPrebuildSecondElapseCounter -= (int)automovetoPrebuildSecondElapse.Value;
+            //找到最近的未完成建筑
+            float mindistance = 3000;
+            int lasthasitempd = -1;
             foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
             {
-                if (pd.id == 0 || pd.protoId == 0) continue;
-                if (GameMain.mainPlayer.package.GetItemCount(pd.protoId) > 0)
+                if (pd.id == 0 || pd.itemRequired > 0) continue;
+                if (lasthasitempd == -1 || mindistance > (pd.pos - GameMain.mainPlayer.position).magnitude)
                 {
                     lasthasitempd = pd.id;
-                    getitem = false;
-                    break;
+                    mindistance = (pd.pos - GameMain.mainPlayer.position).magnitude;
                 }
             }
-            if (getitem && autobuildgetitem)
+            if (lasthasitempd == -1)
             {
-                int[] warningCounts = GameMain.data.warningSystem.warningCounts;
-                WarningData[] warningpools = GameMain.data.warningSystem.warningPool;
-                List<int> getItem = new List<int>();
-                int stackSize = 0;
-                int packageGridLen = player.package.grids.Length;
-                for (int j = packageGridLen - 1; j >= 0 && player.package.grids[j].count == 0; j--, stackSize++) { }
-                for (int i = 1; i < GameMain.data.warningSystem.warningCursor && stackSize > 0; i++)
+                bool getitem = true;
+                foreach (PrebuildData pd in GameMain.localPlanet.factory.prebuildPool)
                 {
-                    if (getItem.Contains(warningpools[i].detailId)) continue;
-                    if (player.package.GetItemCount(warningpools[i].detailId) > 0) break;
-                    getItem.Add(warningpools[i].detailId);
-                    FindItemAndMove(warningpools[i].detailId, warningCounts[warningpools[i].signalId]);
+                    if (pd.id == 0 || pd.protoId == 0) continue;
+                    if (GameMain.mainPlayer.package.GetItemCount(pd.protoId) > 0)
+                    {
+                        lasthasitempd = pd.id;
+                        getitem = false;
+                        break;
+                    }
+                }
+                if (getitem && autobuildgetitem)
+                {
+                    int[] warningCounts = GameMain.data.warningSystem.warningCounts;
+                    WarningData[] warningpools = GameMain.data.warningSystem.warningPool;
+                    List<int> getItem = new List<int>();
+                    int stackSize = 0;
+                    int packageGridLen = player.package.grids.Length;
+                    for (int j = packageGridLen - 1; j >= 0 && player.package.grids[j].count == 0; j--, stackSize++) { }
+                    for (int i = 1; i < GameMain.data.warningSystem.warningCursor && stackSize > 0; i++)
+                    {
+                        if (getItem.Contains(warningpools[i].detailId)) continue;
+                        if (player.package.GetItemCount(warningpools[i].detailId) > 0) break;
+                        getItem.Add(warningpools[i].detailId);
+                        FindItemAndMove(warningpools[i].detailId, warningCounts[warningpools[i].signalId]);
+                    }
                 }
             }
-        }
-        else if (lasthasitempd != -1 && lasthasitempd != 0 && lasthasitempd == GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id)
-        {
-            GameMain.mainPlayer.Order(OrderNode.MoveTo(GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos.normalized * GameMain.localPlanet.realRadius), false);
-            else if (GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id != 0)
+            else if (lasthasitempd != -1 && lasthasitempd != 0 && lasthasitempd == GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id)
             {
-                player.Order(new OrderNode() { target = GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos, type = EOrderType.Move }, false);
-                if ((GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos - player.position).magnitude > 30)
-                {
-                    player.currentOrder.targetReached = true;
-                }
+                GameMain.mainPlayer.Order(OrderNode.MoveTo(GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos.normalized * GameMain.localPlanet.realRadius), false);
             }
         }
 
@@ -566,11 +575,7 @@ namespace Auxilaryfunction
                 return;
             }
             Vector3 targetPos = GameMain.localPlanet.factory.enemyPool[baseComponent.enemyId].pos;
-            player.Order(new OrderNode() { target = targetPos, type = EOrderType.Move }, false);
-            if ((targetPos - player.position).magnitude > 30)
-            {
-                player.currentOrder.targetReached = true;
-            }
+            GameMain.mainPlayer.Order(OrderNode.MoveTo(targetPos.normalized * GameMain.localPlanet.realRadius), false);
             if (autoRemoveRuin && enemySystem.CheckBaseCanRemoved(baseComponent.id) == 0)
             {
                 autoRemoveRuinId = baseComponent.ruinId;
@@ -1376,6 +1381,4 @@ namespace Auxilaryfunction
             }
         }
     }
-
-
 }

@@ -1,4 +1,7 @@
-﻿using System;
+﻿using Auxilaryfunction.Patch;
+using BepInEx.Configuration;
+using HarmonyLib;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,6 +9,14 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.UI;
+using static Auxilaryfunction.Auxilaryfunction;
+using static Auxilaryfunction.Constant;
+using static Auxilaryfunction.Services.DysonBluePrintDataService;
+using static Auxilaryfunction.Services.TechService;
+using static UnityEngine.Object;
 using Application = UnityEngine.Application;
 using Image = UnityEngine.UI.Image;
 using Text = UnityEngine.UI.Text;
@@ -314,67 +325,65 @@ namespace Auxilaryfunction.Services
             }
 
             //LocalPlanet.factory.prebuildPool.ToList().Exists(x => x.protoId != 0)
-            if (automovetounbuilt.Value && player != null && LocalPlanet?.factory != null && player.movementState == EMovementState.Fly)
+            if (player != null && LocalPlanet?.factory != null && player.movementState == EMovementState.Fly)
             {
-                for (int i = 1; i < GameMain.localPlanet.factory.prebuildCursor; i++)
+                if (automovetounbuilt.Value)
                 {
-                    int preid = GameMain.localPlanet.factory.prebuildPool[i].id;
-                    if (preid == i && GameMain.localPlanet.factory.prebuildPool[i].protoId == 0)
+                    for (int i = 1; i < GameMain.localPlanet.factory.prebuildCursor; i++)
                     {
-                        GameMain.localPlanet.factory.RemovePrebuildWithComponents(preid);
+                        int preid = GameMain.localPlanet.factory.prebuildPool[i].id;
+                        if (preid == i && GameMain.localPlanet.factory.prebuildPool[i].protoId == 0)
+                        {
+                            GameMain.localPlanet.factory.RemovePrebuildWithComponents(preid);
+                        }
+                    }
+                    if (LocalPlanet.factory.prebuildCount > 0)
+                    {
+                        if (GUI.Button(new Rect(10, 360, 150, 60), StartAutoMovetounbuilt ? "停止寻找未完成建筑".getTranslate() : "开始寻找未完成建筑".getTranslate()))
+                        {
+                            StartAutoMovetounbuilt = !StartAutoMovetounbuilt;
+                            player.gameObject.GetComponent<SphereCollider>().enabled = !StartAutoMovetounbuilt;
+                            player.gameObject.GetComponent<CapsuleCollider>().enabled = !StartAutoMovetounbuilt;
+                        }
+                        if (StartAutoMovetounbuilt && LocalPlanet.gasItems == null && GUI.Button(new Rect(10, 420, 150, 60), autobuildgetitem ? "停止自动补充材料".getTranslate() : "开始自动补充材料".getTranslate()))
+                        {
+                            autobuildgetitem = !autobuildgetitem;
+                        }
+                    }
+                    else if (StartAutoMovetounbuilt)
+                    {
+                        StartAutoMovetounbuilt = false;
+                        player.gameObject.GetComponent<SphereCollider>().enabled = true;
+                        player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
                     }
                 }
-                if (LocalPlanet.factory.prebuildCount > 0)
+
+                if (automovetodarkfog.Value)
                 {
-                    if (GUI.Button(new Rect(10, 360, 150, 60), StartAutoMovetounbuilt ? "停止寻找未完成建筑".getTranslate() : "开始寻找未完成建筑".getTranslate()))
+                    if (LocalPlanet.factory.enemyCount > 0)
                     {
-                        StartAutoMovetounbuilt = !StartAutoMovetounbuilt;
-                        player.gameObject.GetComponent<SphereCollider>().enabled = !StartAutoMovetounbuilt;
-                        player.gameObject.GetComponent<CapsuleCollider>().enabled = !StartAutoMovetounbuilt;
+                        if (GUI.Button(new Rect(10, 490, 150, 60), StartAutoMovetoDarkfog ? "停止飞向黑雾基地".getTranslate() : "开始飞向黑雾基地".getTranslate()))
+                        {
+                            StartAutoMovetoDarkfog = !StartAutoMovetoDarkfog;
+                            player.gameObject.GetComponent<SphereCollider>().enabled = !StartAutoMovetoDarkfog;
+                            player.gameObject.GetComponent<CapsuleCollider>().enabled = !StartAutoMovetoDarkfog;
+                        }
+                        if (StartAutoMovetoDarkfog && GUI.Button(new Rect(10, 560, 150, 60), autoRemoveRuin ? "停止自动填埋".getTranslate() : "开始自动填埋".getTranslate()))
+                        {
+                            autoRemoveRuin = !autoRemoveRuin;
+                        }
                     }
-                    if (StartAutoMovetounbuilt && LocalPlanet.gasItems == null && GUI.Button(new Rect(10, 420, 150, 60), autobuildgetitem ? "停止自动补充材料".getTranslate() : "开始自动补充材料".getTranslate()))
+                    else if (StartAutoMovetoDarkfog)
                     {
-                        autobuildgetitem = !autobuildgetitem;
+                        StartAutoMovetoDarkfog = false;
+                        player.gameObject.GetComponent<SphereCollider>().enabled = true;
+                        player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
                     }
-                }
-                else
-                {
-                    StartAutoMovetounbuilt = false;
-                    player.gameObject.GetComponent<SphereCollider>().enabled = !StartAutoMovetounbuilt;
-                    player.gameObject.GetComponent<CapsuleCollider>().enabled = !StartAutoMovetounbuilt;
                 }
             }
-            else if (StartAutoMovetounbuilt)
+            else if (StartAutoMovetounbuilt || StartAutoMovetoDarkfog)
             {
                 StartAutoMovetounbuilt = false;
-                player.gameObject.GetComponent<SphereCollider>().enabled = true;
-                player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
-            }
-
-            if (automovetodarkfog.Value && player != null && LocalPlanet?.factory != null && player.movementState == EMovementState.Fly)
-            {
-                if (LocalPlanet.factory.enemyCount > 0)
-                {
-                    if (GUI.Button(new Rect(10, 490, 150, 60), StartAutoMovetoDarkfog ? "停止飞向黑雾基地".getTranslate() : "开始飞向黑雾基地".getTranslate()))
-                    {
-                        StartAutoMovetoDarkfog = !StartAutoMovetoDarkfog;
-                        player.gameObject.GetComponent<SphereCollider>().enabled = !StartAutoMovetoDarkfog;
-                        player.gameObject.GetComponent<CapsuleCollider>().enabled = !StartAutoMovetoDarkfog;
-                    }
-                    if (StartAutoMovetoDarkfog && GUI.Button(new Rect(10, 560, 150, 60), autoRemoveRuin ? "停止自动填埋".getTranslate() : "开始自动填埋".getTranslate()))
-                    {
-                        autoRemoveRuin = !autoRemoveRuin;
-                    }
-                }
-                else
-                {
-                    StartAutoMovetoDarkfog = false;
-                    player.gameObject.GetComponent<SphereCollider>().enabled = true;
-                    player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
-                }
-            }
-            else if (StartAutoMovetoDarkfog)
-            {
                 StartAutoMovetoDarkfog = false;
                 player.gameObject.GetComponent<SphereCollider>().enabled = true;
                 player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
@@ -1723,7 +1732,6 @@ namespace Auxilaryfunction.Services
             {
                 automovetoPrebuildSecondElapse.Value = (int)GUILayout.HorizontalSlider(automovetoPrebuildSecondElapse.Value, 1, 10, HorizontalSlideroptions);
             }
-            automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate());
             automovetodarkfog.Value = GUILayout.Toggle(automovetodarkfog.Value, "自动飞向地面黑雾基地".getTranslate());
 
             autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate());
