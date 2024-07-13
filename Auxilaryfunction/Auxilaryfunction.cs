@@ -24,7 +24,7 @@ namespace Auxilaryfunction
 
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.5.9";
+        public const string VERSION = "2.6.0";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
         public static int automovetoPrebuildSecondElapseCounter;
@@ -75,6 +75,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<bool> SunLightOpen;
         public static ConfigEntry<bool> closeplayerflyaudio;
         public static ConfigEntry<bool> autosetSomevalue_bool;
+        public static ConfigEntry<bool> autosetCourier_bool;
         public static ConfigEntry<bool> noscaleuitech_bool;
         public static ConfigEntry<bool> TrashStorageWindow_bool;
         public static ConfigEntry<bool> autowarpcommand;
@@ -234,6 +235,7 @@ namespace Auxilaryfunction
                 automovetodarkfog = Config.Bind("自动飞向地面黑雾基地", "automovetodarkfog", false);
                 upsquickset = Config.Bind("快速设置逻辑帧倍数", "upsquickset", false);
                 autosetSomevalue_bool = Config.Bind("自动配置建筑", "autosetSomevalue_bool", false);
+                autosetCourier_bool = Config.Bind("自动填充配送运输机", "autosetCourier_bool", false);
                 auto_supply_starfuel = Config.Bind("人造恒星自动填充燃料数量", "auto_supply_starfuel", 4);
                 auto_supply_starfuelID = Config.Bind("人造恒星自动填充燃料ID", "auto_supply_starfuelID", 1803);
                 autosavetimechange = Config.Bind("自动保存", "autosavetimechange", false);
@@ -725,18 +727,9 @@ namespace Auxilaryfunction
         public static void AddDroneShipToStation()
         {
             if (LocalPlanet == null || LocalPlanet.type == EPlanetType.Gas) return;
-            int autoCourierValue = auto_supply_Courier.Value;
             int autoShipValue = auto_supply_ship.Value;
             int autoDroneValue = auto_supply_drone.Value;
             int autoWrapValue = auto_supply_warp.Value;
-            foreach (var dc in LocalPlanet.factory.transport.dispenserPool)
-            {
-                if (dc == null) continue;
-
-                int needCourierNum = autoCourierValue - dc.idleCourierCount - dc.workCourierCount;
-                if (needCourierNum > 0)
-                    dc.idleCourierCount += player.package.TakeItem(5003, needCourierNum, out _);
-            }
             foreach (StationComponent sc in LocalPlanet.factory.transport.stationPool)
             {
                 if (sc == null || sc.isVeinCollector) continue;
@@ -928,6 +921,22 @@ namespace Auxilaryfunction
                         fs.powerSystem.genPool[pgc.id].fuelInc += (short)inc;
                     }
                 }
+            }
+        }
+        /// <summary>
+        /// 自动添加配送运输机
+        /// </summary>
+        public static void AddCourierToAllStar()
+        {
+            if (LocalPlanet == null) return;
+            int autoCourierValue = auto_supply_Courier.Value;
+            foreach (var dc in LocalPlanet.factory.transport.dispenserPool)
+            {
+                if (dc == null) continue;
+
+                int needCourierNum = autoCourierValue - dc.idleCourierCount - dc.workCourierCount;
+                if (needCourierNum > 0)
+                    dc.idleCourierCount += player.package.TakeItem(5003, needCourierNum, out _);
             }
         }
 
@@ -1333,17 +1342,17 @@ namespace Auxilaryfunction
             if (Input.GetKey(KeyCode.LeftShift) && left)
             {
                 left = false;
-                result[0] = 304;
+                result[0] = (int)KeyCode.LeftShift;
             }
             if (Input.GetKey(KeyCode.LeftControl) && left)
             {
                 left = false;
-                result[0] = 306;
+                result[0] = (int)KeyCode.LeftControl;
             }
             if (Input.GetKey(KeyCode.LeftAlt) && left)
             {
                 left = false;
-                result[0] = 308;
+                result[0] = (int)KeyCode.LeftAlt;
             }
             bool right = true;
             for (int i = (int)KeyCode.Alpha0; i <= (int)KeyCode.Alpha9 && right; i++)

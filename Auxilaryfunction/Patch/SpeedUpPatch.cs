@@ -5,7 +5,7 @@ namespace Auxilaryfunction.Patch
 {
     internal class SpeedUpPatch
     {
-        public static float SpeedMultiple;
+        private static float speedMultiple;
         private static Harmony _patch;
         private static bool enable;
         public static bool Enable
@@ -17,20 +17,40 @@ namespace Auxilaryfunction.Patch
                 enable = value;
                 if (enable)
                 {
-                    _patch = Harmony.CreateAndPatchAll(typeof(SpeedUpPatch));
+                    Time.timeScale = SpeedMultiple;
+                    //_patch = Harmony.CreateAndPatchAll(typeof(SpeedUpPatch));
                 }
                 else
                 {
-                    _patch.UnpatchSelf();
+                    Time.timeScale = 1;
+                    //_patch.UnpatchSelf();
+                }
+            }
+        }
+
+        public static float SpeedMultiple
+        {
+            get
+            {
+                return speedMultiple;
+            }
+
+            set
+            {
+                speedMultiple = value;
+                if (Enable)
+                {
+                    Time.timeScale = SpeedMultiple;
                 }
             }
         }
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(FPSController), "Update")]
-        public static void SpeedUp()
+        public static void SpeedUp(FPSController __instance)
         {
-            Time.fixedDeltaTime = 1f / (SpeedMultiple * 60);
+            //Time.fixedDeltaTime = 1f / (SpeedMultiple * 60);
+            Time.timeScale = SpeedMultiple;
         }
     }
 }

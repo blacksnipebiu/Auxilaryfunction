@@ -14,6 +14,7 @@ using UnityEngine.Events;
 using UnityEngine.UI;
 using static Auxilaryfunction.Auxilaryfunction;
 using static Auxilaryfunction.Constant;
+using static Auxilaryfunction.Models.BuildTargetValues;
 using static Auxilaryfunction.Services.DysonBluePrintDataService;
 using static Auxilaryfunction.Services.TechService;
 using static UnityEngine.Object;
@@ -39,7 +40,6 @@ namespace Auxilaryfunction.Services
         public static int recipewindowy;
         private int[] locallogics = new int[5];
         private int[] remotelogics = new int[5];
-        public static List<string> ConfigNames;
         public static Vector2 scrollPosition;
         public static Vector2 dysonBluePrintscrollPosition;
         public static ConfigEntry<int> scale;
@@ -86,7 +86,6 @@ namespace Auxilaryfunction.Services
                 }
             }
         }
-        public static List<float[]> boundaries;
         GUIStyle normalstyle;
         GUIStyle styleblue;
         GUIStyle styleyellow;
@@ -128,8 +127,6 @@ namespace Auxilaryfunction.Services
         {
             whichpannel = 1;
             RefreshBaseSize = true;
-            boundaries = new List<float[]>();
-            ConfigNames = new List<string>();
             normalstyle = new GUIStyle();
             styleblue = new GUIStyle();
             styleyellow = new GUIStyle();
@@ -148,28 +145,6 @@ namespace Auxilaryfunction.Services
                     mytexture.SetPixel(i, j, new Color(0, 0, 0, 1));
             mytexture.Apply();
 
-            ConfigNames.Add("填充配送机数量");
-            boundaries.Add(new float[] { 0, 10 });
-            ConfigNames.Add("填充飞机数量");
-            boundaries.Add(new float[] { 0, 100 });
-            ConfigNames.Add("填充飞船数量");
-            boundaries.Add(new float[] { 0, 10 });
-            ConfigNames.Add("最大充电功率");
-            boundaries.Add(new float[] { 30, 300 });
-            ConfigNames.Add("运输机最远路程");
-            boundaries.Add(new float[] { 20, 180 });
-            ConfigNames.Add("运输船最远路程");
-            boundaries.Add(new float[] { 1, 61 });
-            ConfigNames.Add("曲速启用路程");
-            boundaries.Add(new float[] { 0.5f, 60 });
-            ConfigNames.Add("运输机起送量");
-            boundaries.Add(new float[] { 0.01f, 1 });
-            ConfigNames.Add("运输船起送量");
-            boundaries.Add(new float[] { 0.01f, 1 });
-            ConfigNames.Add("翘曲填充数量");
-            boundaries.Add(new float[] { 0, 50 });
-            ConfigNames.Add("大型采矿机采矿速率");
-            boundaries.Add(new float[] { 10, 30 });
             menus = new string[7] { "", "自动菜单", "渲染屏蔽", "便捷小功能", "文字科技树", "戴森球面板", "战斗" };
 
             styleblue.fontStyle = FontStyle.Bold;
@@ -1558,100 +1533,81 @@ namespace Auxilaryfunction.Services
                 GUILayout.EndHorizontal();
                 if (autosetstationconfig.Value)
                 {
-                    for (int i = 0; i < ConfigNames.Count; i++)
+                    string showinfo;
+                    foreach (var buildconfigkeyvalue in buildConfigsDic)
                     {
+                        var Name = buildconfigkeyvalue.Key;
+                        var buildconfig = buildconfigkeyvalue.Value;
                         GUILayout.BeginHorizontal();
-                        string showinfo = "";
-                        switch (i)
+                        showinfo = "";
+                        switch (Name)
                         {
-                            case 0:
-                                auto_supply_Courier.Value = (int)GUILayout.HorizontalSlider(auto_supply_Courier.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                showinfo = auto_supply_Courier.Value + " ";
+                            default:
+                                GUILayout.EndHorizontal();
+                                continue;
                                 break;
-                            case 1:
-                                auto_supply_drone.Value = (int)GUILayout.HorizontalSlider(auto_supply_drone.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                showinfo = auto_supply_drone.Value + " ";
+                            case "填充飞机数量":
+                                StationDroneNumber = (int)GUILayout.HorizontalSlider(StationDroneNumber, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
+                                showinfo = StationDroneNumber + " ";
                                 break;
-                            case 2:
-                                auto_supply_ship.Value = (int)GUILayout.HorizontalSlider(auto_supply_ship.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                showinfo = auto_supply_ship.Value + " ";
+                            case "填充飞船数量":
+                                StationShipNumber = (int)GUILayout.HorizontalSlider(StationShipNumber, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
+                                showinfo = StationShipNumber + " ";
                                 break;
-                            case 3:
-                                stationmaxpowerpertick.Value = (int)GUILayout.HorizontalSlider(stationmaxpowerpertick.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
+                            case "最大充电功率":
+                                StationMaxPowerPertick = (int)GUILayout.HorizontalSlider(StationMaxPowerPertick, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
                                 showinfo = (int)stationmaxpowerpertick.Value + "MW ";
                                 break;
-                            case 4:
-                                stationdronedist.Value = (int)GUILayout.HorizontalSlider(stationdronedist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                showinfo = stationdronedist.Value + "° ";
+                            case "运输机最远路程":
+                                StationDroneMaxDistance = (int)GUILayout.HorizontalSlider(StationDroneMaxDistance, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
+                                showinfo = StationDroneMaxDistance + "° ";
                                 break;
-                            case 5:
-                                stationshipdist.Value = (int)GUILayout.HorizontalSlider(stationshipdist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                showinfo = (stationshipdist.Value == 61 ? "∞ " : stationshipdist.Value + "ly ");
+                            case "运输船最远路程":
+                                StationShipMaxDistance = (int)GUILayout.HorizontalSlider(StationShipMaxDistance, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
+                                showinfo = (StationShipMaxDistance == 61 ? "∞ " : StationShipMaxDistance + "ly ");
                                 break;
-                            case 6:
-                                stationwarpdist.Value = (int)GUILayout.HorizontalSlider((float)stationwarpdist.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                if (stationwarpdist.Value == 0) stationwarpdist.Value = 0.5;
-                                showinfo = stationwarpdist.Value + "AU ";
+                            case "曲速启用路程":
+                                StationWarpEnableDistance = (int)GUILayout.HorizontalSlider((float)StationWarpEnableDistance, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
+                                if (StationWarpEnableDistance == 0) StationWarpEnableDistance = 0.5;
+                                showinfo = StationWarpEnableDistance + "AU ";
                                 break;
-                            case 7:
-                                DroneStartCarry.Value = GUILayout.HorizontalSlider(DroneStartCarry.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                DroneStartCarry.Value = DroneStartCarry.Value == 0 ? 0.01f : DroneStartCarry.Value;
-                                showinfo = ((int)(DroneStartCarry.Value * 10) * 10 == 0 ? "1" : "" + (int)(DroneStartCarry.Value * 10) * 10) + "% ";
+                            case "运输机起送量":
+                                StationDroneStartCarry = GUILayout.HorizontalSlider(StationDroneStartCarry, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
+                                StationDroneStartCarry = StationDroneStartCarry == 0 ? 0.01f : StationDroneStartCarry;
+                                showinfo = ((int)(StationDroneStartCarry * 10) * 10 == 0 ? "1" : "" + (int)(StationDroneStartCarry * 10) * 10) + "% ";
                                 break;
-                            case 8:
-                                ShipStartCarry.Value = GUILayout.HorizontalSlider(ShipStartCarry.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                showinfo = ((int)(ShipStartCarry.Value * 10) * 10 == 0 ? "1" : "" + (int)(ShipStartCarry.Value * 10) * 10) + "% ";
+                            case "运输船起送量":
+                                StationShipStartCarry = GUILayout.HorizontalSlider(StationShipStartCarry, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
+                                showinfo = ((int)(StationShipStartCarry * 10) * 10 == 0 ? "1" : "" + (int)(StationShipStartCarry * 10) * 10) + "% ";
                                 break;
-                            case 9:
-                                auto_supply_warp.Value = (int)GUILayout.HorizontalSlider(auto_supply_warp.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                showinfo = auto_supply_warp.Value + " ";
+                            case "翘曲填充数量":
+                                StationStartWarpNumber = (int)GUILayout.HorizontalSlider(StationStartWarpNumber, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
+                                showinfo = StationStartWarpNumber + " ";
                                 break;
-                            case 10:
-                                veincollectorspeed.Value = (int)GUILayout.HorizontalSlider(veincollectorspeed.Value, boundaries[i][0], boundaries[i][1], HorizontalSlideroptions);
-                                showinfo = veincollectorspeed.Value / 10.0f + " ";
+                            case "大型采矿机采矿速率":
+                                VeinCollectorSpeed = (int)GUILayout.HorizontalSlider(VeinCollectorSpeed, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
+                                showinfo = VeinCollectorSpeed / 10.0f + " ";
                                 break;
                         }
-                        GUILayout.Label(showinfo + ConfigNames[i].getTranslate(), labelstyle, buttonoptions);
+                        showinfo += Name.getTranslate();
+                        GUILayout.Label(showinfo, labelstyle, buttonoptions);
                         GUILayout.EndHorizontal();
                     }
                 }
-                if (GUILayout.Button("铺满轨道采集器".getTranslate(), buttonoptions)) SetGasStation();
+                if (GUILayout.Button("填充当前星球飞机飞船、翘曲器".getTranslate(), buttonoptions)) AddDroneShipToStation();
                 if (GUILayout.Button("批量配置当前星球物流站".getTranslate(), buttonoptions)) ChangeAllStationConfig();
-                if (GUILayout.Button("填充当前星球配送机飞机飞船、翘曲器".getTranslate(), buttonoptions)) AddDroneShipToStation();
                 if (GUILayout.Button("批量配置当前星球大型采矿机采矿速率".getTranslate(), buttonoptions)) ChangeAllVeinCollectorSpeedConfig();
+                GUILayout.BeginHorizontal();
+                GUILayout.Button(LDB.items.Select(2105).iconSprite.texture, normalstyle, GUILayout.Height(heightdis), GUILayout.Width(heightdis));
+                if (GUILayout.Button("铺满轨道采集器".getTranslate(), buttonoptions)) SetGasStation();
+                GUILayout.EndHorizontal();
+
             }
             GUILayout.EndVertical();
             GUILayout.Space(20);
 
             GUILayout.BeginVertical();
             {
-                autosetSomevalue_bool.Value = GUILayout.Toggle(autosetSomevalue_bool.Value, "自动填充人造恒星".getTranslate());
-                GUILayout.BeginHorizontal();
-                for (int j = 0; j < 2; j++)
-                {
-                    int itemID = 1803 + j;
-                    GUIStyle style = normalstyle;
-                    if (auto_supply_starfuelID.Value == itemID)
-                        style = whitestyle;
-                    if (GUILayout.Button(LDB.items.Select(itemID).iconSprite.texture, style, GUILayout.Height(heightdis), GUILayout.Width(heightdis)))
-                    {
-                        auto_supply_starfuelID.Value = itemID;
-                    }
-                }
-                GUILayout.EndHorizontal();
-                GUILayout.Label("人造恒星燃料数量".getTranslate() + "：" + auto_supply_starfuel.Value);
-                auto_supply_starfuel.Value = (int)GUILayout.HorizontalSlider(auto_supply_starfuel.Value, 1, 100, HorizontalSlideroptions);
-                if (GUILayout.Button("填充当前星球人造恒星".getTranslate(), buttonoptions)) AddFuelToAllStar();
-
-                if (autoaddtech_bool.Value != GUILayout.Toggle(autoaddtech_bool.Value, "自动添加科技队列".getTranslate()))
-                {
-                    autoaddtech_bool.Value = !autoaddtech_bool.Value;
-                    if (!autoaddtech_bool.Value)
-                    {
-                        autoaddtechid = 0;
-                        auto_add_techid.Value = 0;
-                    }
-                }
                 if (autoaddtech_bool.Value)
                 {
                     GUILayout.BeginHorizontal();
@@ -1697,7 +1653,66 @@ namespace Auxilaryfunction.Services
                         }
                     }
                 }
-                auto_setejector_bool.Value = GUILayout.Toggle(auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate());
+                GUILayout.BeginHorizontal();
+
+                {
+                    GUILayout.Button(LDB.items.Select(2210).iconSprite.texture, normalstyle, GUILayout.Height(heightdis), GUILayout.Width(heightdis));
+
+                    GUILayout.BeginVertical();
+
+                    autosetSomevalue_bool.Value = GUILayout.Toggle(autosetSomevalue_bool.Value, "自动填充人造恒星".getTranslate());
+                    GUILayout.BeginHorizontal();
+                    for (int j = 0; j < 2; j++)
+                    {
+                        int itemID = 1803 + j;
+                        GUIStyle style = normalstyle;
+                        if (auto_supply_starfuelID.Value == itemID)
+                            style = whitestyle;
+                        if (GUILayout.Button(LDB.items.Select(itemID).iconSprite.texture, style, GUILayout.Height(heightdis), GUILayout.Width(heightdis)))
+                        {
+                            auto_supply_starfuelID.Value = itemID;
+                        }
+                    }
+                    GUILayout.EndHorizontal();
+                    GUILayout.Label("人造恒星燃料数量".getTranslate() + "：" + auto_supply_starfuel.Value);
+                    auto_supply_starfuel.Value = (int)GUILayout.HorizontalSlider(auto_supply_starfuel.Value, 1, 100, HorizontalSlideroptions);
+                    if (GUILayout.Button("填充当前星球人造恒星".getTranslate(), buttonoptions)) AddFuelToAllStar();
+
+                    GUILayout.EndVertical();
+                }
+
+                GUILayout.EndHorizontal();
+
+                GUILayout.BeginHorizontal();
+
+                {
+                    GUILayout.Button(LDB.items.Select(2107).iconSprite.texture, normalstyle, GUILayout.Height(heightdis), GUILayout.Width(heightdis));
+
+                    GUILayout.BeginVertical();
+                    autosetCourier_bool.Value = GUILayout.Toggle(autosetCourier_bool.Value, "自动填充配送运输机".getTranslate());
+                    GUILayout.Label("填充配送运输机数量".getTranslate() + "：" + AutoSupplyCourierNumber);
+                    var CourierConfig = buildConfigsDic["填充配送机数量"];
+                    AutoSupplyCourierNumber = (int)GUILayout.HorizontalSlider(AutoSupplyCourierNumber, CourierConfig.LowLimit, CourierConfig.UpperLimit, HorizontalSlideroptions);
+                    if (GUILayout.Button("填充当前星球配送机".getTranslate(), buttonoptions)) AddCourierToAllStar();
+                    GUILayout.EndVertical();
+                }
+                GUILayout.EndHorizontal();
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Button(LDB.items.Select(2311).iconSprite.texture, normalstyle, GUILayout.Height(heightdis), GUILayout.Width(heightdis));
+                    auto_setejector_bool.Value = GUILayout.Toggle(auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate());
+                    GUILayout.EndHorizontal();
+                }
+                if (autoaddtech_bool.Value != GUILayout.Toggle(autoaddtech_bool.Value, "自动添加科技队列".getTranslate()))
+                {
+                    autoaddtech_bool.Value = !autoaddtech_bool.Value;
+                    if (!autoaddtech_bool.Value)
+                    {
+                        autoaddtechid = 0;
+                        auto_add_techid.Value = 0;
+                    }
+                }
+
                 if (autoabsorttrash_bool.Value != GUILayout.Toggle(autoabsorttrash_bool.Value, "30s间隔自动吸收垃圾".getTranslate()))
                 {
                     autoabsorttrash_bool.Value = !autoabsorttrash_bool.Value;
@@ -1724,32 +1739,34 @@ namespace Auxilaryfunction.Services
 
             GUILayout.Space(30);
             GUILayout.BeginVertical();
-            GUILayout.Label("机甲自动化");
-            autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate());
-
-            automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate() + $":{automovetoPrebuildSecondElapse.Value}s");
-            if (automovetounbuilt.Value)
             {
-                automovetoPrebuildSecondElapse.Value = (int)GUILayout.HorizontalSlider(automovetoPrebuildSecondElapse.Value, 1, 10, HorizontalSlideroptions);
-            }
-            automovetodarkfog.Value = GUILayout.Toggle(automovetodarkfog.Value, "自动飞向地面黑雾基地".getTranslate());
+                GUILayout.Label("机甲自动化");
+                autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate());
 
-            autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate());
-            if (autonavigation_bool.Value)
-            {
-                GUILayout.BeginHorizontal();
+                automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate() + $":{automovetoPrebuildSecondElapse.Value}s");
+                if (automovetounbuilt.Value)
+                {
+                    automovetoPrebuildSecondElapse.Value = (int)GUILayout.HorizontalSlider(automovetoPrebuildSecondElapse.Value, 1, 10, HorizontalSlideroptions);
+                }
+                automovetodarkfog.Value = GUILayout.Toggle(automovetodarkfog.Value, "自动飞向地面黑雾基地".getTranslate());
 
-                GUILayout.Space(20);
-                GUILayout.BeginVertical();
-                autoAddPlayerVel.Value = GUILayout.Toggle(autoAddPlayerVel.Value, "自动加速".getTranslate());
-                autowarpcommand.Value = GUILayout.Toggle(autowarpcommand.Value, "自动导航使用曲速".getTranslate());
-                GUILayout.Label("自动曲速最低距离".getTranslate() + ":" + string.Format("{0:N2}", autowarpdistance.Value) + "光年".getTranslate());
-                autowarpdistance.Value = GUILayout.HorizontalSlider(autowarpdistance.Value, 0, 15, HorizontalSlideroptions);
-                GUILayout.Label("自动曲速最低能量".getTranslate() + ":" + string.Format("{0:N2}", autowarpdistanceEnergyPercent.Value) + "%");
-                autowarpdistanceEnergyPercent.Value = GUILayout.HorizontalSlider(autowarpdistanceEnergyPercent.Value, 0, 95, HorizontalSlideroptions);
-                autowarpdistanceEnergyPercent.Value = (int)(autowarpdistanceEnergyPercent.Value / 5 * 5);
-                GUILayout.EndVertical();
-                GUILayout.EndHorizontal();
+                autonavigation_bool.Value = GUILayout.Toggle(autonavigation_bool.Value, "自动导航".getTranslate());
+                if (autonavigation_bool.Value)
+                {
+                    GUILayout.BeginHorizontal();
+
+                    GUILayout.Space(20);
+                    GUILayout.BeginVertical();
+                    autoAddPlayerVel.Value = GUILayout.Toggle(autoAddPlayerVel.Value, "自动加速".getTranslate());
+                    autowarpcommand.Value = GUILayout.Toggle(autowarpcommand.Value, "自动导航使用曲速".getTranslate());
+                    GUILayout.Label("自动曲速最低距离".getTranslate() + ":" + string.Format("{0:N2}", autowarpdistance.Value) + "光年".getTranslate());
+                    autowarpdistance.Value = GUILayout.HorizontalSlider(autowarpdistance.Value, 0, 15, HorizontalSlideroptions);
+                    GUILayout.Label("自动曲速最低能量".getTranslate() + ":" + string.Format("{0:N2}", autowarpdistanceEnergyPercent.Value) + "%");
+                    autowarpdistanceEnergyPercent.Value = GUILayout.HorizontalSlider(autowarpdistanceEnergyPercent.Value, 0, 95, HorizontalSlideroptions);
+                    autowarpdistanceEnergyPercent.Value = (int)(autowarpdistanceEnergyPercent.Value / 5 * 5);
+                    GUILayout.EndVertical();
+                    GUILayout.EndHorizontal();
+                }
             }
 
             GUILayout.EndVertical();

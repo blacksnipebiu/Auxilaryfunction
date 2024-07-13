@@ -87,6 +87,7 @@
     <Compile Include="AuxilaryfunctionPatch.cs" />
     <Compile Include="AuxilaryTranslate.cs" />
     <Compile Include="Constant.cs" />
+    <Compile Include="Models\BuildTargetValues.cs" />
     <Compile Include="NumberTranslate.cs" />
     <Compile Include="Patch\GameTickPatch.cs" />
     <Compile Include="Patch\PlayerAudioMutePatch.cs" />

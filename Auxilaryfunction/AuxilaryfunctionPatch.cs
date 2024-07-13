@@ -115,7 +115,7 @@ namespace Auxilaryfunction
         [HarmonyPatch(typeof(PlanetTransport), "NewDispenserComponent")]
         public static void NewDispenserComponentPatch(int __result, PlanetTransport __instance)
         {
-            if (auto_supply_station.Value)
+            if (autosetCourier_bool.Value)
             {
                 __instance.dispenserPool[__result].idleCourierCount = player.package.TakeItem(5003, auto_supply_Courier.Value, out _);
             }
