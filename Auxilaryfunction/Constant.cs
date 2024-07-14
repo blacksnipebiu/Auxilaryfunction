@@ -1,21 +1,23 @@
-﻿namespace Auxilaryfunction
+﻿using UnityEngine;
+
+namespace Auxilaryfunction
 {
     public class Constant
     {
         public static string[] PitchLetter = new string[12]
         {
-        "C",
-        "C#",
-        "D",
-        "D#",
-        "E",
-        "F",
-        "F#",
-        "G",
-        "G#",
-        "A",
-        "A#",
-        "B"
+            "C",
+            "C#",
+            "D",
+            "D#",
+            "E",
+            "F",
+            "F#",
+            "G",
+            "G#",
+            "A",
+            "A#",
+            "B"
         };
         public static double[,] posxz = new double[10, 2]{
             {0,1 },
@@ -40,6 +42,25 @@
                 case 2: return "需求";
             }
             return "";
+        }
+
+        public static GUIStyle[] StationStoreStyles = new GUIStyle[3];
+
+        public static GUIStyle GetStationStorelogicStyle(ELogisticStorage i)
+        {
+            switch (i)
+            {
+                case ELogisticStorage.None: return StationStoreStyles[0];
+                case ELogisticStorage.Supply: return StationStoreStyles[1];
+                case ELogisticStorage.Demand: return StationStoreStyles[2];
+            }
+            return GUI.skin.button;
+        }
+
+
+        public static string GetStationlogic(ELogisticStorage i)
+        {
+            return GetStationlogic((int)i);
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using Auxilaryfunction.Models;
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -30,6 +31,13 @@ namespace Auxilaryfunction
             {
                 __instance.minerPool[__result].speed = veincollectorspeed.Value * 1000;
             }
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(UIBlueprintInspector), "Refresh")]
+        public static void UIBlueprintInspectorRefresh(bool refreshComponent)
+        {
+            BluePrintBatchModifyBuild.NeedRefresh = refreshComponent;
         }
 
 

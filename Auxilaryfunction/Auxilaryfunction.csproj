@@ -84,7 +84,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Auxilaryfunction.cs" />
-    <Compile Include="AuxilaryfunctionPatch.cs" />
+    <Compile Include="Models\BluePrintBatchModify.cs" />
+    <Compile Include="Models\BuildType.cs" />
+    <Compile Include="Models\StationStoreConfig.cs" />
+    <Compile Include="Patch\AuxilaryfunctionPatch.cs" />
     <Compile Include="AuxilaryTranslate.cs" />
     <Compile Include="Constant.cs" />
     <Compile Include="Models\BuildTargetValues.cs" />

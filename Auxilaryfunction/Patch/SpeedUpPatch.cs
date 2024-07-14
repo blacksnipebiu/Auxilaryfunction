@@ -17,13 +17,13 @@ namespace Auxilaryfunction.Patch
                 enable = value;
                 if (enable)
                 {
-                    Time.timeScale = SpeedMultiple;
-                    //_patch = Harmony.CreateAndPatchAll(typeof(SpeedUpPatch));
+                    //Time.timeScale = SpeedMultiple;
+                    _patch = Harmony.CreateAndPatchAll(typeof(SpeedUpPatch));
                 }
                 else
                 {
-                    Time.timeScale = 1;
-                    //_patch.UnpatchSelf();
+                    //Time.timeScale = 1;
+                    _patch.UnpatchSelf();
                 }
             }
         }
@@ -40,7 +40,7 @@ namespace Auxilaryfunction.Patch
                 speedMultiple = value;
                 if (Enable)
                 {
-                    Time.timeScale = SpeedMultiple;
+                    //Time.timeScale = SpeedMultiple;
                 }
             }
         }

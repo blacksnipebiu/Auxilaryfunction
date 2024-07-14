@@ -4,8 +4,22 @@ namespace Auxilaryfunction
 {
     public static class AuxilaryTranslate
     {
+        public static HashSet<string> notranslateStr = new HashSet<string>();
         private static Dictionary<string, string> TranslateDict = new Dictionary<string, string>();
-        public static string getTranslate(this string s) => Localization.CurrentLanguage.glyph == 0 && TranslateDict.ContainsKey(s) ? TranslateDict[s] : s;
+        public static string getTranslate(this string s)
+        {
+            if (Localization.CurrentLanguage.glyph != 0)
+            {
+                return s;
+            }
+            if (TranslateDict.ContainsKey(s))
+            {
+                return TranslateDict[s];
+            }
+            notranslateStr.Add(s);
+
+            return s;
+        }
         public static void regallTranslate()
         {
             TranslateDict.Clear();
@@ -139,6 +153,52 @@ namespace Auxilaryfunction
             TranslateDict.Add("升级", "Upgrades");
             TranslateDict.Add("光子生成", "Photon Generation");
             TranslateDict.Add("直接发电", "Power Generation");
+
+            TranslateDict.Add("垃圾桶", "trash can");
+            TranslateDict.Add("暂无选中设备", "No equipment selected");
+            TranslateDict.Add("开关显示垃圾桶，垃圾桶关闭后自动清理内部物品", "Switch to display the trash can and automatically clean the contents when the trash can is closed");
+            TranslateDict.Add("火种列表", "Tinder list");
+            TranslateDict.Add("无火种", "No tinder");
+            TranslateDict.Add("通讯器列表", "List of communicators");
+            TranslateDict.Add("与玩家距离", "Distance from the player");
+            TranslateDict.Add("导航", "navigation");
+            TranslateDict.Add("黑雾巢穴自动导航", "Auto move to DarkFog");
+            TranslateDict.Add("跟随距离", "Follow Distance");
+            TranslateDict.Add("模型屏蔽", "Model masking");
+            TranslateDict.Add("UI屏蔽", "UI masking");
+            TranslateDict.Add("声音屏蔽", "Sound blocking");
+            TranslateDict.Add("机甲自动化", "Mecha automation");
+            TranslateDict.Add("自动菜单", "Auto Menu");
+            TranslateDict.Add("渲染屏蔽", "Render Mask");
+            TranslateDict.Add("便捷小功能", "Convenience Features");
+            TranslateDict.Add("战斗", "Battles");
+            TranslateDict.Add("蓝图设置", "Blueprint settings");
+            TranslateDict.Add("填充当前星球飞机飞船、翘曲器", "Fill current planet aircraft ships, warpers");
+            TranslateDict.Add("自动填充配送运输机", "Auto-fill delivery transports");
+            TranslateDict.Add("填充配送运输机数量", "Fill the number of delivery transports");
+            TranslateDict.Add("填充当前星球配送机", "Fill current planet's dispensers");
+            TranslateDict.Add("自动加速", "Auto Acceleration");
+            TranslateDict.Add("自动曲速最低距离", "Auto Warp Minimum Distance");
+            TranslateDict.Add("自动曲速最低能量", "Auto-warp minimum energy");
+            TranslateDict.Add("不渲染黑雾", "Do not render black fog");
+            TranslateDict.Add("关闭建筑栏提示", "Turn off building bar prompts");
+            TranslateDict.Add("关闭教学提示", "Turn off teaching tips");
+            TranslateDict.Add("关闭顾问", "Turn off advisors");
+            TranslateDict.Add("关闭里程碑提示", "Turn off milestone alerts");
+            TranslateDict.Add("隐藏黑雾威胁度检测", "Hide black fog threat level detection");
+            TranslateDict.Add("隐藏黑雾入侵提示", "Hide Black Fog Intrusion Alerts");
+            TranslateDict.Add("蓝图功能优化", "Blueprint optimization");
+            TranslateDict.Add("物流站功能优化", "Logistics Station Optimization");
+            TranslateDict.Add("背包垃圾桶", "Backpack trash can");
+            TranslateDict.Add("夜灯", "Night Light");
+            TranslateDict.Add("当前选中", "Currently selected");
+            TranslateDict.Add("进入蓝图模式可使用", "Available in Blueprint Mode");
+            TranslateDict.Add("全选当前星球建筑", "Select all buildings on current planet");
+            TranslateDict.Add("删除选中建筑", "Delete selected buildings");
+            TranslateDict.Add("可修改建筑", "Modify buildings");
+            TranslateDict.Add("科研模式", "Research mode");
+            TranslateDict.Add("辅助面板提示", "Auxiliary Panel Tips");
+
         }
     }
 }

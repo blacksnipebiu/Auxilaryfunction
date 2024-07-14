@@ -1,6 +1,6 @@
-﻿using Auxilaryfunction.Patch;
+﻿using Auxilaryfunction.Models;
+using Auxilaryfunction.Patch;
 using BepInEx.Configuration;
-using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,10 +10,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
 using static Auxilaryfunction.Auxilaryfunction;
 using static Auxilaryfunction.Constant;
+using static Auxilaryfunction.Models.BluePrintBatchModifyBuild;
 using static Auxilaryfunction.Models.BuildTargetValues;
 using static Auxilaryfunction.Services.DysonBluePrintDataService;
 using static Auxilaryfunction.Services.TechService;
@@ -26,7 +26,7 @@ namespace Auxilaryfunction.Services
 {
     public class GUIDraw
     {
-        private int whichpannel;
+        public int whichpannel;
         private string[] menus;
         private int baseSize;
         private int heightdis;
@@ -38,9 +38,8 @@ namespace Auxilaryfunction.Services
         private GameObject ui_AuxilaryPanelPanel;
         public static int recipewindowx;
         public static int recipewindowy;
-        private int[] locallogics = new int[5];
-        private int[] remotelogics = new int[5];
         public static Vector2 scrollPosition;
+        public static Vector2 itempickscrollPosition;
         public static Vector2 dysonBluePrintscrollPosition;
         public static ConfigEntry<int> scale;
         public static KeyboardShortcut tempShowWindow;
@@ -51,6 +50,7 @@ namespace Auxilaryfunction.Services
         private Color OrangeColor;
         private Color BlueColor;
         public Texture2D mytexture;
+        public Texture2D stationbluetexture;
         private bool moving;
         private bool leftscaling;
         private bool rightscaling;
@@ -93,13 +93,17 @@ namespace Auxilaryfunction.Services
         GUIStyle buttonstyleyellow = null;
         GUIStyle buttonstyleblue = null;
         GUIStyle labelstyle = null;
-        GUIStyle whitestyle = null;
         GUIStyle nomarginButtonStyle = null;
+
+        GUIStyle imageButtonNormalStyle = null;
+        GUIStyle imageButtonSelectedStyle = null;
+
         private GUIStyle selectedButtonStyle;
-        private GUILayoutOption[] menusbuttonoptions;
         GUILayoutOption[] HorizontalSlideroptions;
         GUILayoutOption[] buttonoptions;
         GUILayoutOption[] iconbuttonoptions;
+        GUILayoutOption[] bigiconbuttonoptions;
+        GUILayoutOption[] numberButtonoptions;
         public int BaseSize
         {
             get => baseSize;
@@ -142,10 +146,16 @@ namespace Auxilaryfunction.Services
             mytexture = new Texture2D(10, 10);
             for (int i = 0; i < mytexture.width; i++)
                 for (int j = 0; j < mytexture.height; j++)
-                    mytexture.SetPixel(i, j, new Color(0, 0, 0, 1));
+                    mytexture.SetPixel(i, j, Color.black);
             mytexture.Apply();
+            stationbluetexture = new Texture2D(10, 10);
+            var blueColor = new Color(61f / 255f, 139f / 255f, 167f / 255f);
+            for (int i = 0; i < stationbluetexture.width; i++)
+                for (int j = 0; j < stationbluetexture.height; j++)
+                    stationbluetexture.SetPixel(i, j, blueColor);
+            stationbluetexture.Apply();
 
-            menus = new string[7] { "", "自动菜单", "渲染屏蔽", "便捷小功能", "文字科技树", "戴森球面板", "战斗" };
+            menus = new string[8] { "", "自动菜单", "渲染屏蔽", "便捷小功能", "文字科技树", "戴森球面板", "战斗", "蓝图设置" };
 
             styleblue.fontStyle = FontStyle.Bold;
             styleblue.fontSize = 20;
@@ -153,6 +163,7 @@ namespace Auxilaryfunction.Services
             styleyellow.fontStyle = FontStyle.Bold;
             styleyellow.fontSize = 20;
             styleyellow.normal.textColor = new Color32(240, 191, 103, 255);
+
             BeltMonitorWindowOpen();
         }
 
@@ -243,28 +254,48 @@ namespace Auxilaryfunction.Services
                 {
                     fontSize = BaseSize - 3
                 };
-                nomarginButtonStyle = new GUIStyle(GUI.skin.button)
-                {
-                    margin = new RectOffset()
-                };
                 labelstyle.normal.textColor = GUI.skin.toggle.normal.textColor;
-                menusbuttonoptions = new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 4) };
+                if (selectedButtonStyle != null)
+                {
+                    selectedButtonStyle.fontSize = BaseSize;
+                }
+                for (int i = 0; i < StationStoreStyles.Length; i++)
+                {
+                    if (StationStoreStyles[i] == null) continue;
+                    StationStoreStyles[i].fontSize = BaseSize;
+                }
                 HorizontalSlideroptions = new[] { GUILayout.Height(BaseSize), GUILayout.Width(BaseSize * 10) };
                 buttonoptions = new[] { GUILayout.Height(BaseSize * 2) };
                 iconbuttonoptions = new[] { GUILayout.Width(heightdis), GUILayout.Height(heightdis) };
+                numberButtonoptions = iconbuttonoptions;
+                bigiconbuttonoptions = new[] { GUILayout.Width(heightdis * 1.5f), GUILayout.Height(heightdis * 1.5f) };
             }
             if (styleitemname == null)
             {
-                whitestyle = new GUIStyle();
-                whitestyle.normal.background = Texture2D.whiteTexture;
+                imageButtonNormalStyle = new GUIStyle();
+                imageButtonNormalStyle.margin = new RectOffset();
+                imageButtonSelectedStyle = new GUIStyle();
+                imageButtonSelectedStyle.margin = new RectOffset();
+                imageButtonSelectedStyle.normal.background = Texture2D.whiteTexture;
                 styleitemname = new GUIStyle(GUI.skin.label);
                 styleitemname.normal.textColor = Color.white;
                 buttonstyleblue = new GUIStyle(GUI.skin.button);
                 buttonstyleblue.normal.textColor = styleblue.normal.textColor;
+                buttonstyleblue.hover.textColor = styleblue.normal.textColor;
+                buttonstyleblue.margin = new RectOffset();
                 buttonstyleyellow = new GUIStyle(GUI.skin.button);
                 buttonstyleyellow.normal.textColor = styleyellow.normal.textColor;
+                buttonstyleyellow.hover.textColor = styleyellow.normal.textColor;
+                buttonstyleyellow.margin = new RectOffset();
                 selectedButtonStyle = new GUIStyle(GUI.skin.button);
                 selectedButtonStyle.normal.textColor = new Color32(215, 186, 245, 255);
+                nomarginButtonStyle = new GUIStyle(GUI.skin.button)
+                {
+                    margin = new RectOffset()
+                };
+                StationStoreStyles[0] = nomarginButtonStyle;
+                StationStoreStyles[1] = buttonstyleblue;
+                StationStoreStyles[2] = buttonstyleyellow;
             }
             if (showwindow)
             {
@@ -274,6 +305,7 @@ namespace Auxilaryfunction.Services
                 Rect window = new Rect(MainWindow_x, MainWindow_y, MainWindowWidth, MainWindowHeight);
                 GUI.DrawTexture(window, mytexture);
                 window = GUI.Window(20210827, window, MainWindow, "辅助面板".getTranslate() + "(" + VERSION + ")" + "ps:ctrl+↑↓");
+
             }
             if (autonavigation_bool.Value && GameDataImported && GameMain.mainPlayer != null && PlayerOperation.NeedNavigation)
             {
@@ -362,292 +394,6 @@ namespace Auxilaryfunction.Services
                 StartAutoMovetoDarkfog = false;
                 player.gameObject.GetComponent<SphereCollider>().enabled = true;
                 player.gameObject.GetComponent<CapsuleCollider>().enabled = true;
-            }
-            BluePrintRecipeSet();
-        }
-
-        public void BluePrintRecipeSet()
-        {
-            if (!blueprintopen || LocalPlanet?.factory == null)
-                return;
-            int tempwidth = 0;
-            int tempheight = 0;
-            PlanetFactory factory = LocalPlanet.factory;
-            if (pointeRecipetype != ERecipeType.None)
-            {
-                List<RecipeProto> showrecipe = new List<RecipeProto>();
-                foreach (RecipeProto rp in LDB.recipes.dataArray)
-                {
-                    if (rp.Type != pointeRecipetype) continue;
-                    showrecipe.Add(rp);
-                }
-                foreach (RecipeProto rp in showrecipe)
-                {
-                    if (GUI.Button(new Rect(recipewindowx + tempwidth++ * 50, Screen.height - recipewindowy + tempheight * 50, 50, 50), rp.iconSprite.texture))
-                    {
-                        for (int j = 0; j < assemblerpools.Count; j++)
-                        {
-                            LocalPlanet.factory.factorySystem.assemblerPool[assemblerpools[j]].SetRecipe(rp.ID, LocalPlanet.factory.entitySignPool);
-                        }
-                    }
-                    if (tempwidth % 10 == 0)
-                    {
-                        tempwidth = 0;
-                        tempheight++;
-                    }
-                }
-                if (showrecipe.Count > 0)
-                {
-                    if (GUI.Button(new Rect(recipewindowx + tempwidth++ * 50, Screen.height - recipewindowy + tempheight++ * 50, 50, 50), "无".getTranslate()))
-                    {
-                        for (int j = 0; j < assemblerpools.Count; j++)
-                        {
-                            LocalPlanet.factory.factorySystem.assemblerPool[assemblerpools[j]].SetRecipe(0, LocalPlanet.factory.entitySignPool);
-                        }
-                    }
-                    if (GUI.Button(new Rect(recipewindowx, Screen.height - recipewindowy + tempheight * 50, 200, 50), "额外产出".getTranslate()))
-                    {
-                        for (int j = 0; j < assemblerpools.Count; j++)
-                        {
-                            if (LocalPlanet.factory.factorySystem.assemblerPool[assemblerpools[j]].productive)
-                                LocalPlanet.factory.factorySystem.assemblerPool[assemblerpools[j]].forceAccMode = false;
-                        }
-                    }
-                    if (GUI.Button(new Rect(recipewindowx + 200, Screen.height - recipewindowy + tempheight * 50, 200, 50), "生产加速".getTranslate()))
-                    {
-                        for (int j = 0; j < assemblerpools.Count; j++)
-                        {
-                            if (LocalPlanet.factory.factorySystem.assemblerPool[assemblerpools[j]].productive)
-                                LocalPlanet.factory.factorySystem.assemblerPool[assemblerpools[j]].forceAccMode = true;
-                        }
-                    }
-                }
-            }
-            else if (labpools.Count > 0)
-            {
-                for (int i = 0; i <= 5; i++)
-                    if (GUI.Button(new Rect(recipewindowx + tempwidth++ * 50, Screen.height - recipewindowy + tempheight * 50, 50, 50), LDB.items.Select(LabComponent.matrixIds[i]).iconSprite.texture))
-                    {
-                        for (int j = 0; j < labpools.Count; j++)
-                        {
-                            LocalPlanet.factory.factorySystem.labPool[labpools[j]].SetFunction(false, LDB.items.Select(LabComponent.matrixIds[i]).maincraft.ID, 0, LocalPlanet.factory.entitySignPool);
-                        }
-                    }
-                if (GUI.Button(new Rect(recipewindowx + tempwidth++ * 50, Screen.height - recipewindowy + tempheight++ * 50, 50, 50), "无".getTranslate()))
-                {
-                    for (int j = 0; j < labpools.Count; j++)
-                    {
-                        LocalPlanet.factory.factorySystem.labPool[labpools[j]].SetFunction(false, 0, 0, LocalPlanet.factory.entitySignPool);
-                    }
-                }
-                if (GUI.Button(new Rect(recipewindowx, Screen.height - recipewindowy + tempheight++ * 50, 200, 50), "科研模式".getTranslate()))
-                {
-                    for (int j = 0; j < labpools.Count; j++)
-                    {
-                        LocalPlanet.factory.factorySystem.labPool[labpools[j]].SetFunction(true, 0, GameMain.history.currentTech, LocalPlanet.factory.entitySignPool);
-                    }
-                }
-                if (GUI.Button(new Rect(recipewindowx, Screen.height - recipewindowy + tempheight * 50, 200, 50), "额外产出".getTranslate()))
-                {
-                    for (int j = 0; j < labpools.Count; j++)
-                    {
-                        if (LocalPlanet.factory.factorySystem.labPool[labpools[j]].productive)
-                            LocalPlanet.factory.factorySystem.labPool[labpools[j]].forceAccMode = false;
-                    }
-                }
-                if (GUI.Button(new Rect(recipewindowx + 200, Screen.height - recipewindowy + tempheight * 50, 200, 50), "生产加速".getTranslate()))
-                {
-                    for (int j = 0; j < labpools.Count; j++)
-                    {
-                        if (LocalPlanet.factory.factorySystem.labPool[labpools[j]].productive)
-                            LocalPlanet.factory.factorySystem.labPool[labpools[j]].forceAccMode = true;
-                    }
-                }
-            }
-            else if (ejectorpools.Count > 0 && GameMain.data.dysonSpheres[GameMain.localStar.index] != null)
-            {
-                DysonSwarm ds = GameMain.data.dysonSpheres[GameMain.localStar.index].swarm;
-                for (int i = 0; i < 4; i++)
-                {
-                    for (int j = 0; j < 5; j++)
-                    {
-                        int orbitid = i * 5 + j + 1;
-                        if (ds.OrbitExist(orbitid) && GUI.Button(new Rect(recipewindowx + j * 50, Screen.height - recipewindowy + tempheight * 50, 50, 50), orbitid.ToString()))
-                        {
-                            for (int k = 0; k < ejectorpools.Count; k++)
-                            {
-                                LocalPlanet.factory.factorySystem.ejectorPool[ejectorpools[k]].SetOrbit(orbitid);
-                            }
-                        }
-                    }
-                    tempheight++;
-                }
-            }
-            else if (stationpools.Count > 0)
-            {
-                if (tempheight + tempwidth > 0) tempheight++;
-                tempwidth = 0;
-                for (int i = 0; i < 8; i++)
-                {
-                    if (GUI.Button(new Rect(recipewindowx + tempwidth++ * 130, Screen.height - recipewindowy + tempheight * 50, 130, 50), StationNames[i]))
-                    {
-
-                        for (int j = 0; j < stationpools.Count; j++)
-                        {
-                            StationComponent sc = LocalPlanet.factory.transport.stationPool[stationpools[j]];
-                            if (i == 7)
-                            {
-                                if (sc.storage[4].count > 0 && sc.storage[4].itemId != 1210)
-                                    player.TryAddItemToPackage(sc.storage[4].itemId, sc.storage[4].count, 0, false);
-                                LocalPlanet.factory.transport.SetStationStorage(stationpools[j], stationindex, 1210, (int)batchnum * 100, (ELogisticStorage)locallogic, (ELogisticStorage)remotelogic, player);
-                            }
-                            else
-                            {
-                                LocalPlanet.factory.WriteExtraInfoOnEntity(sc.entityId, StationNames[i]);
-                            }
-                        }
-                        stationpools.Clear();
-                        break;
-                    }
-                    if (i == 4 || i == 6)
-                    {
-                        tempheight++;
-                        tempwidth = 0;
-                    }
-                }
-                int tempx = recipewindowx + tempwidth * 130;
-                int tempy = Screen.height - recipewindowy + tempheight++ * 50;
-                batchnum = (int)GUI.HorizontalSlider(new Rect(tempx, tempy, 150, 30), batchnum, 0, 100);
-                GUI.Label(new Rect(tempx, tempy + 30, 100, 30), "上限".getTranslate() + ":" + batchnum * 100);
-                if (GUI.Button(new Rect(tempx + 150, tempy, 100, 30), "第".getTranslate() + (stationindex + 1) + "格".getTranslate()))
-                {
-                    stationindex++;
-                    stationindex %= 5;
-                }
-                if (GUI.Button(new Rect(tempx + 250, tempy, 100, 30), "本地".getTranslate() + GetStationlogic(locallogic)))
-                {
-                    locallogic++;
-                    locallogic %= 3;
-                }
-                if (GUI.Button(new Rect(tempx + 350, tempy, 100, 30), "星际".getTranslate() + GetStationlogic(remotelogic)))
-                {
-                    remotelogic++;
-                    remotelogic %= 3;
-                }
-                if (GUI.Button(new Rect(recipewindowx, Screen.height - recipewindowy + tempheight++ * 50, 130, 50), "粘贴物流站配方".getTranslate()))
-                {
-                    for (int j = 0; j < stationpools.Count; j++)
-                    {
-                        StationComponent sc = factory.transport.stationPool[stationpools[j]];
-                        for (int i = 0; i < sc.storage.Length && i < 5; i++)
-                        {
-                            if (stationcopyItem[i, 0] > 0)
-                            {
-                                if (sc.storage[i].count > 0 && sc.storage[i].itemId != stationcopyItem[i, 0])
-                                    player.TryAddItemToPackage(sc.storage[i].itemId, sc.storage[i].count, 0, false);
-                                factory.transport.SetStationStorage(stationpools[j], i, stationcopyItem[i, 0], stationcopyItem[i, 1], (ELogisticStorage)stationcopyItem[i, 2]
-                                    , (ELogisticStorage)stationcopyItem[i, 3], player);
-                            }
-                            else
-                                factory.transport.SetStationStorage(stationpools[j], i, 0, 0, ELogisticStorage.None, ELogisticStorage.None, player);
-                        }
-                    }
-                    stationpools.Clear();
-                }
-                int heightdis = BaseSize * 2;
-                GUILayout.BeginArea(new Rect(recipewindowx, Screen.height - recipewindowy + tempheight++ * 50, heightdis * 15, heightdis * 10));
-                {
-                    GUILayout.BeginVertical();
-                    GUILayout.BeginHorizontal();
-                    for (int i = 0; i < 5; i++)
-                    {
-                        GUILayout.BeginVertical();
-                        if (GUILayout.Button("本地".getTranslate() + GetStationlogic(locallogics[i])))
-                        {
-                            locallogics[i]++;
-                            locallogics[i] %= 3;
-                        }
-                        if (GUILayout.Button("星际".getTranslate() + GetStationlogic(remotelogics[i])))
-                        {
-                            remotelogics[i]++;
-                            remotelogics[i] %= 3;
-                        }
-                        GUILayout.EndVertical();
-                    }
-                    GUILayout.EndHorizontal();
-                    if (GUILayout.Button("设置物流站逻辑"))
-                    {
-                        for (int j = 0; j < stationpools.Count; j++)
-                        {
-                            StationComponent sc = factory.transport.stationPool[stationpools[j]];
-                            for (int i = 0; i < sc.storage.Length && i < 5; i++)
-                            {
-                                if (sc.storage[i].itemId > 0)
-                                {
-                                    sc.storage[i].localLogic = (ELogisticStorage)locallogics[i];
-                                    sc.storage[i].remoteLogic = (ELogisticStorage)remotelogics[i];
-                                }
-                            }
-                        }
-                        InitBluePrintData();
-                    }
-                    GUILayout.EndVertical();
-                }
-                GUILayout.EndArea();
-            }
-            else if (powergenGammapools.Count > 0)
-            {
-                GUILayout.BeginArea(new Rect(recipewindowx, Screen.height - recipewindowy, BaseSize * 10, BaseSize * 10));
-                GUILayout.BeginVertical();
-                if (GUILayout.Button("直接发电".getTranslate()))
-                {
-                    for (int j = 0; j < powergenGammapools.Count; j++)
-                    {
-                        var pgc = factory.powerSystem.genPool[powergenGammapools[j]];
-                        int generatorId = powergenGammapools[j];
-                        if (pgc.gamma)
-                        {
-                            PowerGeneratorComponent powerGeneratorComponent = factory.powerSystem.genPool[generatorId];
-
-                            int productId = powerGeneratorComponent.productId;
-                            int num = (int)powerGeneratorComponent.productCount;
-                            if (productId != 0 && num > 0)
-                            {
-                                int upCount = player.TryAddItemToPackage(productId, num, 0, true, 0);
-                                UIItemup.Up(productId, upCount);
-                            }
-                            factory.powerSystem.genPool[generatorId].productId = 0;
-                            factory.powerSystem.genPool[generatorId].productCount = 0;
-                        }
-                    }
-                }
-                if (GUILayout.Button("光子生成".getTranslate()))
-                {
-                    for (int j = 0; j < powergenGammapools.Count; j++)
-                    {
-                        var pgc = factory.powerSystem.genPool[powergenGammapools[j]];
-                        int generatorId = powergenGammapools[j];
-                        if (pgc.gamma)
-                        {
-                            PowerGeneratorComponent powerGeneratorComponent = factory.powerSystem.genPool[generatorId];
-
-                            ItemProto itemProto = LDB.items.Select(factory.entityPool[powerGeneratorComponent.entityId].protoId);
-                            if (itemProto == null)
-                            {
-                                return;
-                            }
-                            GameHistoryData history = GameMain.history;
-                            if (LDB.items.Select(itemProto.prefabDesc.powerProductId) == null || !history.ItemUnlocked(itemProto.prefabDesc.powerProductId))
-                            {
-                                factory.powerSystem.genPool[generatorId].productId = 0;
-                                return;
-                            }
-                            factory.powerSystem.genPool[generatorId].productId = itemProto.prefabDesc.powerProductId;
-                        }
-                    }
-                }
-                GUILayout.EndVertical();
-                GUILayout.EndArea();
             }
         }
 
@@ -918,382 +664,7 @@ namespace Auxilaryfunction.Services
 
         private void BeltMonitorWindowOpen()
         {
-            # region BeltWindow
-            beltWindow = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Belt Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Blueprint Copy Mode").transform);
-            beltWindow.GetComponent<RectTransform>().position = new Vector3(7.5f, 50, 20);
-            beltWindow.name = "test";
-            Vector3 item_sign_localposition = beltWindow.transform.Find("item-sign").GetComponent<RectTransform>().localPosition;
-            beltWindow.transform.Find("item-sign").GetComponent<RectTransform>().localPosition = item_sign_localposition - new Vector3(item_sign_localposition.x, -30, 0);
-            Vector3 number_input_localposition = beltWindow.transform.Find("number-input").GetComponent<RectTransform>().localPosition;
-            beltWindow.transform.Find("number-input").GetComponent<RectTransform>().localPosition = number_input_localposition - new Vector3(number_input_localposition.x, -30, 0);
-            Destroy(beltWindow.transform.Find("state").gameObject);
-            Destroy(beltWindow.transform.Find("item-display").gameObject);
-            Destroy(beltWindow.transform.Find("panel-bg").Find("title-text").gameObject);
-            beltWindow.transform.Find("item-sign").GetComponent<Button>().onClick.AddListener(() =>
-            {
-                if (UISignalPicker.isOpened)
-                    UISignalPicker.Close();
-                else
-                    UISignalPicker.Popup(new Vector2(-300, Screen.height / 3), new Action<int>(SetSignalId));
-            });
-            beltWindow.transform.Find("number-input").GetComponent<InputField>().onEndEdit.AddListener((string str) =>
-            {
-                if (!float.TryParse(str, out float result))
-                    return;
-                if (beltpools.Count > 0)
-                {
-                    foreach (int i in beltpools)
-                    {
-                        LocalPlanet.factory.cargoTraffic.SetBeltSignalIcon(i, pointsignalid);
-                        LocalPlanet.factory.cargoTraffic.SetBeltSignalNumber(i, result);
-                    }
-                }
-            });
-            beltWindow.gameObject.SetActive(false);
-            #endregion
-            #region MonitorWindow
-            SpeakerPanel = Instantiate<GameObject>(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Monitor Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Blueprint Copy Mode").transform);
-            SpeakerPanel.GetComponent<RectTransform>().position = new Vector3(7.5f, 50, 20);
-            SpeakerPanel.name = "test1";
-            SpeakerPanel.gameObject.SetActive(false);
-            SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(false);
-            SpeakerPanel.transform.Find("speaker-panel").GetComponent<RectTransform>().position = new Vector3(8, 47, 20);
-            Destroy(SpeakerPanel.transform.Find("flow-statistics").gameObject);
-            Destroy(SpeakerPanel.transform.Find("alarm-settings").gameObject);
-            Destroy(SpeakerPanel.transform.Find("monitor-settings").gameObject);
-            Destroy(SpeakerPanel.transform.Find("sep-line").gameObject);
-            Destroy(SpeakerPanel.transform.Find("sep-line").gameObject);
-            GameObject speaker_panel = SpeakerPanel.transform.Find("speaker-panel").gameObject;
-            GameObject pitch = speaker_panel.transform.Find("pitch").gameObject;
-            GameObject volume = speaker_panel.transform.Find("volume").gameObject;
-            speaker_panel.GetComponent<UISpeakerPanel>().toneCombo.onItemIndexChange.AddListener(new UnityAction(() =>
-            {
-                if (monitorpools != null && monitorpools.Count > 0)
-                {
-                    UIComboBox toneCombo = speaker_panel.GetComponent<UISpeakerPanel>().toneCombo;
-                    foreach (int i in monitorpools)
-                    {
-                        int speakerId = LocalPlanet.factory.cargoTraffic.monitorPool[i].speakerId;
-                        LocalPlanet.factory.digitalSystem.speakerPool[speakerId].SetTone(toneCombo.ItemsData[toneCombo.itemIndex]);
-                        LocalPlanet.factory.digitalSystem.speakerPool[speakerId].Play(ESpeakerPlaybackOrigin.Current);
-                    }
-                }
-            }));
-            pitch.transform.Find("slider").GetComponent<Slider>().onValueChanged.AddListener((float f) =>
-            {
-                string str = PitchLetter[((int)f - 1) % 12] + (((int)f - 1) / 12).ToString();
-                speaker_panel.GetComponent<UISpeakerPanel>().pitchText.text = str;
-
-                if (monitorpools != null && monitorpools.Count > 0)
-                {
-                    UIComboBox toneCombo = speaker_panel.GetComponent<UISpeakerPanel>().toneCombo;
-                    foreach (int i in monitorpools)
-                    {
-                        int speakerId = LocalPlanet.factory.cargoTraffic.monitorPool[i].speakerId;
-                        LocalPlanet.factory.digitalSystem.speakerPool[speakerId].SetPitch((int)f);
-                        LocalPlanet.factory.digitalSystem.speakerPool[speakerId].Play(ESpeakerPlaybackOrigin.Current);
-                    }
-                }
-            });
-            volume.transform.Find("slider").GetComponent<Slider>().onValueChanged.AddListener((float f) =>
-            {
-                speaker_panel.GetComponent<UISpeakerPanel>().volumeText.text = ((int)f).ToString();
-
-                if (monitorpools != null && monitorpools.Count > 0)
-                {
-                    UIComboBox toneCombo = speaker_panel.GetComponent<UISpeakerPanel>().toneCombo;
-                    foreach (int i in monitorpools)
-                    {
-                        int speakerId = LocalPlanet.factory.cargoTraffic.monitorPool[i].speakerId;
-                        LocalPlanet.factory.digitalSystem.speakerPool[speakerId].SetVolume((int)speaker_panel.GetComponent<UISpeakerPanel>().volumeSlider.value);
-                        LocalPlanet.factory.digitalSystem.speakerPool[speakerId].Play(ESpeakerPlaybackOrigin.Current);
-                    }
-                }
-            });
-            speaker_panel.GetComponent<UISpeakerPanel>().testPlayBtn.GetComponent<UIButton>().onClick += new Action<int>((int str) =>
-            {
-                if (monitorpools != null && monitorpools.Count > 0)
-                {
-                    UIComboBox toneCombo = speaker_panel.GetComponent<UISpeakerPanel>().toneCombo;
-                    foreach (int i in monitorpools)
-                    {
-                        int speakerId = LocalPlanet.factory.cargoTraffic.monitorPool[i].speakerId;
-                        LocalPlanet.factory.digitalSystem.speakerPool[speakerId].SetPitch((int)speaker_panel.GetComponent<UISpeakerPanel>().pitchSlider.value);
-                        LocalPlanet.factory.digitalSystem.speakerPool[speakerId].SetVolume((int)speaker_panel.GetComponent<UISpeakerPanel>().volumeSlider.value);
-                        LocalPlanet.factory.digitalSystem.speakerPool[speakerId].SetTone(toneCombo.ItemsData[toneCombo.itemIndex]);
-                        LocalPlanet.factory.digitalSystem.speakerPool[speakerId].Play(ESpeakerPlaybackOrigin.Current);
-                    }
-                }
-            });
-            #endregion
-            #region TurretWindow
-            TurretWindow = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Turret Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Blueprint Copy Mode").transform);
-            TurretWindow.GetComponent<RectTransform>().position = new Vector3(7.5f, 50, 20);
-            TurretWindow.name = "auxilaryfunction_TurretWindow";
-            TurretWindow.gameObject.SetActive(false);
-            Destroy(TurretWindow.transform.Find("details-desc").gameObject);
-            Destroy(TurretWindow.transform.Find("ammo-desc").gameObject);
-            Destroy(TurretWindow.transform.Find("supernova-desc/switch-button-1").gameObject);
-            Destroy(TurretWindow.transform.Find("supernova-desc/switch-button-2").gameObject);
-            Destroy(TurretWindow.transform.Find("supernova-desc/switch-button-3").gameObject);
-            Destroy(TurretWindow.transform.Find("supernova-desc/tap").gameObject);
-            Destroy(TurretWindow.transform.Find("supernova-desc/effect-desc").gameObject);
-            uiturretWindow = TurretWindow.GetComponent<UITurretWindow>();
-            uiturretWindow.phaseShiftGroup.SetActive(false);
-            uiturretWindow.supernovaGroup.SetActive(value: true);
-            uiturretWindow.supernovaBtnText.text = "超新星".Translate();
-            uiturretWindow.vsGroundRangeLabelRt.gameObject.SetActive(true);
-            uiturretWindow.vsGroundRangeTextRt.gameObject.SetActive(true);
-            uiturretWindow.vsSpaceRangeLabelRt.gameObject.SetActive(true);
-            uiturretWindow.vsSpaceRangeTextRt.gameObject.SetActive(true);
-            uiturretWindow.mode0Btn.button.interactable = true;
-            uiturretWindow.mode1Btn.button.interactable = true;
-            uiturretWindow.mode2Btn.button.interactable = true;
-            uiturretWindow.mode3Btn.button.interactable = true;
-
-            uiturretWindow.mode0Btn.tips.tipTitle = "地面按钮标题".Translate();
-            uiturretWindow.mode1Btn.tips.tipTitle = "低空按钮标题".Translate();
-            uiturretWindow.mode2Btn.tips.tipTitle = "高空按钮标题".Translate();
-            uiturretWindow.mode3Btn.tips.tipTitle = "太空按钮标题".Translate();
-            uiturretWindow.superNovaBtn.onClick += _ =>
-            {
-                foreach (var turretId in turrentpools)
-                {
-                    ref TurretComponent ptr = ref GameMain.localPlanet.factory.defenseSystem.turrets.buffer[turretId];
-                    if (ptr.id != turretId)
-                    {
-                        return;
-                    }
-                    if (ptr.inSupernova)
-                    {
-                        ptr.CancelSupernova();
-                    }
-                    else
-                    {
-                        ptr.SetSupernova();
-                    }
-                    if (ptr.inSupernova)
-                    {
-                        GameMain.gameScenario.NotifyOnSupernovaUITriggered();
-                    }
-                }
-            };
-            Action<int> tempOnVSModeButtonClicked = new Action<int>(value =>
-            {
-                Traverse.Create(uiturretWindow).Field("vsModeSelectIndex").SetValue(value);
-                uiturretWindow.selectBoxRt.gameObject.SetActive(true);
-                if (value == 0)
-                {
-                    uiturretWindow.selectBoxRt.SetParent(uiturretWindow.mode0Rt, false);
-                    return;
-                }
-                if (value == 1)
-                {
-                    uiturretWindow.selectBoxRt.SetParent(uiturretWindow.mode1Rt, false);
-                    return;
-                }
-                if (value == 2)
-                {
-                    uiturretWindow.selectBoxRt.SetParent(uiturretWindow.mode2Rt, false);
-                    return;
-                }
-                if (value == 3)
-                {
-                    uiturretWindow.selectBoxRt.SetParent(uiturretWindow.mode3Rt, false);
-                }
-            });
-            Action<int> tempGroupSelectionBtn_onClick = new Action<int>(value =>
-            {
-                foreach (var turretId in turrentpools)
-                {
-                    ref TurretComponent ptr = ref GameMain.localPlanet.factory.defenseSystem.turrets.buffer[turretId];
-                    if (ptr.id != turretId)
-                    {
-                        continue;
-                    }
-                    if (value == ptr.group)
-                    {
-                        ptr.SetGroup(0);
-                    }
-                    else
-                    {
-                        ptr.SetGroup(value);
-                    }
-                    for (int i = 0; i < uiturretWindow.groupSelectionBtns.Length; i++)
-                    {
-                        UIButton uibutton = uiturretWindow.groupSelectionBtns[i];
-                        uibutton.highlighted = (uibutton.data == ptr.group);
-                    }
-                }
-            });
-
-            var OnPrioritySelectButtonClicked = new Action<int>(value =>
-            {
-                var vsModeSelectIndex = (int)Traverse.Create(uiturretWindow).Field("vsModeSelectIndex").GetValue();
-                foreach (var turretId in turrentpools)
-                {
-                    ref TurretComponent ptr = ref GameMain.localPlanet.factory.defenseSystem.turrets.buffer[turretId];
-                    if (ptr.id != turretId)
-                    {
-                        continue;
-                    }
-                    VSLayerMask vsSettings = ptr.vsSettings;
-                    if (vsModeSelectIndex == 0)
-                    {
-                        ptr.vsSettings &= VSLayerMask.AirAngOrbitAndSpace;
-                    }
-                    else if (vsModeSelectIndex == 1)
-                    {
-                        ptr.vsSettings &= VSLayerMask.GroundAndOrbitAndSpace;
-                    }
-                    else if (vsModeSelectIndex == 2)
-                    {
-                        ptr.vsSettings &= VSLayerMask.GroundAndAirAndSpace;
-                    }
-                    else if (vsModeSelectIndex == 3)
-                    {
-                        ptr.vsSettings &= VSLayerMask.GroundAndAirAndOrbit;
-                    }
-                    ptr.vsSettings |= (VSLayerMask)(value << vsModeSelectIndex * 2);
-                    if (ptr.vsSettings != vsSettings)
-                    {
-                        ptr.Search(GameMain.localPlanet.factory, PlanetFactory.PrefabDescByModelIndex[GameMain.localPlanet.factory.entityPool[ptr.entityId].modelIndex], GameMain.gameTick);
-                    }
-                }
-                var modeIcons = new Image[4] { uiturretWindow.mode0Icon, uiturretWindow.mode1Icon, uiturretWindow.mode2Icon, uiturretWindow.mode3Icon };
-                var modeFloors = new Image[4] { uiturretWindow.mode0Floor, uiturretWindow.mode1Floor, uiturretWindow.mode2Floor, uiturretWindow.mode3Floor };
-                var mode0Btn = new UIButton[4] { uiturretWindow.mode0Btn, uiturretWindow.mode1Btn, uiturretWindow.mode2Btn, uiturretWindow.mode3Btn };
-                var tipText = new string[4] { "已关闭".Translate(), "低优先".Translate(), "均衡".Translate(), "高优先".Translate() };
-
-                if (value == 0)
-                {
-                    modeIcons[vsModeSelectIndex].sprite = uiturretWindow.fullTransparentSprite;
-                    modeFloors[vsModeSelectIndex].color = uiturretWindow.disableModeColor;
-                    mode0Btn[vsModeSelectIndex].tips.tipText = tipText[value];
-                }
-                else
-                {
-                    modeFloors[vsModeSelectIndex].color = Color.clear;
-                    switch (value)
-                    {
-                        case 1:
-                            modeIcons[vsModeSelectIndex].sprite = uiturretWindow.lowPrioritySprite;
-                            break;
-                        case 2:
-                            modeIcons[vsModeSelectIndex].sprite = uiturretWindow.normalPrioritySprite;
-                            break;
-                        case 3:
-                            modeIcons[vsModeSelectIndex].sprite = uiturretWindow.highPrioritySprite;
-                            break;
-                    }
-                    mode0Btn[vsModeSelectIndex].tips.tipText = tipText[value];
-                }
-                uiturretWindow.selectBoxRt.gameObject.SetActive(false);
-            });
-            uiturretWindow.mode0Btn.onClick += tempOnVSModeButtonClicked;
-            uiturretWindow.mode1Btn.onClick += tempOnVSModeButtonClicked;
-            uiturretWindow.mode2Btn.onClick += tempOnVSModeButtonClicked;
-            uiturretWindow.mode3Btn.onClick += tempOnVSModeButtonClicked;
-            uiturretWindow.select0Btn.onClick += OnPrioritySelectButtonClicked;
-            uiturretWindow.select1Btn.onClick += OnPrioritySelectButtonClicked;
-            uiturretWindow.select2Btn.onClick += OnPrioritySelectButtonClicked;
-            uiturretWindow.select3Btn.onClick += OnPrioritySelectButtonClicked;
-            uiturretWindow.clearMagBtn.onClick += (_) =>
-            {
-                foreach (var turretId in turrentpools)
-                {
-                    ref TurretComponent ptr = ref GameMain.localPlanet.factory.defenseSystem.turrets.buffer[turretId];
-                    if (ptr.id != turretId)
-                    {
-                        continue;
-                    }
-                    if (ptr.itemId == 0)
-                    {
-                        continue;
-                    }
-                    int upCount = player.TryAddItemToPackage((int)ptr.itemId, (int)ptr.itemCount, (int)ptr.itemInc, false, 0, false);
-                    UIItemup.Up(ptr.itemId, upCount);
-                    ptr.ClearItem();
-                }
-            };
-            for (int i = 0; i < uiturretWindow.groupSelectionBtns.Length; i++)
-            {
-                uiturretWindow.groupSelectionBtns[i].onClick += tempGroupSelectionBtn_onClick;
-            }
-
-
-            #endregion
-            #region PowerExchangerWindow
-            PowerExchangerWindow = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Power Exchanger Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Blueprint Copy Mode").transform);
-            PowerExchangerWindow.GetComponent<RectTransform>().position = new Vector3(7.5f, 50, 20);
-            PowerExchangerWindow.name = "PowerExchangerWindow";
-            PowerExchangerWindow.gameObject.SetActive(false);
-            Destroy(PowerExchangerWindow.transform.Find("power-network-desc").gameObject);
-            Destroy(PowerExchangerWindow.transform.Find("power-network-desc").gameObject);
-            Destroy(PowerExchangerWindow.transform.Find("exchanger-desc/power-state/power-text").gameObject);
-            uipowerExchangerWindow = PowerExchangerWindow.GetComponent<UIPowerExchangerWindow>();
-            Vector2 transition0Pos = uipowerExchangerWindow.transition0.anchoredPosition;
-            Vector2 transition1Pos = uipowerExchangerWindow.transition1.anchoredPosition;
-            Action<int> OnModeButtonClick = new Action<int>(targetState =>
-            {
-                foreach (var powerexchangerid in powerexchangertools)
-                {
-                    GameMain.localPlanet.factory.powerSystem.excPool[powerexchangerid].targetState = (float)targetState;
-                }
-
-                switch (targetState)
-                {
-                    case -1:
-                        uipowerExchangerWindow.exchangerMode1UIButton.highlighted = true;
-                        uipowerExchangerWindow.exchangerMode2UIButton.highlighted = false;
-                        uipowerExchangerWindow.exchangerMode3UIButton.highlighted = false;
-                        uipowerExchangerWindow.transition0.anchoredPosition = transition0Pos;
-                        uipowerExchangerWindow.transition1.anchoredPosition = transition1Pos;
-                        if (!uipowerExchangerWindow.transition0.gameObject.activeSelf && !uipowerExchangerWindow.transition1.gameObject.activeSelf)
-                        {
-                            uipowerExchangerWindow.transition0.gameObject.SetActive(true);
-                            uipowerExchangerWindow.transition1.gameObject.SetActive(true);
-                        }
-                        break;
-                    case 0:
-                        uipowerExchangerWindow.exchangerMode1UIButton.highlighted = false;
-                        uipowerExchangerWindow.exchangerMode2UIButton.highlighted = true;
-                        uipowerExchangerWindow.exchangerMode3UIButton.highlighted = false;
-                        if (uipowerExchangerWindow.transition0.gameObject.activeSelf && uipowerExchangerWindow.transition1.gameObject.activeSelf)
-                        {
-                            uipowerExchangerWindow.transition0.gameObject.SetActive(false);
-                            uipowerExchangerWindow.transition1.gameObject.SetActive(false);
-                        }
-                        break;
-                    case 1:
-                        uipowerExchangerWindow.exchangerMode1UIButton.highlighted = false;
-                        uipowerExchangerWindow.exchangerMode2UIButton.highlighted = false;
-                        uipowerExchangerWindow.exchangerMode3UIButton.highlighted = true;
-                        uipowerExchangerWindow.transition0.anchoredPosition = transition1Pos;
-                        uipowerExchangerWindow.transition1.anchoredPosition = transition0Pos;
-                        if (!uipowerExchangerWindow.transition0.gameObject.activeSelf && !uipowerExchangerWindow.transition1.gameObject.activeSelf)
-                        {
-                            uipowerExchangerWindow.transition0.gameObject.SetActive(true);
-                            uipowerExchangerWindow.transition1.gameObject.SetActive(true);
-                        }
-                        break;
-                }
-            });
-            uipowerExchangerWindow.exchangerMode1UIButton.onClick += OnModeButtonClick;
-            uipowerExchangerWindow.exchangerMode2UIButton.onClick += OnModeButtonClick;
-            uipowerExchangerWindow.exchangerMode3UIButton.onClick += OnModeButtonClick;
-            uipowerExchangerWindow.emptyIncs[0].enabled = false;
-            uipowerExchangerWindow.emptyIncs[1].enabled = false;
-            uipowerExchangerWindow.emptyIncs[2].enabled = false;
-            uipowerExchangerWindow.fullIncs[0].enabled = false;
-            uipowerExchangerWindow.fullIncs[1].enabled = false;
-            uipowerExchangerWindow.fullIncs[2].enabled = false;
-            uipowerExchangerWindow.emptyCountWarning.gameObject.SetActive(false);
-            uipowerExchangerWindow.fullCountWarning.gameObject.SetActive(false);
-
-
-            #endregion
-            #region StationWindow
+            #region StationInfoWindow
             stationTip = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks"), GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs").transform);
             stationTip.name = "stationTip";
             Destroy(stationTip.GetComponent<UIVeinDetail>());
@@ -1453,7 +824,6 @@ namespace Auxilaryfunction.Services
             TrashStorageWindow.SetActive(false);
             TrashCanButton.SetActive(TrashStorageWindow_bool.Value);
             #endregion
-
         }
 
         public void CloseTrashStorageWindow()
@@ -1464,13 +834,6 @@ namespace Auxilaryfunction.Services
             TrashStorage.Clear();
         }
 
-        private void SetSignalId(int signalId)
-        {
-            if (LDB.signals.IconSprite(signalId) == null) return;
-            pointsignalid = signalId;
-            beltWindow.transform.Find("item-sign").GetComponent<Image>().sprite = LDB.signals.IconSprite(signalId);
-        }
-
         #region 窗口UI
         private void MainWindow(int winId)
         {
@@ -1479,17 +842,18 @@ namespace Auxilaryfunction.Services
             GUILayout.BeginVertical();
 
             GUILayout.BeginHorizontal();
-            for (int i = 1; i <= 6; i++)
+            for (int i = 1; i <= 7; i++)
             {
                 if (whichpannel == i)
                 {
-                    GUILayout.Button(menus[i].getTranslate(), selectedButtonStyle, menusbuttonoptions);
+                    GUILayout.Button(menus[i].getTranslate(), selectedButtonStyle, buttonoptions);
                 }
                 else
                 {
-                    if (GUILayout.Button(menus[i].getTranslate(), menusbuttonoptions)) { whichpannel = i; }
+                    if (GUILayout.Button(menus[i].getTranslate(), buttonoptions)) { whichpannel = i; }
                 }
             }
+            GUILayout.Space(20);
             GUILayout.EndHorizontal();
 
             scrollPosition = GUILayout.BeginScrollView(scrollPosition, new[] { GUILayout.Width(MainWindowWidth - 20), GUILayout.Height(MainWindowHeight - heightdis * 2) });
@@ -1513,6 +877,9 @@ namespace Auxilaryfunction.Services
                     break;
                 case 6:
                     BattlePanel();
+                    break;
+                case 7:
+                    BluePrintConfigSetPanel();
                     break;
             }
 
@@ -1545,7 +912,6 @@ namespace Auxilaryfunction.Services
                             default:
                                 GUILayout.EndHorizontal();
                                 continue;
-                                break;
                             case "填充飞机数量":
                                 StationDroneNumber = (int)GUILayout.HorizontalSlider(StationDroneNumber, buildconfig.LowLimit, buildconfig.UpperLimit, HorizontalSlideroptions);
                                 showinfo = StationDroneNumber + " ";
@@ -1598,7 +964,7 @@ namespace Auxilaryfunction.Services
                 if (GUILayout.Button("批量配置当前星球物流站".getTranslate(), buttonoptions)) ChangeAllStationConfig();
                 if (GUILayout.Button("批量配置当前星球大型采矿机采矿速率".getTranslate(), buttonoptions)) ChangeAllVeinCollectorSpeedConfig();
                 GUILayout.BeginHorizontal();
-                GUILayout.Button(LDB.items.Select(2105).iconSprite.texture, normalstyle, GUILayout.Height(heightdis), GUILayout.Width(heightdis));
+                GUILayout.Button(LDB.items.Select(2105).iconSprite.texture, normalstyle, iconbuttonoptions);
                 if (GUILayout.Button("铺满轨道采集器".getTranslate(), buttonoptions)) SetGasStation();
                 GUILayout.EndHorizontal();
 
@@ -1656,7 +1022,7 @@ namespace Auxilaryfunction.Services
                 GUILayout.BeginHorizontal();
 
                 {
-                    GUILayout.Button(LDB.items.Select(2210).iconSprite.texture, normalstyle, GUILayout.Height(heightdis), GUILayout.Width(heightdis));
+                    GUILayout.Button(LDB.items.Select(2210).iconSprite.texture, normalstyle, iconbuttonoptions);
 
                     GUILayout.BeginVertical();
 
@@ -1667,8 +1033,8 @@ namespace Auxilaryfunction.Services
                         int itemID = 1803 + j;
                         GUIStyle style = normalstyle;
                         if (auto_supply_starfuelID.Value == itemID)
-                            style = whitestyle;
-                        if (GUILayout.Button(LDB.items.Select(itemID).iconSprite.texture, style, GUILayout.Height(heightdis), GUILayout.Width(heightdis)))
+                            style = imageButtonSelectedStyle;
+                        if (GUILayout.Button(LDB.items.Select(itemID).iconSprite.texture, style, iconbuttonoptions))
                         {
                             auto_supply_starfuelID.Value = itemID;
                         }
@@ -1686,7 +1052,7 @@ namespace Auxilaryfunction.Services
                 GUILayout.BeginHorizontal();
 
                 {
-                    GUILayout.Button(LDB.items.Select(2107).iconSprite.texture, normalstyle, GUILayout.Height(heightdis), GUILayout.Width(heightdis));
+                    GUILayout.Button(LDB.items.Select(2107).iconSprite.texture, normalstyle, iconbuttonoptions);
 
                     GUILayout.BeginVertical();
                     autosetCourier_bool.Value = GUILayout.Toggle(autosetCourier_bool.Value, "自动填充配送运输机".getTranslate());
@@ -1699,7 +1065,7 @@ namespace Auxilaryfunction.Services
                 GUILayout.EndHorizontal();
                 {
                     GUILayout.BeginHorizontal();
-                    GUILayout.Button(LDB.items.Select(2311).iconSprite.texture, normalstyle, GUILayout.Height(heightdis), GUILayout.Width(heightdis));
+                    GUILayout.Button(LDB.items.Select(2311).iconSprite.texture, normalstyle, iconbuttonoptions);
                     auto_setejector_bool.Value = GUILayout.Toggle(auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate());
                     GUILayout.EndHorizontal();
                 }
@@ -1740,7 +1106,7 @@ namespace Auxilaryfunction.Services
             GUILayout.Space(30);
             GUILayout.BeginVertical();
             {
-                GUILayout.Label("机甲自动化");
+                GUILayout.Label("机甲自动化".getTranslate());
                 autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate());
 
                 automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate() + $":{automovetoPrebuildSecondElapse.Value}s");
@@ -1781,7 +1147,7 @@ namespace Auxilaryfunction.Services
 
             GUILayout.BeginVertical();
             {
-                GUILayout.Label("模型屏蔽");
+                GUILayout.Label("模型屏蔽".getTranslate());
                 norender_dysonshell_bool.Value = GUILayout.Toggle(norender_dysonshell_bool.Value, "不渲染戴森壳".getTranslate());
                 norender_dysonswarm_bool.Value = GUILayout.Toggle(norender_dysonswarm_bool.Value, "不渲染戴森云".getTranslate());
                 norender_lab_bool.Value = GUILayout.Toggle(norender_lab_bool.Value, "不渲染研究站".getTranslate());
@@ -1801,7 +1167,7 @@ namespace Auxilaryfunction.Services
 
             GUILayout.BeginVertical();
             {
-                GUILayout.Label("UI屏蔽");
+                GUILayout.Label("UI屏蔽".getTranslate());
                 norender_powerdisk_bool.Value = GUILayout.Toggle(norender_powerdisk_bool.Value, "不渲染电网覆盖".getTranslate());
                 CloseUIRandomTip.Value = GUILayout.Toggle(CloseUIRandomTip.Value, "关闭建筑栏提示".getTranslate());
                 CloseUITutorialTip.Value = GUILayout.Toggle(CloseUITutorialTip.Value, "关闭教学提示".getTranslate());
@@ -1824,7 +1190,7 @@ namespace Auxilaryfunction.Services
 
             GUILayout.BeginVertical();
             {
-                GUILayout.Label("声音屏蔽");
+                GUILayout.Label("声音屏蔽".getTranslate());
                 closeplayerflyaudio.Value = GUILayout.Toggle(closeplayerflyaudio.Value, "关闭玩家走路飞行声音".getTranslate());
             }
             GUILayout.EndVertical();
@@ -2303,9 +1669,9 @@ namespace Auxilaryfunction.Services
 
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal();
-            AutoNavigateToDarkFogHive.Value = GUILayout.Toggle(AutoNavigateToDarkFogHive.Value, "黑雾巢穴自动导航");
+            AutoNavigateToDarkFogHive.Value = GUILayout.Toggle(AutoNavigateToDarkFogHive.Value, "黑雾巢穴自动导航".getTranslate());
             AutoNavigateToDarkFogHiveKeepDistance.Value = (int)GUILayout.HorizontalSlider(AutoNavigateToDarkFogHiveKeepDistance.Value, 10, 240);
-            GUILayout.Label("跟随距离：" + NumberTranslate.DistanceTranslate(AutoNavigateToDarkFogHiveKeepDistance.Value * 100));
+            GUILayout.Label("跟随距离".getTranslate() + ":" + NumberTranslate.DistanceTranslate(AutoNavigateToDarkFogHiveKeepDistance.Value * 100));
             GUILayout.EndHorizontal();
             if (GameMain.data?.spaceSector?.dfHives != null)
             {
@@ -2350,37 +1716,37 @@ namespace Auxilaryfunction.Services
                     }
                 }
                 GUILayout.Space(30);
-                GUILayout.Label("火种列表");
+                GUILayout.Label("火种列表".getTranslate());
                 if (num == 0)
                 {
-                    GUILayout.Label("无火种");
+                    GUILayout.Label("无火种".getTranslate());
                 }
                 else
                 {
                     GUILayout.BeginHorizontal();
                     GUILayout.BeginVertical();
-                    GUILayout.Label("出发星系");
+                    GUILayout.Label("出发星系".getTranslate());
                     for (int i = 0; i < num; i++)
                     {
                         GUILayout.Label(originstars[i]);
                     }
                     GUILayout.EndVertical();
                     GUILayout.BeginVertical();
-                    GUILayout.Label("目标星系");
+                    GUILayout.Label("目标星系".getTranslate());
                     for (int i = 0; i < num; i++)
                     {
                         GUILayout.Label(targetstars[i]);
                     }
                     GUILayout.EndVertical();
                     GUILayout.BeginVertical();
-                    GUILayout.Label("与玩家距离");
+                    GUILayout.Label("与玩家距离".getTranslate());
                     for (int i = 0; i < num; i++)
                     {
                         GUILayout.Label(showdistances[i]);
                     }
                     GUILayout.EndVertical();
                     GUILayout.BeginVertical();
-                    GUILayout.Label("离目标星系距离");
+                    GUILayout.Label("离目标星系距离".getTranslate());
                     for (int i = 0; i < num; i++)
                     {
                         GUILayout.Label(showremaindistances[i]);
@@ -2390,7 +1756,7 @@ namespace Auxilaryfunction.Services
                     GUILayout.Label("");
                     for (int i = 0; i < num; i++)
                     {
-                        if (GUILayout.Button("导航"))
+                        if (GUILayout.Button("导航".getTranslate()))
                         {
                             if (autonavigation_bool.Value)
                             {
@@ -2398,7 +1764,7 @@ namespace Auxilaryfunction.Services
                             }
                             else
                             {
-                                UIMessageBox.Show("自动导航失败", "未启用自动导航", "确定".Translate(), 3);
+                                UIMessageBox.Show("自动导航失败".getTranslate(), "未启用自动导航".getTranslate(), "确定".Translate(), 3);
                             }
                         }
                     }
@@ -2423,16 +1789,16 @@ namespace Auxilaryfunction.Services
                     CosmicMessageDatas.Add(t.messageData);
                 }
 
-                GUILayout.Label("通讯器列表");
+                GUILayout.Label("通讯器列表".getTranslate());
                 if (num == 0)
                 {
-                    GUILayout.Label("无通讯器");
+                    GUILayout.Label("无通讯器".getTranslate());
                 }
                 else
                 {
                     GUILayout.BeginHorizontal();
                     GUILayout.BeginVertical();
-                    GUILayout.Label("与玩家距离");
+                    GUILayout.Label("与玩家距离".getTranslate());
                     for (int i = 0; i < num; i++)
                     {
                         GUILayout.Label(showdistances[i]);
@@ -2442,7 +1808,7 @@ namespace Auxilaryfunction.Services
                     GUILayout.Label("");
                     for (int i = 0; i < num; i++)
                     {
-                        if (GUILayout.Button("导航"))
+                        if (GUILayout.Button("导航".getTranslate()))
                         {
                             if (autonavigation_bool.Value)
                             {
@@ -2451,7 +1817,7 @@ namespace Auxilaryfunction.Services
                             }
                             else
                             {
-                                UIMessageBox.Show("自动导航失败", "未启用自动导航", "确定".Translate(), 3);
+                                UIMessageBox.Show("自动导航失败".getTranslate(), "未启用自动导航".getTranslate(), "确定".Translate(), 3);
                             }
                         }
                     }
@@ -2462,6 +1828,147 @@ namespace Auxilaryfunction.Services
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
         }
+
+        private void BluePrintConfigSetPanel()
+        {
+            if (LocalPlanet == null || blue_copy?.blueprint?.buildings == null)
+            {
+                BluePrintBatchModifyBuild.Reset();
+                GUILayout.Label("进入蓝图模式可使用".getTranslate());
+                return;
+            }
+            CheckBluePrint();
+            GUILayout.BeginVertical();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("全选当前星球建筑".getTranslate(), buttonoptions))
+            {
+                blue_copy.ArrangeSelection(true);
+                foreach (var et in LocalPlanet.factory.entityPool)
+                {
+                    if (et.id == 0) continue;
+                    blue_copy.preSelectObjIds.Add(et.id);
+                    blue_copy.selectedObjIds.Add(et.id);
+                }
+                blue_copy.ClearPreSelection();
+                blue_copy.RefreshBlueprintData();
+                blue_copy.DeterminePreviews();
+            }
+            if (GUILayout.Button("删除选中建筑".getTranslate(), buttonoptions))
+            {
+                UIMessageBox.Show("辅助面板提示".getTranslate(), "删除选中建筑".getTranslate(), "取消".Translate(), "确定".Translate(), 1, null, new UIMessageBox.Response(() =>
+                {
+                    PlayerAction_Build build = player.controller.actionBuild;
+                    foreach (BuildPreview bp in blue_copy.bpPool)
+                    {
+                        if (bp != null && bp.item != null && bp.objId > 0)
+                        {
+                            int stationId = LocalPlanet.factory.entityPool[bp.objId].stationId;
+                            if (stationId > 0)
+                            {
+                                StationComponent sc = LocalPlanet.factory.transport.stationPool[stationId];
+                                for (int i = 0; i < sc.storage.Length; i++)
+                                {
+                                    int package = player.TryAddItemToPackage(sc.storage[i].itemId, sc.storage[i].count, 0, true, bp.objId);
+                                    UIItemup.Up(sc.storage[i].itemId, package);
+                                }
+                                sc.storage = new StationStore[sc.storage.Length];
+                                sc.needs = new int[sc.needs.Length];
+                            }
+                            build.DoDismantleObject(bp.objId);
+                        }
+                    }
+                    blue_copy.ClearSelection();
+                    blue_copy.ClearPreSelection();
+                    blue_copy.ResetBlueprint();
+                    blue_copy.ResetBuildPreviews();
+                    blue_copy.RefreshBlueprintData();
+                }));
+                VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
+            }
+            GUILayout.EndHorizontal();
+
+            var buildIcons = buildIconsDictionary.Keys.ToList();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("可修改建筑".getTranslate(), labelstyle);
+            for (int i = 0; i < buildIcons.Count(); i++)
+            {
+                var item = LDB.items.Select(buildIcons[i]);
+                var style = imageButtonNormalStyle;
+                if (CurrentSelectedBuilds.Contains(item.ID))
+                {
+                    style = imageButtonSelectedStyle;
+                }
+                if (GUILayout.Button(item.iconSprite.texture, style, iconbuttonoptions))
+                {
+                    SelectItemId(item.ID);
+                }
+            }
+            CurrentSelectedBuildName = "";
+            for (int i = CurrentSelectedBuilds.Count - 1; i >= 0; i--)
+            {
+                int itemId = CurrentSelectedBuilds[i];
+                if (!buildIconsDictionary.ContainsKey(itemId))
+                {
+                    UnSelectItemId(itemId);
+                    continue;
+                }
+                CurrentSelectedBuildName += "【" + LDB.items.Select(itemId).Name + "x" + buildIconsDictionary[itemId] + "】\t";
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            GUILayout.Label(CurrentSelectedBuildName);
+            switch (CurrentSelectedBuildType)
+            {
+                default:
+
+                    break;
+                case BuildType.Lab:
+                    LabModify();
+                    break;
+                case BuildType.Assemble:
+                    AssemblyGeneral(ERecipeType.Assemble);
+                    break;
+                case BuildType.Smelt:
+                    AssemblyGeneral(ERecipeType.Smelt);
+                    break;
+                case BuildType.Refine:
+                    AssemblyGeneral(ERecipeType.Refine);
+                    break;
+                case BuildType.Chemical:
+                    AssemblyGeneral(ERecipeType.Chemical);
+                    break;
+                case BuildType.Particle:
+                    AssemblyGeneral(ERecipeType.Particle);
+                    break;
+                case BuildType.Turret:
+                    TurretModify();
+                    break;
+                case BuildType.NormalStation:
+                    NormalStationModify();
+                    break;
+                case BuildType.StellarStation:
+                    StellarStationModify();
+                    break;
+                case BuildType.PowergenGamma:
+                    PowergenGammaModify();
+                    break;
+                case BuildType.PowerExchanger:
+                    PowerExchangerModify();
+                    break;
+                case BuildType.Belt:
+                    BeltModify();
+                    break;
+                case BuildType.Ejector:
+                    EjectorModify();
+                    if (GameMain.data.dysonSpheres[GameMain.localStar.index] != null)
+                    {
+                    }
+                    break;
+            }
+
+            GUILayout.EndVertical();
+        }
+
 
         private void DysonBluePrintDataDraw(List<TempDysonBlueprintData> datalist)
         {
@@ -2479,6 +1986,7 @@ namespace Auxilaryfunction.Services
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
         }
+
         #endregion
 
         #region 窗口操作
@@ -2573,6 +2081,699 @@ namespace Auxilaryfunction.Services
             }
             MainWindowWidth = x;
             MainWindowHeight = y;
+        }
+        #endregion
+
+        #region 建筑配置批量修改
+        public void NormalStationModify()
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.BeginVertical();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("物流站名称".getTranslate());
+            ModifyStationName = GUILayout.TextArea(ModifyStationName, GUILayout.Width(200));
+            if (GUILayout.Button("设置名称".getTranslate(), buttonoptions))
+            {
+                foreach (var stationId in normalstations)
+                {
+                    StationComponent station = LocalPlanet.factory.transport.stationPool[stationId];
+                    LocalPlanet.factory.WriteExtraInfoOnEntity(station.entityId, ModifyStationName);
+                }
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginVertical();
+            for (int i = 0; i < 4; i++)
+            {
+                var stationStoreConfig = stationStoreConfigs[i];
+                GUILayout.BeginHorizontal(GUILayout.Height(70));
+                stationStoreConfig.IsEnabled = GUILayout.Toggle(stationStoreConfig.IsEnabled, "启用".getTranslate());
+                bool selectOpen = false;
+                if (stationStoreConfig.ItemId == 0)
+                {
+                    if (GUILayout.Button("无".getTranslate(), bigiconbuttonoptions))
+                    {
+                        selectOpen = true;
+                    }
+                }
+                else
+                {
+                    if (GUILayout.Button(LDB.items.Select(stationStoreConfig.ItemId).iconSprite.texture, bigiconbuttonoptions))
+                    {
+                        selectOpen = true;
+                    }
+                }
+                if (selectOpen)
+                {
+                    var Canvasrt = UIRoot.instance.overlayCanvas.GetComponent<RectTransform>();
+                    float CanvaswidthMultiple = Canvasrt.sizeDelta.x * 1.0f / Screen.width;
+                    UIItemPicker.Popup(new Vector2(-Screen.width * CanvaswidthMultiple / 2, Screen.height * CanvaswidthMultiple / 2), (item) =>
+                    {
+                        if (item == null)
+                        {
+                            stationStoreConfig.ItemId = 0;
+                        }
+                        else
+                        {
+                            for (int k = 0; k < stationStoreConfigs.Length; k++)
+                            {
+                                if (stationStoreConfig.ItemId == item.ID)
+                                {
+                                    stationStoreConfig.ItemId = 0;
+                                    stationStoreConfig.IsEnabled = false;
+                                }
+                            }
+                            stationStoreConfig.ItemId = item.ID;
+                        }
+                    });
+                }
+
+                GUILayout.BeginVertical();
+                stationStoreConfig.max = (int)GUILayout.HorizontalSlider(stationStoreConfig.max, 0, 100, GUILayout.Width(120));
+                GUILayout.Label("上限".getTranslate() + stationStoreConfig.max * 100);
+                GUILayout.EndVertical();
+                GUILayout.BeginVertical();
+                if (GUILayout.Button(GetStationlogic(stationStoreConfig.localLogic), GetStationStorelogicStyle(stationStoreConfig.localLogic)))
+                {
+                    stationStoreConfig.localLogic = (ELogisticStorage)(((int)stationStoreConfig.localLogic + 1) % 3);
+                }
+                GUILayout.EndVertical();
+
+                GUILayout.EndHorizontal();
+            }
+            if (GUILayout.Button("设置物流站".getTranslate(), buttonoptions))
+            {
+                foreach (var stationId in normalstations)
+                {
+                    StationComponent station = LocalPlanet.factory.transport.stationPool[stationId];
+                    for (int i = 0; i < station.storage.Length && i < 4; i++)
+                    {
+                        var stationStoreConfig = stationStoreConfigs[i];
+                        if (!stationStoreConfig.IsEnabled)
+                        {
+                            continue;
+                        }
+                        station.storage[i].itemId = stationStoreConfig.ItemId;
+                        station.storage[i].max = stationStoreConfig.max * 100;
+                        if (station.storage[i].itemId > 0)
+                        {
+                            station.storage[i].localLogic = stationStoreConfig.localLogic;
+                        }
+                    }
+                }
+            }
+            if (GUILayout.Button("设置选中物流站参数".getTranslate()))
+            {
+                foreach (var stationId in normalstations)
+                {
+                    StationComponent sc = LocalPlanet.factory.transport.stationPool[stationId];
+
+                    sc.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
+                    LocalPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
+                    if (stationmaxpowerpertick.Value > 60 && !sc.isStellar)
+                    {
+                        LocalPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)60 * 16667;
+                    }
+                    sc.deliveryDrones = DroneStartCarry.Value == 0 ? 1 : (int)(DroneStartCarry.Value * 10) * 10;
+
+                    if (sc.isStellar)
+                    {
+                        sc.warpEnableDist = stationwarpdist.Value * GalaxyData.AU;
+                        sc.deliveryShips = ShipStartCarry.Value == 0 ? 1 : (int)(ShipStartCarry.Value * 10) * 10;
+                        sc.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
+                    }
+                }
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        public void StellarStationModify()
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.BeginVertical();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("物流站名称".getTranslate());
+            ModifyStationName = GUILayout.TextArea(ModifyStationName, GUILayout.Width(200));
+            if (GUILayout.Button("设置名称".getTranslate(), buttonoptions))
+            {
+                foreach (var stationId in stellarstations)
+                {
+                    StationComponent sc = LocalPlanet.factory.transport.stationPool[stationId];
+                    LocalPlanet.factory.WriteExtraInfoOnEntity(sc.entityId, ModifyStationName);
+                }
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+
+            GUILayout.BeginVertical();
+            for (int i = 0; i < 5; i++)
+            {
+                var stationStoreConfig = stationStoreConfigs[i];
+                GUILayout.BeginHorizontal(GUILayout.Height(70));
+                stationStoreConfig.IsEnabled = GUILayout.Toggle(stationStoreConfig.IsEnabled, "启用".getTranslate());
+                bool selectOpen = false;
+                if (stationStoreConfig.ItemId == 0)
+                {
+                    if (GUILayout.Button("无".getTranslate(), bigiconbuttonoptions))
+                    {
+                        selectOpen = true;
+                    }
+                }
+                else
+                {
+                    if (GUILayout.Button(LDB.items.Select(stationStoreConfig.ItemId).iconSprite.texture, bigiconbuttonoptions))
+                    {
+                        selectOpen = true;
+                    }
+                }
+                if (selectOpen)
+                {
+                    var Canvasrt = UIRoot.instance.overlayCanvas.GetComponent<RectTransform>();
+                    float CanvaswidthMultiple = Canvasrt.sizeDelta.x * 1.0f / Screen.width;
+                    UIItemPicker.Popup(new Vector2(-Screen.width * CanvaswidthMultiple / 2, Screen.height * CanvaswidthMultiple / 2), (item) =>
+                    {
+                        if (item == null)
+                        {
+                            stationStoreConfig.ItemId = 0;
+                        }
+                        else
+                        {
+                            for (int k = 0; k < stationStoreConfigs.Length; k++)
+                            {
+                                if (stationStoreConfig.ItemId == item.ID)
+                                {
+                                    stationStoreConfig.ItemId = 0;
+                                    stationStoreConfig.IsEnabled = false;
+                                }
+                            }
+                            stationStoreConfig.ItemId = item.ID;
+                        }
+                    });
+                }
+
+                GUILayout.BeginVertical();
+                stationStoreConfig.max = (int)GUILayout.HorizontalSlider(stationStoreConfig.max, 0, 200, GUILayout.Width(120));
+                GUILayout.Label("上限".getTranslate() + stationStoreConfig.max * 100);
+                GUILayout.EndVertical();
+                GUILayout.BeginVertical();
+                if (GUILayout.Button("本地".getTranslate() + GetStationlogic(stationStoreConfig.localLogic), GetStationStorelogicStyle(stationStoreConfig.localLogic)))
+                {
+                    stationStoreConfig.localLogic = (ELogisticStorage)(((int)stationStoreConfig.localLogic + 1) % 3);
+                }
+                if (GUILayout.Button("星际".getTranslate() + GetStationlogic(stationStoreConfig.remoteLogic), GetStationStorelogicStyle(stationStoreConfig.remoteLogic)))
+                {
+                    stationStoreConfig.remoteLogic = (ELogisticStorage)(((int)stationStoreConfig.remoteLogic + 1) % 3);
+                }
+                GUILayout.EndVertical();
+
+                GUILayout.EndHorizontal();
+            }
+            if (GUILayout.Button("设置物流站".getTranslate(), buttonoptions))
+            {
+                foreach (var stationId in stellarstations)
+                {
+                    StationComponent station = LocalPlanet.factory.transport.stationPool[stationId];
+                    for (int i = 0; i < station.storage.Length && i < 5; i++)
+                    {
+                        var stationStoreConfig = stationStoreConfigs[i];
+                        if (!stationStoreConfig.IsEnabled)
+                        {
+                            continue;
+                        }
+                        station.storage[i].itemId = stationStoreConfig.ItemId;
+                        station.storage[i].max = stationStoreConfig.max * 100;
+                        if (station.storage[i].itemId > 0)
+                        {
+                            station.storage[i].localLogic = stationStoreConfig.localLogic;
+                            station.storage[i].remoteLogic = stationStoreConfig.remoteLogic;
+                        }
+                    }
+                }
+            }
+            if (GUILayout.Button("设置选中物流站参数".getTranslate()))
+            {
+                foreach (var stationId in stellarstations)
+                {
+                    StationComponent sc = LocalPlanet.factory.transport.stationPool[stationId];
+
+                    sc.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
+                    LocalPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
+                    if (stationmaxpowerpertick.Value > 60 && !sc.isStellar)
+                    {
+                        LocalPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)60 * 16667;
+                    }
+                    sc.deliveryDrones = DroneStartCarry.Value == 0 ? 1 : (int)(DroneStartCarry.Value * 10) * 10;
+
+                    if (sc.isStellar)
+                    {
+                        sc.warpEnableDist = stationwarpdist.Value * GalaxyData.AU;
+                        sc.deliveryShips = ShipStartCarry.Value == 0 ? 1 : (int)(ShipStartCarry.Value * 10) * 10;
+                        sc.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
+                    }
+                }
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.BeginVertical();
+            GUILayout.Label("分组".getTranslate(), buttonoptions);
+            for (int i = 0; i < 5; i++)
+            {
+                GUILayout.BeginHorizontal();
+                for (int j = 0; j < 6; j++)
+                {
+                    int index = i * 6 + j;
+                    if (GUILayout.Button((index + 1).ToString(), StationGroup[index] ? selectedButtonStyle : GUI.skin.button, numberButtonoptions))
+                    {
+                        StationGroup[index] = !StationGroup[index];
+                    }
+                }
+                GUILayout.EndHorizontal();
+            }
+            if (GUILayout.Button("设置分组".getTranslate(), buttonoptions))
+            {
+                foreach (var stationId in stellarstations)
+                {
+                    StationComponent station = LocalPlanet.factory.transport.stationPool[stationId];
+                    station.remoteGroupMask = 0;
+                    for (int i = 0; i < StationGroup.Length; i++)
+                    {
+                        if (!StationGroup[i]) continue;
+                        station.remoteGroupMask ^= 1 << i;
+                    }
+                }
+            }
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+
+
+            GUILayout.EndHorizontal();
+
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        public void EjectorModify()
+        {
+            DysonSwarm ds = GameMain.data.dysonSpheres[GameMain.localStar.index].swarm;
+            GUILayout.BeginVertical();
+            for (int i = 0; i < 4; i++)
+            {
+                GUILayout.BeginHorizontal();
+                for (int j = 0; j < 5; j++)
+                {
+                    int orbitid = i * 5 + j + 1;
+                    if (ds.OrbitExist(orbitid) && GUILayout.Button(orbitid.ToString(), numberButtonoptions))
+                    {
+                        for (int k = 0; k < ejectorpools.Count; k++)
+                        {
+                            LocalPlanet.factory.factorySystem.ejectorPool[ejectorpools[k]].SetOrbit(orbitid);
+                        }
+                    }
+                }
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.EndVertical();
+        }
+
+        public void LabModify()
+        {
+            GUILayout.BeginVertical();
+            GUILayout.BeginHorizontal();
+            var targetFunctionId = -1;
+            for (int i = 0; i <= 5; i++)
+            {
+                var item = LDB.items.Select(LabComponent.matrixIds[i]);
+                if (GUILayout.Button(item.iconSprite.texture, bigiconbuttonoptions))
+                {
+                    targetFunctionId = item.maincraft.ID;
+                }
+            }
+            if (GUILayout.Button("无".getTranslate(), bigiconbuttonoptions))
+            {
+                targetFunctionId = 0;
+            }
+
+            if (targetFunctionId != -1)
+            {
+                for (int j = 0; j < labpools.Count; j++)
+                {
+                    LocalPlanet.factory.factorySystem.labPool[labpools[j]].SetFunction(false, targetFunctionId, 0, LocalPlanet.factory.entitySignPool);
+                }
+            }
+
+            GUILayout.EndHorizontal();
+
+            if (GUILayout.Button("科研模式".getTranslate(), buttonoptions))
+            {
+                for (int j = 0; j < labpools.Count; j++)
+                {
+                    LocalPlanet.factory.factorySystem.labPool[labpools[j]].SetFunction(true, 0, GameMain.history.currentTech, LocalPlanet.factory.entitySignPool);
+                }
+            }
+            if (GUILayout.Button("额外产出".getTranslate(), buttonoptions))
+            {
+                for (int j = 0; j < labpools.Count; j++)
+                {
+                    if (LocalPlanet.factory.factorySystem.labPool[labpools[j]].productive)
+                        LocalPlanet.factory.factorySystem.labPool[labpools[j]].forceAccMode = false;
+                }
+            }
+            if (GUILayout.Button("生产加速".getTranslate(), buttonoptions))
+            {
+                for (int j = 0; j < labpools.Count; j++)
+                {
+                    if (LocalPlanet.factory.factorySystem.labPool[labpools[j]].productive)
+                        LocalPlanet.factory.factorySystem.labPool[labpools[j]].forceAccMode = true;
+                }
+            }
+
+            GUILayout.EndVertical();
+        }
+
+        public void PowergenGammaModify()
+        {
+            PlanetFactory factory = LocalPlanet.factory;
+            GUILayout.BeginVertical();
+            if (GUILayout.Button("直接发电".getTranslate(), buttonoptions))
+            {
+                for (int j = 0; j < powergenGammapools.Count; j++)
+                {
+                    var pgc = factory.powerSystem.genPool[powergenGammapools[j]];
+                    int generatorId = powergenGammapools[j];
+                    if (pgc.gamma)
+                    {
+                        PowerGeneratorComponent powerGeneratorComponent = factory.powerSystem.genPool[generatorId];
+
+                        int productId = powerGeneratorComponent.productId;
+                        int num = (int)powerGeneratorComponent.productCount;
+                        if (productId != 0 && num > 0)
+                        {
+                            int upCount = player.TryAddItemToPackage(productId, num, 0, true, 0);
+                            UIItemup.Up(productId, upCount);
+                        }
+                        factory.powerSystem.genPool[generatorId].productId = 0;
+                        factory.powerSystem.genPool[generatorId].productCount = 0;
+                    }
+                }
+            }
+            if (GUILayout.Button("光子生成".getTranslate(), buttonoptions))
+            {
+                for (int j = 0; j < powergenGammapools.Count; j++)
+                {
+                    var pgc = factory.powerSystem.genPool[powergenGammapools[j]];
+                    int generatorId = powergenGammapools[j];
+                    if (pgc.gamma)
+                    {
+                        PowerGeneratorComponent powerGeneratorComponent = factory.powerSystem.genPool[generatorId];
+
+                        ItemProto itemProto = LDB.items.Select(factory.entityPool[powerGeneratorComponent.entityId].protoId);
+                        if (itemProto == null)
+                        {
+                            return;
+                        }
+                        GameHistoryData history = GameMain.history;
+                        if (LDB.items.Select(itemProto.prefabDesc.powerProductId) == null || !history.ItemUnlocked(itemProto.prefabDesc.powerProductId))
+                        {
+                            factory.powerSystem.genPool[generatorId].productId = 0;
+                            return;
+                        }
+                        factory.powerSystem.genPool[generatorId].productId = itemProto.prefabDesc.powerProductId;
+                    }
+                }
+            }
+            GUILayout.EndVertical();
+        }
+
+        public void PowerExchangerModify()
+        {
+            GUILayout.BeginVertical();
+            int targetState = -2;
+            if (GUILayout.Button("放电".getTranslate(), buttonoptions))
+            {
+                targetState = -1;
+            }
+            if (GUILayout.Button("待机".getTranslate(), buttonoptions))
+            {
+                targetState = 0;
+            }
+            if (GUILayout.Button("充电".getTranslate(), buttonoptions))
+            {
+                targetState = 1;
+            }
+
+            if (targetState != -2)
+            {
+                foreach (var powerexchangerid in powerexchangerpools)
+                {
+                    GameMain.localPlanet.factory.powerSystem.excPool[powerexchangerid].targetState = targetState;
+                }
+            }
+
+            GUILayout.EndVertical();
+        }
+
+        public void AssemblyGeneral(ERecipeType targetRecipeType)
+        {
+            List<RecipeProto> showrecipe = LDB.recipes.dataArray.Where(rp => rp.Type == targetRecipeType && GameMain.history.RecipeUnlocked(rp.ID)).ToList();
+            int totalNumber = showrecipe.Count;
+            int columnNumber = 15;
+            int lines = totalNumber / columnNumber + ((totalNumber % columnNumber) > 0 ? 1 : 0);
+            GUILayout.BeginVertical();
+
+            for (int i = 0; i < lines; i++)
+            {
+                GUILayout.BeginHorizontal();
+                for (int j = 0; j < columnNumber; j++)
+                {
+                    int index = i * columnNumber + j;
+                    if (index == totalNumber - 1)
+                    {
+                        if (GUILayout.Button("无".getTranslate(), bigiconbuttonoptions))
+                        {
+                            for (int k = 0; k < FilterAssemblePools.Count; k++)
+                            {
+                                LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[k]].SetRecipe(0, LocalPlanet.factory.entitySignPool);
+                            }
+                        }
+                        break;
+                    }
+                    var rp = showrecipe[index];
+
+                    if (GUILayout.Button(rp.iconSprite.texture, bigiconbuttonoptions))
+                    {
+                        for (int k = 0; k < FilterAssemblePools.Count; k++)
+                        {
+                            LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[k]].SetRecipe(rp.ID, LocalPlanet.factory.entitySignPool);
+                        }
+                    }
+                }
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("额外产出".getTranslate(), buttonoptions))
+            {
+                for (int j = 0; j < FilterAssemblePools.Count; j++)
+                {
+                    var assembler = LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[j]];
+                    if (assembler.productive)
+                        assembler.forceAccMode = false;
+                }
+            }
+            if (GUILayout.Button("生产加速".getTranslate(), buttonoptions))
+            {
+                for (int j = 0; j < FilterAssemblePools.Count; j++)
+                {
+                    var assembler = LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[j]];
+                    if (assembler.productive)
+                        assembler.forceAccMode = true;
+                }
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.EndVertical();
+        }
+
+        public void TurretModify()
+        {
+            GUILayout.BeginVertical();
+            GUILayout.Label("分组".getTranslate());
+            GUILayout.BeginHorizontal();
+            for (int i = 1; i <= 5; i++)
+            {
+                if (GUILayout.Button(i.ToString(), SelectedTurretGroup == i ? selectedButtonStyle : GUI.skin.button, numberButtonoptions))
+                {
+                    SelectedTurretGroup = i;
+                }
+            }
+            if (GUILayout.Button("取消分组".getTranslate(), SelectedTurretGroup == 0 ? selectedButtonStyle : GUI.skin.button))
+            {
+                SelectedTurretGroup = 0;
+            }
+            GUILayout.EndHorizontal();
+            if (GUILayout.Button("设置分组".getTranslate()))
+            {
+                foreach (var turretid in turretpool)
+                {
+                    ref TurretComponent ptr = ref LocalPlanet.factory.defenseSystem.turrets.buffer[turretid];
+                    if (ptr.id != turretid)
+                    {
+                        continue;
+                    }
+                    ptr.SetGroup(SelectedTurretGroup);
+                }
+            }
+
+            GUILayout.Label("参数配置".getTranslate());
+
+            GUILayout.BeginHorizontal();
+
+            string[] layers = new string[4] { "地面", "低空", "高空", "太空" };
+            string[] configNames = new string[4] { "OFF", "低优先", "均衡", "高优先" };
+            for (int i = 0; i < 4; i++)
+            {
+                GUILayout.BeginVertical();
+                GUILayout.Label(layers[i].getTranslate());
+                if (GUILayout.Button(configNames[TurretConfigs[i]]))
+                {
+                    TurretConfigIsSelected[i] = !TurretConfigIsSelected[i];
+                    if (TurretConfigIsSelected[i])
+                    {
+                        for (int j = 0; j < 4; j++)
+                        {
+                            if (i == j) continue;
+                            TurretConfigIsSelected[j] = false;
+                        }
+                    }
+                }
+                if (TurretConfigIsSelected[i])
+                {
+                    for (int j = 0; j < 4; j++)
+                    {
+                        if (GUILayout.Button(configNames[j].getTranslate()))
+                        {
+                            TurretConfigs[i] = j;
+                            TurretConfigIsSelected[i] = false;
+                        }
+                    }
+                }
+
+                GUILayout.EndVertical();
+            }
+            GUILayout.EndHorizontal();
+            if (GUILayout.Button("设置参数".getTranslate()))
+            {
+                foreach (var turretid in turretpool)
+                {
+                    ref TurretComponent ptr = ref LocalPlanet.factory.defenseSystem.turrets.buffer[turretid];
+                    if (ptr.id != turretid)
+                    {
+                        continue;
+                    }
+
+                    VSLayerMask vsSettings = ptr.vsSettings;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        var value = TurretConfigs[i];
+                        switch (i)
+                        {
+                            case 0:
+                                ptr.vsSettings &= VSLayerMask.AirAngOrbitAndSpace;
+                                break;
+                            case 1:
+                                ptr.vsSettings &= VSLayerMask.GroundAndOrbitAndSpace;
+                                break;
+                            case 2:
+                                ptr.vsSettings &= VSLayerMask.GroundAndAirAndSpace;
+                                break;
+                            case 3:
+                                ptr.vsSettings &= VSLayerMask.GroundAndAirAndOrbit;
+                                break;
+                        }
+                        ptr.vsSettings |= (VSLayerMask)(value << i * 2);
+                    }
+                    if (ptr.vsSettings != vsSettings)
+                    {
+                        ptr.Search(GameMain.localPlanet.factory, PlanetFactory.PrefabDescByModelIndex[GameMain.localPlanet.factory.entityPool[ptr.entityId].modelIndex], GameMain.gameTick);
+                    }
+                }
+            }
+
+
+
+            GUILayout.EndVertical();
+        }
+
+        public void BeltModify()
+        {
+            bool isslected = false;
+            GUILayout.BeginVertical();
+            GUILayout.BeginHorizontal();
+            if (BeltSignalIconId == 0)
+            {
+                if (GUILayout.Button("无".getTranslate(), bigiconbuttonoptions))
+                {
+                    isslected = true;
+                }
+            }
+            else
+            {
+                if (GUILayout.Button(LDB.signals.IconSprite(BeltSignalIconId).texture, bigiconbuttonoptions))
+                {
+                    isslected = true;
+                }
+            }
+
+            if (isslected)
+            {
+                var Canvasrt = UIRoot.instance.overlayCanvas.GetComponent<RectTransform>();
+                float CanvaswidthMultiple = Canvasrt.sizeDelta.x * 1.0f / Screen.width;
+                UISignalPicker.Popup(new Vector2(-Screen.width * CanvaswidthMultiple / 2, Screen.height * CanvaswidthMultiple / 2), new Action<int>(signalid =>
+                {
+                    BeltSignalIconId = signalid;
+                }));
+            }
+            if (GUILayout.Button("设置".getTranslate()))
+            {
+                foreach (int i in beltpools)
+                {
+                    LocalPlanet.factory.cargoTraffic.SetBeltSignalIcon(i, BeltSignalIconId);
+                }
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("传送带下标序号".getTranslate() + ":");
+            var temp = GUILayout.TextField(BeltSignalNumber.ToString(), GUILayout.MinWidth(200));
+            int tempnumber = 0;
+            if (int.TryParse(temp, out tempnumber))
+            {
+                tempnumber = Math.Min(99999, tempnumber);
+                tempnumber = Math.Max(-99999, tempnumber);
+                BeltSignalNumber = tempnumber;
+            }
+            if (GUILayout.Button("设置".getTranslate()))
+            {
+                foreach (int i in beltpools)
+                {
+                    LocalPlanet.factory.cargoTraffic.SetBeltSignalNumber(i, BeltSignalNumber);
+                }
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
         }
         #endregion
     }

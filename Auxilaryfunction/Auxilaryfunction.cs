@@ -1,4 +1,5 @@
-﻿using Auxilaryfunction.Patch;
+﻿using Auxilaryfunction.Models;
+using Auxilaryfunction.Patch;
 using Auxilaryfunction.Services;
 using BepInEx;
 using BepInEx.Configuration;
@@ -9,7 +10,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using UnityEngine;
-using UnityEngine.UI;
 using static Auxilaryfunction.Constant;
 using static Auxilaryfunction.Services.GUIDraw;
 
@@ -24,7 +24,7 @@ namespace Auxilaryfunction
 
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.6.0";
+        public const string VERSION = "2.6.3";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
         public static int automovetoPrebuildSecondElapseCounter;
@@ -34,17 +34,8 @@ namespace Auxilaryfunction
         public static int remotelogic = 2;
         public static int pointsignalid;
         public static Light SunLight;
-        public static List<int> assemblerpools;
-        public static List<int> beltpools;
-        public static List<int> ejectorpools;
-        public static List<int> labpools;
-        public static List<int> monitorpools;
-        public static List<int> powergenGammapools;
-        public static List<int> powerexchangertools;
         public static List<int> pointlayeridlist;
         public static List<int> readyresearch;
-        public static List<int> stationpools;
-        public static List<int> turrentpools;
         private float trashfunctiontime;
         public static float batchnum = 1;
 
@@ -62,7 +53,6 @@ namespace Auxilaryfunction
         public static BuildingParameters buildingParameters;
         public static int[,] stationcopyItem = new int[5, 6];
 
-        public static ERecipeType pointeRecipetype = ERecipeType.None;
         public static bool StartAutoMovetounbuilt;
         public static bool autobuildgetitem;
         public static bool StartAutoMovetoDarkfog;
@@ -151,16 +141,12 @@ namespace Auxilaryfunction
         public static GameObject[] tips = new GameObject[maxCount];
         public static GameObject stationTip;
         public static GameObject tipPrefab;
-        public static GameObject beltWindow;
-        public static GameObject SpeakerPanel;
-        public static GameObject TurretWindow;
-        public static GameObject PowerExchangerWindow;
+        public static GameObject StationWindow;
         public static GameObject TrashStorageWindow;
         public static GameObject TrashCanButton;
         public static StorageComponent TrashStorage;
-        public static UITurretWindow uiturretWindow;
+        public static UIStationWindow uiStationWindow;
         public static UIStorageWindow uiTrashStorageWindow;
-        public static UIPowerExchangerWindow uipowerExchangerWindow;
         public static Harmony harmony;
 
         void Start()
@@ -286,19 +272,10 @@ namespace Auxilaryfunction
                 QuickKey.Value = new KeyboardShortcut(KeyCode.LeftAlt, KeyCode.Alpha2);
             }
 
-            assemblerpools = new List<int>();
-            beltpools = new List<int>();
-            ejectorpools = new List<int>();
-            labpools = new List<int>();
-            monitorpools = new List<int>();
-            powergenGammapools = new List<int>();
-            powerexchangertools = new List<int>();
             pointlayeridlist = new List<int>();
             readyresearch = new List<int>();
-            stationpools = new List<int>();
-            turrentpools = new List<int>();
             var AuxilaryPanel = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.auxilarypanel")).LoadAsset<GameObject>("AuxilaryPanel");
-            var ui_AuxilaryPanelPanel = UnityEngine.Object.Instantiate(AuxilaryPanel, UIRoot.instance.overlayCanvas.transform);
+            var ui_AuxilaryPanelPanel = Instantiate(AuxilaryPanel, UIRoot.instance.overlayCanvas.transform);
             guidraw = new GUIDraw(Math.Max(5, Math.Min(scale.Value, 35)), ui_AuxilaryPanelPanel);
             DysonBluePrintDataService.LoadDysonBluePrintData();
             ThreadPool.QueueUserWorkItem(_ => SecondEvent());
@@ -319,6 +296,14 @@ namespace Auxilaryfunction
                     if (Input.GetKey(KeyCode.KeypadMinus)) SpeedUpPatch.SpeedMultiple -= 0.01f;
                     if (SpeedUpPatch.SpeedMultiple < 0.01) SpeedUpPatch.SpeedMultiple = 0.01f;
                     else if (SpeedUpPatch.SpeedMultiple > 10) SpeedUpPatch.SpeedMultiple = 10;
+                }
+            }
+
+            if (Input.GetKeyDown(KeyCode.F9))
+            {
+                foreach (var t in AuxilaryTranslate.notranslateStr)
+                {
+                    Debug.Log(t);
                 }
             }
         }
@@ -461,6 +446,7 @@ namespace Auxilaryfunction
                     PlayerOperation.ClearFollow();
                     trashfunctiontime = Time.time;
                     ReLoadEjectorDic();
+                    BluePrintBatchModifyBuild.Init();
                 }
                 else
                 {
@@ -545,6 +531,9 @@ namespace Auxilaryfunction
             }
         }
 
+        /// <summary>
+        /// 自动移动到黑雾单位
+        /// </summary>
         private void AutoMoveToDarkfog()
         {
             autoRemoveRuinId = -1;
@@ -979,169 +968,13 @@ namespace Auxilaryfunction
                             player.TryAddItemToPackage(itemId, 1, 0, true);
                         LocalPlanet.factory.RemovePrebuildWithComponents(i);
                     }
-                    pointeRecipetype = ERecipeType.None;
                 }
                 if (BluePrintSetRecipe.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.F))
                 {
                     recipewindowx = (int)Input.mousePosition.x;
                     recipewindowy = (int)Input.mousePosition.y;
-                    var assemblerPreviewpools = new List<int>();
-
-                    if (stationpools.Count + labpools.Count + assemblerpools.Count + beltpools.Count + monitorpools.Count + ejectorpools.Count + powergenGammapools.Count + turrentpools.Count + powerexchangertools.Count > 0)
-                    {
-                        InitBluePrintData();
-                        return;
-                    }
-                    //检索全部需要设置配方的建筑
-                    foreach (BuildPreview bp in blue_copy.bpPool)
-                    {
-                        if (bp != null && bp.item != null && bp.objId > 0)
-                        {
-                            var prefabDesc = bp.item.prefabDesc;
-                            if (prefabDesc.isStation)
-                            {
-                                if (build.factory.entityPool[bp.objId].minerId > 0) continue;
-                                stationpools.Add(build.factory.entityPool[bp.objId].stationId);
-                            }
-                            else if (prefabDesc.isAssembler)
-                            {
-                                assemblerPreviewpools.Add(bp.previewIndex);
-                            }
-                            else if (prefabDesc.isLab)
-                            {
-                                labpools.Add(build.factory.entityPool[bp.objId].labId);
-                            }
-                            else if (prefabDesc.isMonitor && build.factory.entityPool[bp.objId].monitorId > 0)
-                            {
-                                monitorpools.Add(build.factory.entityPool[bp.objId].monitorId);
-                            }
-                            else if (prefabDesc.isBelt && LocalPlanet.factory.entitySignPool[bp.objId].iconId0 > 0)
-                            {
-                                beltpools.Add(build.factory.entityPool[bp.objId].id);
-                            }
-                            else if (prefabDesc.isEjector)
-                            {
-                                ejectorpools.Add(build.factory.entityPool[bp.objId].ejectorId);
-                            }
-                            else if (prefabDesc.isPowerGen)
-                            {
-                                powergenGammapools.Add(build.factory.entityPool[bp.objId].powerGenId);
-                            }
-                            else if (prefabDesc.isTurret)
-                            {
-                                turrentpools.Add(build.factory.entityPool[bp.objId].turretId);
-                            }
-                            else if (prefabDesc.isPowerExchanger)
-                            {
-                                powerexchangertools.Add(build.factory.entityPool[bp.objId].powerExcId);
-                            }
-                        }
-                    }
-                    //组装机优先，其他次之，传送带再次之，检测器最后
-                    if (assemblerPreviewpools.Count > 0)
-                    {
-                        foreach (var previewIndex in assemblerPreviewpools)
-                        {
-                            var bp = blue_copy.bpPool[previewIndex];
-                            if (bp.item.prefabDesc.assemblerRecipeType != ERecipeType.None)
-                            {
-                                if (pointeRecipetype == ERecipeType.None) pointeRecipetype = bp.item.prefabDesc.assemblerRecipeType;
-                                if (pointeRecipetype != bp.item.prefabDesc.assemblerRecipeType)
-                                {
-                                    pointeRecipetype = ERecipeType.None;
-                                    assemblerpools.Clear();
-                                    break;
-                                }
-                                assemblerpools.Add(build.factory.entityPool[bp.objId].assemblerId);
-                            }
-                        }
-                    }
-                    else if (labpools.Count > 0 || ejectorpools.Count > 0 || stationpools.Count > 0 || powergenGammapools.Count > 0)
-                    {
-                        //无需操作
-                    }
-                    else if (powerexchangertools.Count > 0)
-                    {
-                        if (!PowerExchangerWindow.gameObject.activeSelf)
-                        {
-                            PowerExchangerWindow.gameObject.SetActive(true);
-
-                            PowerExchangerComponent powerExchangerComponent = GameMain.localPlanet.factory.powerSystem.excPool[powerexchangertools[0]];
-                            ItemProto itemProto = LDB.items.Select(powerExchangerComponent.emptyId);
-                            ItemProto itemProto2 = LDB.items.Select(powerExchangerComponent.fullId);
-                            uipowerExchangerWindow.emptyIcon.sprite = ((itemProto == null) ? null : itemProto.iconSprite);
-                            uipowerExchangerWindow.fullIcon.sprite = ((itemProto2 == null) ? null : itemProto2.iconSprite);
-                        }
-                        else
-                        {
-                            powerexchangertools.Clear();
-                            PowerExchangerWindow.gameObject.SetActive(false);
-                        }
-                    }
-                    else if (turrentpools.Count > 0)
-                    {
-                        if (!TurretWindow.gameObject.activeSelf)
-                        {
-                            TurretWindow.gameObject.SetActive(true);
-                            uiturretWindow.mode0Icon.sprite = uiturretWindow.fullTransparentSprite;
-                            uiturretWindow.mode0Floor.color = uiturretWindow.disableModeColor;
-                            uiturretWindow.mode1Icon.sprite = uiturretWindow.fullTransparentSprite;
-                            uiturretWindow.mode1Floor.color = uiturretWindow.disableModeColor;
-                            uiturretWindow.mode2Icon.sprite = uiturretWindow.fullTransparentSprite;
-                            uiturretWindow.mode2Floor.color = uiturretWindow.disableModeColor;
-                            uiturretWindow.mode3Icon.sprite = uiturretWindow.fullTransparentSprite;
-                            uiturretWindow.mode3Floor.color = uiturretWindow.disableModeColor;
-                            for (int i = 0; i < uiturretWindow.groupSelectionBtns.Length; i++)
-                            {
-                                UIButton uibutton = uiturretWindow.groupSelectionBtns[i];
-                                uibutton.highlighted = false;
-                            }
-                        }
-                        else
-                        {
-                            turrentpools.Clear();
-                            TurretWindow.gameObject.SetActive(false);
-                        }
-                    }
-                    else if (beltpools.Count > 0)
-                    {
-                        if (!beltWindow.gameObject.activeSelf)
-                        {
-                            int tempsignaliconid = (int)LocalPlanet.factory.entitySignPool[beltpools[0]].iconId0;
-                            int tempnumberinput = (int)LocalPlanet.factory.entitySignPool[beltpools[0]].count0;
-                            beltWindow.gameObject.SetActive(true);
-                            pointsignalid = tempsignaliconid;
-                            beltWindow.transform.Find("item-sign").GetComponent<Image>().sprite = LDB.signals.IconSprite(tempsignaliconid);
-                            beltWindow.transform.Find("number-input").GetComponent<InputField>().text = tempnumberinput + "";
-                        }
-                        else
-                        {
-                            beltpools.Clear();
-                            beltWindow.gameObject.SetActive(false);
-                            if (UISignalPicker.isOpened)
-                                UISignalPicker.Close();
-                        }
-                    }
-                    else if (monitorpools.Count > 0)
-                    {
-                        if (!SpeakerPanel.gameObject.activeSelf)
-                        {
-                            int speakerId = LocalPlanet.factory.cargoTraffic.monitorPool[monitorpools[0]].speakerId;
-                            SpeakerComponent speakerComponent = LocalPlanet.factory.digitalSystem.speakerPool[speakerId];
-                            SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().pitchSlider.value = speakerComponent.pitch;
-                            SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().volumeSlider.value = speakerComponent.volume;
-                            SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().toneCombo.itemIndex = speakerComponent.tone > 0 ? SpeakerPanel.transform.Find("speaker-panel").GetComponent<UISpeakerPanel>().toneCombo.ItemsData.IndexOf(speakerComponent.tone) : 0;
-
-                            SpeakerPanel.gameObject.SetActive(true);
-                            SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(true);
-                        }
-                        else
-                        {
-                            monitorpools.Clear();
-                            SpeakerPanel.gameObject.SetActive(false);
-                            SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(false);
-                        }
-                    }
+                    showwindow = true;
+                    guidraw.whichpannel = 7;
                 }
                 if (BluePrintDelete.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.X))
                 {
@@ -1170,19 +1003,6 @@ namespace Auxilaryfunction
                     blue_copy.ResetBuildPreviews();
                     blue_copy.RefreshBlueprintData();
                 }
-
-                if (uiturretWindow != null && uiturretWindow.gameObject.activeSelf && Input.GetKeyDown(KeyCode.Mouse0) || Input.GetKeyDown(KeyCode.Mouse1) || Input.GetKeyDown(KeyCode.Mouse2))
-                {
-                    Camera worldCamera = UIRoot.instance.overlayCanvas.worldCamera;
-                    if (!RectTransformUtility.RectangleContainsScreenPoint(uiturretWindow.selectBoxRt, Input.mousePosition, worldCamera) && uiturretWindow.selectBoxRt.gameObject.activeSelf)
-                    {
-                        uiturretWindow.selectBoxRt.gameObject.SetActive(false);
-                    }
-                }
-            }
-            else if (stationpools.Count + labpools.Count + assemblerpools.Count + beltpools.Count + monitorpools.Count + ejectorpools.Count + powergenGammapools.Count + turrentpools.Count + powerexchangertools.Count > 0)
-            {
-                InitBluePrintData();
             }
             //蓝图粘贴操作优化
             if (build.blueprintPasteTool != null && build.blueprintPasteTool.active && build.blueprintPasteTool.bpPool != null)
@@ -1197,32 +1017,6 @@ namespace Auxilaryfunction
                 }
             }
 
-        }
-
-        public static void InitBluePrintData()
-        {
-            pointeRecipetype = ERecipeType.None;
-            stationpools.Clear();
-            assemblerpools.Clear();
-            labpools.Clear();
-            beltpools.Clear();
-            monitorpools.Clear();
-            powergenGammapools.Clear();
-            turrentpools.Clear();
-            powerexchangertools.Clear();
-            ejectorpools.Clear();
-            beltWindow.gameObject.SetActive(false);
-            SpeakerPanel.gameObject.SetActive(false);
-            TurretWindow.gameObject.SetActive(false);
-            PowerExchangerWindow.gameObject.SetActive(false);
-            uipowerExchangerWindow.exchangerMode1UIButton.highlighted = false;
-            uipowerExchangerWindow.exchangerMode2UIButton.highlighted = true;
-            uipowerExchangerWindow.exchangerMode3UIButton.highlighted = false;
-            uipowerExchangerWindow.transition0.gameObject.SetActive(false);
-            uipowerExchangerWindow.transition1.gameObject.SetActive(false);
-            SpeakerPanel.transform.Find("speaker-panel").gameObject.SetActive(false);
-            if (UISignalPicker.isOpened)
-                UISignalPicker.Close();
         }
 
         /// <summary>
