@@ -154,6 +154,18 @@ namespace Auxilaryfunction
             TranslateDict.Add("光子生成", "Photon Generation");
             TranslateDict.Add("直接发电", "Power Generation");
 
+            TranslateDict.Add("科技等级上限", "TechLevel Upper Limit");
+            TranslateDict.Add("行为设置", "Behavior");
+            TranslateDict.Add("忽略配队设置", "Ignore Pairing");
+            TranslateDict.Add("优先配队设置", "Priority Pairing");
+            TranslateDict.Add("只看配队设置", "Exclusive Pairing");
+            TranslateDict.Add("物流站名称", "Station Name");
+            TranslateDict.Add("设置名称", "Set Station Name");
+            TranslateDict.Add("设置分组", "Set group");
+            TranslateDict.Add("设置物流站物品", "Set Station Items");
+            TranslateDict.Add("设置物流站参数", "Set Station Config");
+            TranslateDict.Add("设置分组行为", "Set Behavior");
+
             TranslateDict.Add("垃圾桶", "trash can");
             TranslateDict.Add("暂无选中设备", "No equipment selected");
             TranslateDict.Add("开关显示垃圾桶，垃圾桶关闭后自动清理内部物品", "Switch to display the trash can and automatically clean the contents when the trash can is closed");

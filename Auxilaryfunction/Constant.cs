@@ -33,17 +33,6 @@ namespace Auxilaryfunction
         };
         public static string[] StationNames = new string[8] { "星球矿机", "垃圾站", "星球无限供货机", "喷涂加工厂", "星球熔炉矿机", "星球量子传输站", "星系量子传输站", "设置翘曲需求" };
 
-        public static string GetStationlogic(int i)
-        {
-            switch (i)
-            {
-                case 0: return "仓储";
-                case 1: return "供应";
-                case 2: return "需求";
-            }
-            return "";
-        }
-
         public static GUIStyle[] StationStoreStyles = new GUIStyle[3];
 
         public static GUIStyle GetStationStorelogicStyle(ELogisticStorage i)
@@ -57,10 +46,44 @@ namespace Auxilaryfunction
             return GUI.skin.button;
         }
 
-
-        public static string GetStationlogic(ELogisticStorage i)
+        public static string GetLogisticText(ELogisticStorage logic, bool isStellar, bool careStellar)
         {
-            return GetStationlogic((int)i);
+            if (careStellar && !isStellar)
+            {
+                if (logic == ELogisticStorage.Supply)
+                {
+                    return "本地供应".Translate();
+                }
+                if (logic == ELogisticStorage.Demand)
+                {
+                    return "本地需求".Translate();
+                }
+                return "本地仓储".Translate();
+            }
+            else if (careStellar && isStellar)
+            {
+                if (logic == ELogisticStorage.Supply)
+                {
+                    return "星际供应".Translate();
+                }
+                if (logic == ELogisticStorage.Demand)
+                {
+                    return "星际需求".Translate();
+                }
+                return "星际仓储".Translate();
+            }
+            else
+            {
+                if (logic == ELogisticStorage.Supply)
+                {
+                    return "供应".Translate();
+                }
+                if (logic == ELogisticStorage.Demand)
+                {
+                    return "需求".Translate();
+                }
+                return "仓储".Translate();
+            }
         }
     }
 }

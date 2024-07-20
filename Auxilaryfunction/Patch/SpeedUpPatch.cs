@@ -49,8 +49,8 @@ namespace Auxilaryfunction.Patch
         [HarmonyPatch(typeof(FPSController), "Update")]
         public static void SpeedUp(FPSController __instance)
         {
-            //Time.fixedDeltaTime = 1f / (SpeedMultiple * 60);
-            Time.timeScale = SpeedMultiple;
+            Time.fixedDeltaTime = 1f / (SpeedMultiple * 60);
+            //Time.timeScale = SpeedMultiple;
         }
     }
 }

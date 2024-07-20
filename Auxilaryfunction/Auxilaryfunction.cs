@@ -24,7 +24,7 @@ namespace Auxilaryfunction
 
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.6.3";
+        public const string VERSION = "2.6.7";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
         public static int automovetoPrebuildSecondElapseCounter;
@@ -76,8 +76,6 @@ namespace Auxilaryfunction
         public static ConfigEntry<bool> autocleartrash_bool;
         public static ConfigEntry<bool> stationcopyItem_bool;
         public static ConfigEntry<bool> BluePrintDelete;
-        public static ConfigEntry<bool> BluePrintRevoke;
-        public static ConfigEntry<bool> BluePrintSetRecipe;
         public static ConfigEntry<bool> BluePrintSelectAll;
         public static ConfigEntry<bool> norender_shipdrone_bool;
         public static ConfigEntry<bool> norender_lab_bool;
@@ -179,9 +177,7 @@ namespace Auxilaryfunction
 
                 closeplayerflyaudio = Config.Bind("关闭玩家飞行声音", "closeplayerflyaudio", false);
                 BluePrintDelete = Config.Bind("蓝图删除", "BluePrintDelete", false);
-                BluePrintRevoke = Config.Bind("蓝图撤销", "BluePrintRevoke", false);
                 BluePrintSelectAll = Config.Bind("蓝图全选", "BluePrintSelectAll", false);
-                BluePrintSetRecipe = Config.Bind("蓝图配方", "BluePrintSetRecipe", false);
                 stationcopyItem_bool = Config.Bind("物流站复制物品配方", "stationcopyItem_bool", false);
 
                 autocleartrash_bool = Config.Bind("30s间隔自动清除垃圾", "autocleartrash_bool", false);
@@ -301,10 +297,7 @@ namespace Auxilaryfunction
 
             if (Input.GetKeyDown(KeyCode.F9))
             {
-                foreach (var t in AuxilaryTranslate.notranslateStr)
-                {
-                    Debug.Log(t);
-                }
+
             }
         }
 
@@ -912,6 +905,7 @@ namespace Auxilaryfunction
                 }
             }
         }
+
         /// <summary>
         /// 自动添加配送运输机
         /// </summary>
@@ -955,26 +949,6 @@ namespace Auxilaryfunction
                     }
                     blue_copy.RefreshBlueprintData();
                     blue_copy.DeterminePreviews();
-                }
-                if (BluePrintRevoke.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Z))
-                {
-                    blue_copy.ClearSelection();
-                    blue_copy.ClearPreSelection();
-                    blue_copy.RefreshBlueprintData();
-                    for (int i = 0; i < LocalPlanet.factory.prebuildPool.Length; i++)
-                    {
-                        int itemId = LocalPlanet.factory.prebuildPool[i].protoId;
-                        if (LocalPlanet.factory.prebuildPool[i].itemRequired == 0)
-                            player.TryAddItemToPackage(itemId, 1, 0, true);
-                        LocalPlanet.factory.RemovePrebuildWithComponents(i);
-                    }
-                }
-                if (BluePrintSetRecipe.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.F))
-                {
-                    recipewindowx = (int)Input.mousePosition.x;
-                    recipewindowy = (int)Input.mousePosition.y;
-                    showwindow = true;
-                    guidraw.whichpannel = 7;
                 }
                 if (BluePrintDelete.Value && Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.X))
                 {

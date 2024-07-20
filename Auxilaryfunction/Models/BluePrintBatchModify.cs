@@ -5,9 +5,11 @@ namespace Auxilaryfunction.Models
 {
     internal class BluePrintBatchModifyBuild
     {
+        public static List<int> objIds = new List<int>();
         public static Dictionary<int, int> buildIconsDictionary = new Dictionary<int, int>();
 
         public static bool NeedRefresh;
+        public static ERemoteRoutePriority eRemoteRoutePriority;
 
         //传送带图标
         public static int BeltSignalIconId = 0;
@@ -104,6 +106,7 @@ namespace Auxilaryfunction.Models
         public static void Init()
         {
             Reset();
+            ResetStationConfig();
             itemBuildTypeDic.Clear();
             foreach (var item in LDB.items.dataArray)
             {
@@ -196,14 +199,16 @@ namespace Auxilaryfunction.Models
             RefinePools.Clear();
             ChemicalPools.Clear();
             SmeltPools.Clear();
+            objIds.Clear();
             buildIconsDictionary.Clear();
             var LocalPlanet = GameMain.localPlanet;
             foreach (BuildPreview bp in blue_copy.bpPool)
             {
-                if (bp == null || bp.item == null || bp.objId <= 0)
+                if (bp == null || bp.item == null || bp.objId <= 0 || objIds.Contains(bp.objId))
                 {
                     continue;
                 }
+                objIds.Add(bp.objId);
                 var prefab = bp.item.prefabDesc;
                 var buildType = BuildType.None;
                 if (prefab.isLab)
@@ -285,17 +290,22 @@ namespace Auxilaryfunction.Models
 
         public static void Reset()
         {
-            ModifyStationName = "";
             CurrentSelectedBuilds.Clear();
-            stationStoreConfigs = new StationStoreConfig[5];
-            for (int i = 0; i < 5; i++)
-            {
-                stationStoreConfigs[i] = new StationStoreConfig();
-            }
             CurrentSelectedBuildName = "暂无选中设备".getTranslate();
             for (int i = 0; i < 4; i++)
             {
                 TurretConfigs[i] = 0;
+            }
+        }
+
+        public static void ResetStationConfig()
+        {
+            ModifyStationName = "";
+            eRemoteRoutePriority = ERemoteRoutePriority.Ignore;
+            stationStoreConfigs = new StationStoreConfig[5];
+            for (int i = 0; i < 5; i++)
+            {
+                stationStoreConfigs[i] = new StationStoreConfig();
             }
         }
 

@@ -36,8 +36,6 @@ namespace Auxilaryfunction.Services
         private bool RefreshBaseSize;
         private bool DeleteDysonLayer;
         private GameObject ui_AuxilaryPanelPanel;
-        public static int recipewindowx;
-        public static int recipewindowy;
         public static Vector2 scrollPosition;
         public static Vector2 itempickscrollPosition;
         public static Vector2 dysonBluePrintscrollPosition;
@@ -1211,8 +1209,6 @@ namespace Auxilaryfunction.Services
                 GUILayout.Label("蓝图功能优化".getTranslate());
                 BluePrintSelectAll.Value = GUILayout.Toggle(BluePrintSelectAll.Value, "蓝图全选".getTranslate() + "(ctrl+A）");
                 BluePrintDelete.Value = GUILayout.Toggle(BluePrintDelete.Value, "蓝图删除".getTranslate() + "(ctrl+X）");
-                BluePrintRevoke.Value = GUILayout.Toggle(BluePrintRevoke.Value, "蓝图撤销".getTranslate() + "(ctrl+Z)");
-                BluePrintSetRecipe.Value = GUILayout.Toggle(BluePrintSetRecipe.Value, "蓝图设置配方".getTranslate() + "(ctrl+F)");
                 SaveLastOpenBluePrintBrowserPathConfig.Value = GUILayout.Toggle(SaveLastOpenBluePrintBrowserPathConfig.Value, "记录上次蓝图路径".getTranslate(), buttonoptions);
 
             }
@@ -1912,7 +1908,7 @@ namespace Auxilaryfunction.Services
                     UnSelectItemId(itemId);
                     continue;
                 }
-                CurrentSelectedBuildName += "【" + LDB.items.Select(itemId).Name + "x" + buildIconsDictionary[itemId] + "】\t";
+                CurrentSelectedBuildName += "【" + LDB.items.Select(itemId).Name.Translate() + "x" + buildIconsDictionary[itemId] + "】\t";
             }
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
@@ -2089,7 +2085,6 @@ namespace Auxilaryfunction.Services
         {
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical();
-
             GUILayout.BeginHorizontal();
             GUILayout.Label("物流站名称".getTranslate());
             ModifyStationName = GUILayout.TextArea(ModifyStationName, GUILayout.Width(200));
@@ -2139,10 +2134,11 @@ namespace Auxilaryfunction.Services
                         {
                             for (int k = 0; k < stationStoreConfigs.Length; k++)
                             {
-                                if (stationStoreConfig.ItemId == item.ID)
+                                var tempstationStoreConfig = stationStoreConfigs[k];
+                                if (tempstationStoreConfig.ItemId == item.ID)
                                 {
-                                    stationStoreConfig.ItemId = 0;
-                                    stationStoreConfig.IsEnabled = false;
+                                    tempstationStoreConfig.ItemId = 0;
+                                    tempstationStoreConfig.IsEnabled = false;
                                 }
                             }
                             stationStoreConfig.ItemId = item.ID;
@@ -2155,7 +2151,7 @@ namespace Auxilaryfunction.Services
                 GUILayout.Label("上限".getTranslate() + stationStoreConfig.max * 100);
                 GUILayout.EndVertical();
                 GUILayout.BeginVertical();
-                if (GUILayout.Button(GetStationlogic(stationStoreConfig.localLogic), GetStationStorelogicStyle(stationStoreConfig.localLogic)))
+                if (GUILayout.Button(GetLogisticText(stationStoreConfig.localLogic, false, true), GetStationStorelogicStyle(stationStoreConfig.localLogic)))
                 {
                     stationStoreConfig.localLogic = (ELogisticStorage)(((int)stationStoreConfig.localLogic + 1) % 3);
                 }
@@ -2163,28 +2159,45 @@ namespace Auxilaryfunction.Services
 
                 GUILayout.EndHorizontal();
             }
-            if (GUILayout.Button("设置物流站".getTranslate(), buttonoptions))
+            if (GUILayout.Button("重置物流站参数".getTranslate()))
+            {
+                ResetStationConfig();
+            }
+            if (GUILayout.Button("设置物流站物品".getTranslate(), buttonoptions))
             {
                 foreach (var stationId in normalstations)
                 {
                     StationComponent station = LocalPlanet.factory.transport.stationPool[stationId];
+                    var items = station.storage.Where(x => x.itemId != 0).Select(x => x.itemId).ToList();
                     for (int i = 0; i < station.storage.Length && i < 4; i++)
                     {
                         var stationStoreConfig = stationStoreConfigs[i];
+                        int currentItemId = station.storage[i].itemId;
+                        int TargetItemId = stationStoreConfig.ItemId;
+                        if (items.Contains(currentItemId) && TargetItemId != currentItemId)
+                        {
+                            if (station.storage[i].count > 0)
+                            {
+                                player.TryAddItemToPackage(currentItemId, station.storage[i].count, station.storage[i].inc, true);
+                            }
+                            station.storage[i].itemId = 0;
+                        }
                         if (!stationStoreConfig.IsEnabled)
                         {
                             continue;
                         }
-                        station.storage[i].itemId = stationStoreConfig.ItemId;
-                        station.storage[i].max = stationStoreConfig.max * 100;
-                        if (station.storage[i].itemId > 0)
+                        if (station.storage[i].count > 0)
                         {
-                            station.storage[i].localLogic = stationStoreConfig.localLogic;
+                            player.TryAddItemToPackage(currentItemId, station.storage[i].count, station.storage[i].inc, true);
                         }
+                        station.storage[i].itemId = TargetItemId;
+                        station.storage[i].max = stationStoreConfig.max * 100;
+                        station.storage[i].localLogic = stationStoreConfig.localLogic;
+                        station.storage[i].remoteLogic = stationStoreConfig.remoteLogic;
                     }
                 }
             }
-            if (GUILayout.Button("设置选中物流站参数".getTranslate()))
+            if (GUILayout.Button("设置物流站参数".getTranslate()))
             {
                 foreach (var stationId in normalstations)
                 {
@@ -2220,7 +2233,7 @@ namespace Auxilaryfunction.Services
 
             GUILayout.BeginHorizontal();
             GUILayout.Label("物流站名称".getTranslate());
-            ModifyStationName = GUILayout.TextArea(ModifyStationName, GUILayout.Width(200));
+            ModifyStationName = GUILayout.TextArea(ModifyStationName, GUILayout.MinWidth(200));
             if (GUILayout.Button("设置名称".getTranslate(), buttonoptions))
             {
                 foreach (var stationId in stellarstations)
@@ -2235,6 +2248,10 @@ namespace Auxilaryfunction.Services
             GUILayout.BeginHorizontal();
 
             GUILayout.BeginVertical();
+            if (GUILayout.Button("重置物流站参数".getTranslate()))
+            {
+                ResetStationConfig();
+            }
             for (int i = 0; i < 5; i++)
             {
                 var stationStoreConfig = stationStoreConfigs[i];
@@ -2269,10 +2286,11 @@ namespace Auxilaryfunction.Services
                         {
                             for (int k = 0; k < stationStoreConfigs.Length; k++)
                             {
-                                if (stationStoreConfig.ItemId == item.ID)
+                                var tempstationStoreConfig = stationStoreConfigs[k];
+                                if (tempstationStoreConfig.ItemId == item.ID)
                                 {
-                                    stationStoreConfig.ItemId = 0;
-                                    stationStoreConfig.IsEnabled = false;
+                                    tempstationStoreConfig.ItemId = 0;
+                                    tempstationStoreConfig.IsEnabled = false;
                                 }
                             }
                             stationStoreConfig.ItemId = item.ID;
@@ -2285,11 +2303,11 @@ namespace Auxilaryfunction.Services
                 GUILayout.Label("上限".getTranslate() + stationStoreConfig.max * 100);
                 GUILayout.EndVertical();
                 GUILayout.BeginVertical();
-                if (GUILayout.Button("本地".getTranslate() + GetStationlogic(stationStoreConfig.localLogic), GetStationStorelogicStyle(stationStoreConfig.localLogic)))
+                if (GUILayout.Button(GetLogisticText(stationStoreConfig.localLogic, false, true), GetStationStorelogicStyle(stationStoreConfig.localLogic)))
                 {
                     stationStoreConfig.localLogic = (ELogisticStorage)(((int)stationStoreConfig.localLogic + 1) % 3);
                 }
-                if (GUILayout.Button("星际".getTranslate() + GetStationlogic(stationStoreConfig.remoteLogic), GetStationStorelogicStyle(stationStoreConfig.remoteLogic)))
+                if (GUILayout.Button(GetLogisticText(stationStoreConfig.localLogic, true, true), GetStationStorelogicStyle(stationStoreConfig.remoteLogic)))
                 {
                     stationStoreConfig.remoteLogic = (ELogisticStorage)(((int)stationStoreConfig.remoteLogic + 1) % 3);
                 }
@@ -2297,29 +2315,41 @@ namespace Auxilaryfunction.Services
 
                 GUILayout.EndHorizontal();
             }
-            if (GUILayout.Button("设置物流站".getTranslate(), buttonoptions))
+            if (GUILayout.Button("设置物流站物品".getTranslate(), buttonoptions))
             {
                 foreach (var stationId in stellarstations)
                 {
                     StationComponent station = LocalPlanet.factory.transport.stationPool[stationId];
+                    var items = stationStoreConfigs.Where(x => x.ItemId != 0).Select(x => x.ItemId).ToList();
                     for (int i = 0; i < station.storage.Length && i < 5; i++)
                     {
                         var stationStoreConfig = stationStoreConfigs[i];
+                        int currentItemId = station.storage[i].itemId;
+                        int TargetItemId = stationStoreConfig.ItemId;
+                        if (items.Contains(currentItemId) && TargetItemId != currentItemId)
+                        {
+                            if (station.storage[i].count > 0)
+                            {
+                                player.TryAddItemToPackage(currentItemId, station.storage[i].count, station.storage[i].inc, true);
+                            }
+                            station.storage[i].itemId = 0;
+                        }
                         if (!stationStoreConfig.IsEnabled)
                         {
                             continue;
                         }
-                        station.storage[i].itemId = stationStoreConfig.ItemId;
-                        station.storage[i].max = stationStoreConfig.max * 100;
-                        if (station.storage[i].itemId > 0)
+                        if (station.storage[i].count > 0)
                         {
-                            station.storage[i].localLogic = stationStoreConfig.localLogic;
-                            station.storage[i].remoteLogic = stationStoreConfig.remoteLogic;
+                            player.TryAddItemToPackage(currentItemId, station.storage[i].count, station.storage[i].inc, true);
                         }
+                        station.storage[i].itemId = TargetItemId;
+                        station.storage[i].max = stationStoreConfig.max * 100;
+                        station.storage[i].localLogic = stationStoreConfig.localLogic;
+                        station.storage[i].remoteLogic = stationStoreConfig.remoteLogic;
                     }
                 }
             }
-            if (GUILayout.Button("设置选中物流站参数".getTranslate()))
+            if (GUILayout.Button("设置物流站参数".getTranslate()))
             {
                 foreach (var stationId in stellarstations)
                 {
@@ -2369,6 +2399,27 @@ namespace Auxilaryfunction.Services
                         if (!StationGroup[i]) continue;
                         station.remoteGroupMask ^= 1 << i;
                     }
+                }
+            }
+            GUILayout.Label("行为设置".getTranslate());
+            if (GUILayout.Button("忽略配队设置".getTranslate(), eRemoteRoutePriority == ERemoteRoutePriority.Ignore ? selectedButtonStyle : GUI.skin.button))
+            {
+                eRemoteRoutePriority = ERemoteRoutePriority.Ignore;
+            }
+            if (GUILayout.Button("优先配队设置".getTranslate(), eRemoteRoutePriority == ERemoteRoutePriority.Prioritize ? selectedButtonStyle : GUI.skin.button))
+            {
+                eRemoteRoutePriority = ERemoteRoutePriority.Prioritize;
+            }
+            if (GUILayout.Button("只看配队设置".getTranslate(), eRemoteRoutePriority == ERemoteRoutePriority.Only ? selectedButtonStyle : GUI.skin.button))
+            {
+                eRemoteRoutePriority = ERemoteRoutePriority.Only;
+            }
+            if (GUILayout.Button("设置分组行为".getTranslate()))
+            {
+                foreach (var stationId in stellarstations)
+                {
+                    StationComponent sc = LocalPlanet.factory.transport.stationPool[stationId];
+                    sc.routePriority = eRemoteRoutePriority;
                 }
             }
             GUILayout.EndVertical();
@@ -2544,8 +2595,8 @@ namespace Auxilaryfunction.Services
 
         public void AssemblyGeneral(ERecipeType targetRecipeType)
         {
-            List<RecipeProto> showrecipe = LDB.recipes.dataArray.Where(rp => rp.Type == targetRecipeType && GameMain.history.RecipeUnlocked(rp.ID)).ToList();
-            int totalNumber = showrecipe.Count;
+            var showrecipe = LDB.recipes.dataArray.Where(rp => rp.Type == targetRecipeType && GameMain.history.RecipeUnlocked(rp.ID));
+            int totalNumber = showrecipe.Count();
             int columnNumber = 15;
             int lines = totalNumber / columnNumber + ((totalNumber % columnNumber) > 0 ? 1 : 0);
             GUILayout.BeginVertical();
@@ -2556,7 +2607,7 @@ namespace Auxilaryfunction.Services
                 for (int j = 0; j < columnNumber; j++)
                 {
                     int index = i * columnNumber + j;
-                    if (index == totalNumber - 1)
+                    if (index == totalNumber)
                     {
                         if (GUILayout.Button("无".getTranslate(), bigiconbuttonoptions))
                         {
@@ -2567,7 +2618,7 @@ namespace Auxilaryfunction.Services
                         }
                         break;
                     }
-                    var rp = showrecipe[index];
+                    var rp = showrecipe.ElementAt(index);
 
                     if (GUILayout.Button(rp.iconSprite.texture, bigiconbuttonoptions))
                     {
