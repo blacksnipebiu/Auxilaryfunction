@@ -89,6 +89,7 @@ namespace Auxilaryfunction.Models
         public static List<int> SmeltPools = new List<int>();
 
         public static List<int> FilterAssemblePools = new List<int>();
+        public static List<int> Filterlabpools = new List<int>();
 
         public static string CurrentSelectedBuildName
         {
@@ -350,6 +351,7 @@ namespace Auxilaryfunction.Models
             var LocalPlanet = GameMain.localPlanet;
             List<int> tempassemblerpools;
             FilterAssemblePools.Clear();
+            Filterlabpools.Clear();
             switch (CurrentSelectedBuildType)
             {
                 case BuildType.Assemble:
@@ -369,7 +371,7 @@ namespace Auxilaryfunction.Models
                     break;
                 default:
                     tempassemblerpools = new List<int>();
-                    return;
+                    break;
             }
             for (int j = 0; j < tempassemblerpools.Count; j++)
             {
@@ -379,6 +381,16 @@ namespace Auxilaryfunction.Models
                 if (CurrentSelectedBuilds.Contains(itemId))
                 {
                     FilterAssemblePools.Add(tempassemblerpools[j]);
+                }
+            }
+            for (int i = 0; i < labpools.Count; i++)
+            {
+                var lab = LocalPlanet.factory.factorySystem.labPool[labpools[i]];
+                var entityId = lab.entityId;
+                var itemId = LocalPlanet.factory.entityPool[entityId].protoId;
+                if (CurrentSelectedBuilds.Contains(itemId))
+                {
+                    Filterlabpools.Add(labpools[i]);
                 }
             }
         }

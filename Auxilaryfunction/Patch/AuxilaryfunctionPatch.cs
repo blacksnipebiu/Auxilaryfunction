@@ -40,7 +40,6 @@ namespace Auxilaryfunction
             BluePrintBatchModifyBuild.NeedRefresh = refreshComponent;
         }
 
-
         [HarmonyPostfix]
         [HarmonyPatch(typeof(PowerSystem), "NewGeneratorComponent")]
         public static void NewGeneratorComponentPatch(ref int __result, PowerSystem __instance)

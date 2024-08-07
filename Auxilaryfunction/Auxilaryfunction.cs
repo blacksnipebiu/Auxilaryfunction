@@ -24,7 +24,7 @@ namespace Auxilaryfunction
 
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.6.7";
+        public const string VERSION = "2.7.5";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
         public static int automovetoPrebuildSecondElapseCounter;
@@ -46,6 +46,7 @@ namespace Auxilaryfunction
         public static bool HideDarkFogAssaultTip;
         public bool firstStart;
         public static bool ChangingQuickKey;
+        public static bool ChangingBluePrintQuickKey;
         public static bool GameDataImported;
         public static Dictionary<int, List<int>> EjectorDictionary;
         public static Player player;
@@ -108,6 +109,7 @@ namespace Auxilaryfunction
         public static ConfigEntry<bool> DysonPanelSwarm;
         public static ConfigEntry<bool> DysonPanelDysonSphere;
         public static ConfigEntry<KeyboardShortcut> QuickKey;
+        public static ConfigEntry<KeyboardShortcut> BluePrintShowWindow;
         public static ConfigEntry<int> auto_add_techid;
         public static ConfigEntry<int> auto_add_techmaxLevel;
         public static ConfigEntry<int> auto_supply_Courier;
@@ -146,17 +148,22 @@ namespace Auxilaryfunction
         public static UIStationWindow uiStationWindow;
         public static UIStorageWindow uiTrashStorageWindow;
         public static Harmony harmony;
+        public
 
         void Start()
         {
             harmony = new Harmony(GUID);
             harmony.PatchAll(typeof(AuxilaryfunctionPatch));
             AuxilaryTranslate.regallTranslate();
+            SpeedUpPatch.Enable = true;
+            SpeedUpPatch.Enable = false;
             trashfunctiontime = Time.time;
 
             {
                 QuickKey = Config.Bind("打开窗口快捷键", "Key", new KeyboardShortcut(KeyCode.LeftAlt, KeyCode.Alpha2));
+                BluePrintShowWindow = Config.Bind("打开蓝图窗口快捷键", "BluePrintQuickKey", new KeyboardShortcut(KeyCode.LeftControl, KeyCode.F));
                 tempShowWindow = QuickKey.Value;
+                tempBluePrintShowWindow = BluePrintShowWindow.Value;
                 auto_setejector_bool = Config.Bind("自动配置太阳帆弹射器", "auto_setejector_bool", false);
 
                 auto_supply_station = Config.Bind("自动配置新运输站", "auto_supply_station", false);
@@ -294,11 +301,9 @@ namespace Auxilaryfunction
                     else if (SpeedUpPatch.SpeedMultiple > 10) SpeedUpPatch.SpeedMultiple = 10;
                 }
             }
-
-            if (Input.GetKeyDown(KeyCode.F9))
-            {
-
-            }
+            //if (Input.GetKeyDown(KeyCode.F9))
+            //{
+            //}
         }
 
         private void SunLightSet()
@@ -543,8 +548,7 @@ namespace Auxilaryfunction
             DFGBaseComponent baseComponent = null;
             for (int i = 1; i < enemySystem.bases.cursor; i++)
             {
-                if (enemySystem.bases[i] != null && enemySystem.bases[i].id == i
-                    && (autoRemoveRuin || enemySystem.CheckBaseCanRemoved(i) != 0))
+                if (enemySystem.bases[i] != null && enemySystem.bases[i].id == i && (autoRemoveRuin || enemySystem.CheckBaseCanRemoved(i) != 0))
                 {
                     Vector3 pos = GameMain.localPlanet.factory.enemyPool[enemySystem.bases[i].enemyId].pos;
                     if (baseComponent == null || mindistance > (pos - player.position).magnitude)
@@ -998,6 +1002,16 @@ namespace Auxilaryfunction
         /// </summary>
         private void ChangeQuickKeyMethod()
         {
+            if (ChangingQuickKey)
+            {
+                ChangeBluePrintQuickKey = false;
+                ChangingBluePrintQuickKey = false;
+            }
+            else if (ChangingBluePrintQuickKey)
+            {
+                ChangeQuickKey = false;
+                ChangingQuickKey = false;
+            }
             if (ChangeQuickKey)
             {
                 setQuickKey();
@@ -1007,6 +1021,17 @@ namespace Auxilaryfunction
             {
                 QuickKey.Value = tempShowWindow;
                 ChangingQuickKey = false;
+            }
+
+            if (ChangeBluePrintQuickKey)
+            {
+                setBluePrintQuickKey();
+                ChangingBluePrintQuickKey = true;
+            }
+            else if (!ChangeBluePrintQuickKey && ChangingBluePrintQuickKey)
+            {
+                BluePrintShowWindow.Value = tempBluePrintShowWindow;
+                ChangingBluePrintQuickKey = false;
             }
         }
 
@@ -1155,6 +1180,60 @@ namespace Auxilaryfunction
             else
             {
                 tempShowWindow = new KeyboardShortcut((KeyCode)Math.Max(result[0], result[1]));
+            }
+        }
+        private void setBluePrintQuickKey()
+        {
+            bool left = true;
+            int[] result = new int[2];
+            if (Input.GetKey(KeyCode.LeftShift) && left)
+            {
+                left = false;
+                result[0] = (int)KeyCode.LeftShift;
+            }
+            if (Input.GetKey(KeyCode.LeftControl) && left)
+            {
+                left = false;
+                result[0] = (int)KeyCode.LeftControl;
+            }
+            if (Input.GetKey(KeyCode.LeftAlt) && left)
+            {
+                left = false;
+                result[0] = (int)KeyCode.LeftAlt;
+            }
+            bool right = true;
+            for (int i = (int)KeyCode.Alpha0; i <= (int)KeyCode.Alpha9 && right; i++)
+            {
+                if (Input.GetKey((KeyCode)i))
+                {
+                    result[1] = i;
+                    right = false;
+                    break;
+                }
+            }
+            for (int i = (int)KeyCode.A; i <= (int)KeyCode.Z && right; i++)
+            {
+                if (Input.GetKey((KeyCode)i))
+                {
+                    result[1] = i;
+                    right = false;
+                    break;
+                }
+            }
+            for (int i = (int)KeyCode.F1; i <= (int)KeyCode.F10 && right; i++)
+            {
+                if (Input.GetKey((KeyCode)i))
+                {
+                    result[1] = i;
+                    right = false;
+                    break;
+                }
+            }
+            if (left && right) { }
+            else if (!left && !right) tempBluePrintShowWindow = new KeyboardShortcut((KeyCode)result[0], (KeyCode)result[1]);
+            else
+            {
+                tempBluePrintShowWindow = new KeyboardShortcut((KeyCode)Math.Max(result[0], result[1]));
             }
         }
     }

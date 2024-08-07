@@ -1,6 +1,7 @@
 ﻿using Auxilaryfunction.Models;
 using Auxilaryfunction.Patch;
 using BepInEx.Configuration;
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -41,9 +42,11 @@ namespace Auxilaryfunction.Services
         public static Vector2 dysonBluePrintscrollPosition;
         public static ConfigEntry<int> scale;
         public static KeyboardShortcut tempShowWindow;
+        public static KeyboardShortcut tempBluePrintShowWindow;
         public static bool blueprintopen;
         public static bool showwindow;
         public static bool ChangeQuickKey;
+        public static bool ChangeBluePrintQuickKey;
         public static bool limitmaterial;
         private Color OrangeColor;
         private Color BlueColor;
@@ -178,26 +181,29 @@ namespace Auxilaryfunction.Services
 
         public void GUIUpdate()
         {
-            if (!ChangingQuickKey && GameDataImported)
+            if (GameDataImported)
             {
                 bool isClick = false;
-                if (QuickKey.Value.Modifiers.Count() == 0)
+                if (!ChangingQuickKey)
                 {
-                    if (Input.GetKeyDown(QuickKey.Value.MainKey))
+                    if (QuickKey.Value.Modifiers.Count() == 0)
                     {
-                        isClick = true;
-                    }
-                }
-                else
-                {
-                    if (Input.GetKey(QuickKey.Value.MainKey))
-                    {
-                        isClick = true;
-                        foreach (var modify in QuickKey.Value.Modifiers)
+                        if (Input.GetKeyDown(QuickKey.Value.MainKey))
                         {
-                            if (!Input.GetKeyDown(modify))
+                            isClick = true;
+                        }
+                    }
+                    else
+                    {
+                        if (Input.GetKey(QuickKey.Value.MainKey))
+                        {
+                            isClick = true;
+                            foreach (var modify in QuickKey.Value.Modifiers)
                             {
-                                isClick = false;
+                                if (!Input.GetKeyDown(modify))
+                                {
+                                    isClick = false;
+                                }
                             }
                         }
                     }
@@ -210,6 +216,45 @@ namespace Auxilaryfunction.Services
                         firstDraw = true;
                     }
                     ui_AuxilaryPanelPanel.SetActive(showwindow);
+                }
+                else if (!ChangingBluePrintQuickKey)
+                {
+                    if (BluePrintShowWindow.Value.Modifiers.Count() == 0)
+                    {
+                        if (Input.GetKeyDown(BluePrintShowWindow.Value.MainKey))
+                        {
+                            isClick = true;
+                        }
+                    }
+                    else
+                    {
+                        if (Input.GetKey(BluePrintShowWindow.Value.MainKey))
+                        {
+                            isClick = true;
+                            foreach (var modify in BluePrintShowWindow.Value.Modifiers)
+                            {
+                                if (!Input.GetKeyDown(modify))
+                                {
+                                    isClick = false;
+                                }
+                            }
+                        }
+                    }
+                    if (isClick)
+                    {
+                        showwindow = !showwindow;
+                        if (showwindow)
+                        {
+                            firstDraw = true;
+                            whichpannel = 7;
+                            MainWindow_x = Input.mousePosition.x;
+                            MainWindow_y = Screen.height - Input.mousePosition.y;
+                        }
+                        else
+                        {
+                            ui_AuxilaryPanelPanel.SetActive(false);
+                        }
+                    }
                 }
             }
             //if (QuickKey.Value.IsPressed() && !ChangingQuickKey && GameDataImported)
@@ -297,12 +342,13 @@ namespace Auxilaryfunction.Services
             }
             if (showwindow)
             {
-                UIPanelSet();
                 MoveWindow();
                 Scaling_window();
                 Rect window = new Rect(MainWindow_x, MainWindow_y, MainWindowWidth, MainWindowHeight);
                 GUI.DrawTexture(window, mytexture);
                 window = GUI.Window(20210827, window, MainWindow, "辅助面板".getTranslate() + "(" + VERSION + ")" + "ps:ctrl+↑↓");
+                UIPanelSet();
+                ui_AuxilaryPanelPanel.SetActive(true);
 
             }
             if (autonavigation_bool.Value && GameDataImported && GameMain.mainPlayer != null && PlayerOperation.NeedNavigation)
@@ -397,7 +443,9 @@ namespace Auxilaryfunction.Services
 
         private void StationInfoWindowUpdate()
         {
-            if (!ShowStationInfo.Value || GameMain.localPlanet?.factory?.transport == null)
+            var pd = GameMain.localPlanet;
+            var transport = pd?.factory?.transport;
+            if (!ShowStationInfo.Value || transport == null)
             {
                 if (stationTip.activeSelf)
                 {
@@ -408,14 +456,13 @@ namespace Auxilaryfunction.Services
             if (UIGame.viewMode == EViewMode.Normal || UIGame.viewMode == EViewMode.Globe)
             {
                 stationTip.SetActive(true);
-                var pd = GameMain.localPlanet;
                 int tipIndex = 0;
                 Vector3 localPosition = GameCamera.main.transform.localPosition;
                 Vector3 forward = GameCamera.main.transform.forward;
                 float realRadius = pd.realRadius;
-                if (pd.factory.transport.stationCursor > 0)
+                if (transport.stationCursor > 0)
                 {
-                    foreach (StationComponent stationComponent in pd.factory.transport.stationPool)
+                    foreach (StationComponent stationComponent in transport.stationPool)
                     {
                         if (stationComponent?.storage == null) continue;
                         if (tipIndex == maxCount)
@@ -443,218 +490,218 @@ namespace Auxilaryfunction.Services
                         var tip = tips[tipIndex];
                         Vector3 rhs = position - localPosition;
                         float magnitude = rhs.magnitude;
-                        float num2 = Vector3.Dot(forward, rhs);
-                        if (magnitude < 1.0 || num2 < 1.0)
+                        if (magnitude < 1.0 || Vector3.Dot(forward, rhs) < 1.0)
                         {
-                            tip.SetActive(false);
                             continue;
                         }
-                        bool flag = UIRoot.ScreenPointIntoRect(GameCamera.main.WorldToScreenPoint(position), stationTip.GetComponent<RectTransform>(), out Vector2 rectPoint);
+                        if (!UIRoot.ScreenPointIntoRect(GameCamera.main.WorldToScreenPoint(position), stationTip.GetComponent<RectTransform>(), out Vector2 rectPoint))
+                            continue;
                         if (Mathf.Abs(rectPoint.x) > 8000.0 || Mathf.Abs(rectPoint.y) > 8000.0)
-                            flag = false;
-                        if (Phys.RayCastSphere(localPosition, rhs / magnitude, magnitude, Vector3.zero, realRadius, out RCHCPU _))
-                            flag = false;
-                        if (flag)
+                            continue;
+                        if (Phys.RayCastSphere(localPosition, rhs / magnitude, magnitude, Vector3.zero, realRadius, out _))
+                            continue;
+                        if (!stationComponent.storage.Select(x => x.itemId).Where(x => x != 0).Any())
                         {
-                            tipIndex++;
-                            rectPoint.x = Mathf.Round(rectPoint.x);
-                            rectPoint.y = Mathf.Round(rectPoint.y);
-                            tip.GetComponent<RectTransform>().anchoredPosition = rectPoint;
-                            float tipWindowHeight = 40 * storageNum + 20;
-                            if (stationComponent.isCollector)
-                                tipWindowHeight -= 20;
-                            else if (stationComponent.isVeinCollector)
-                                tipWindowHeight -= 20;
-                            for (int i = 0; i < storageNum; ++i)
+                            continue;
+                        }
+                        tipIndex++;
+                        tip.SetActive(true);
+                        rectPoint.x = Mathf.Round(rectPoint.x);
+                        rectPoint.y = Mathf.Round(rectPoint.y);
+                        tip.GetComponent<RectTransform>().anchoredPosition = rectPoint;
+                        float tipWindowHeight = 40 * storageNum + 20;
+                        if (stationComponent.isCollector)
+                            tipWindowHeight -= 20;
+                        else if (stationComponent.isVeinCollector)
+                            tipWindowHeight -= 20;
+                        for (int i = 0; i < storageNum; ++i)
+                        {
+                            var storage = stationComponent.storage[i];
+                            var icon = tip.transform.Find("icon" + i);
+                            var iconposition = icon.GetComponent<RectTransform>().anchoredPosition3D;
+                            var iconLocal = tip.transform.Find("iconLocal" + i);
+                            var iconremote = tip.transform.Find("iconremote" + i);
+                            var iconlocalimage = iconLocal.GetComponent<Image>();
+                            var iconremoteimage = iconremote.GetComponent<Image>();
+                            var countText = tip.transform.Find("countText" + i);
+                            var countTextUitext = countText.GetComponent<Text>();
+                            if (storage.itemId > 0)
                             {
-                                var storage = stationComponent.storage[i];
-                                var icon = tip.transform.Find("icon" + i);
-                                var iconposition = icon.GetComponent<RectTransform>().anchoredPosition3D;
-                                var iconLocal = tip.transform.Find("iconLocal" + i);
-                                var iconremote = tip.transform.Find("iconremote" + i);
-                                var iconlocalimage = iconLocal.GetComponent<Image>();
-                                var iconremoteimage = iconremote.GetComponent<Image>();
-                                var countText = tip.transform.Find("countText" + i);
-                                var countTextUitext = countText.GetComponent<Text>();
-                                if (storage.itemId > 0)
+                                switch (storage.localLogic)
                                 {
-                                    switch (storage.localLogic)
+                                    case ELogisticStorage.Supply:
+                                        iconlocalimage.sprite = rightsprite;
+                                        iconlocalimage.color = BlueColor;
+                                        countTextUitext.color = BlueColor;
+                                        break;
+                                    case ELogisticStorage.Demand:
+                                        iconlocalimage.sprite = leftsprite;
+                                        iconlocalimage.color = OrangeColor;
+                                        countTextUitext.color = OrangeColor;
+                                        break;
+                                    case ELogisticStorage.None:
+                                        iconlocalimage.sprite = flatsprite;
+                                        iconlocalimage.color = Color.gray;
+                                        countTextUitext.color = Color.gray;
+                                        break;
+                                }
+                                if (stationComponent.isStellar || stationComponent.isCollector)
+                                {
+                                    switch (storage.remoteLogic)
                                     {
                                         case ELogisticStorage.Supply:
-                                            iconlocalimage.sprite = rightsprite;
-                                            iconlocalimage.color = BlueColor;
-                                            countTextUitext.color = BlueColor;
+                                            iconremoteimage.sprite = rightsprite;
+                                            iconremoteimage.color = BlueColor;
                                             break;
                                         case ELogisticStorage.Demand:
-                                            iconlocalimage.sprite = leftsprite;
-                                            iconlocalimage.color = OrangeColor;
-                                            countTextUitext.color = OrangeColor;
+                                            iconremoteimage.sprite = leftsprite;
+                                            iconremoteimage.color = OrangeColor;
                                             break;
                                         case ELogisticStorage.None:
-                                            iconlocalimage.sprite = flatsprite;
-                                            iconlocalimage.color = Color.gray;
-                                            countTextUitext.color = Color.gray;
+                                            iconremoteimage.sprite = flatsprite;
+                                            iconremoteimage.color = Color.gray;
                                             break;
                                     }
+                                    iconremote.gameObject.SetActive(true);
+                                }
+                                if (ShowStationInfoMode.Value)
+                                {
+                                    iconLocal.gameObject.SetActive(false);
                                     if (stationComponent.isStellar || stationComponent.isCollector)
                                     {
-                                        switch (storage.remoteLogic)
-                                        {
-                                            case ELogisticStorage.Supply:
-                                                iconremoteimage.sprite = rightsprite;
-                                                iconremoteimage.color = BlueColor;
-                                                break;
-                                            case ELogisticStorage.Demand:
-                                                iconremoteimage.sprite = leftsprite;
-                                                iconremoteimage.color = OrangeColor;
-                                                break;
-                                            case ELogisticStorage.None:
-                                                iconremoteimage.sprite = flatsprite;
-                                                iconremoteimage.color = Color.gray;
-                                                break;
-                                        }
-                                        iconremote.gameObject.SetActive(true);
-                                    }
-                                    if (ShowStationInfoMode.Value)
-                                    {
-                                        iconLocal.gameObject.SetActive(false);
-                                        if (stationComponent.isStellar || stationComponent.isCollector)
-                                        {
-                                            iconremote.GetComponent<RectTransform>().sizeDelta = new Vector2(30, 30);
-                                            iconremote.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(100, iconposition.y, 0);
-                                            countText.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(70, iconposition.y, 0);
-                                        }
-                                        else
-                                        {
-                                            iconremote.gameObject.SetActive(false);
-                                            countText.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(90, iconposition.y, 0);
-                                        }
+                                        iconremote.GetComponent<RectTransform>().sizeDelta = new Vector2(30, 30);
+                                        iconremote.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(100, iconposition.y, 0);
+                                        countText.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(70, iconposition.y, 0);
                                     }
                                     else
                                     {
-                                        iconLocal.gameObject.SetActive(true);
-                                        countText.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(70, iconposition.y, 0);
-                                        if (stationComponent.isStellar || stationComponent.isCollector)
-                                        {
-                                            iconLocal.GetComponent<RectTransform>().sizeDelta = new Vector2(21, 21);
-                                            iconremote.GetComponent<RectTransform>().sizeDelta = new Vector2(21, 21);
-                                            iconLocal.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(105, iconposition.y, 0);
-                                            iconremote.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(105, iconposition.y - 15, 0);
-                                        }
-                                        else
-                                        {
-                                            iconremote.gameObject.SetActive(false);
-                                            iconLocal.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(100, iconposition.y, 0);
-                                            iconLocal.GetComponent<RectTransform>().sizeDelta = new Vector2(30, 30);
-                                        }
+                                        iconremote.gameObject.SetActive(false);
+                                        countText.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(90, iconposition.y, 0);
                                     }
-                                    icon.GetComponent<Image>().sprite = LDB.items.Select(storage.itemId)?.iconSprite;
-                                    icon.gameObject.SetActive(true);
-                                    countTextUitext.text = storage.count.ToString("#,##0");
-                                    tip.SetActive(true);
                                 }
                                 else
                                 {
-                                    iconLocal.gameObject.SetActive(false);
-                                    iconremote.gameObject.SetActive(false);
-                                    icon.gameObject.SetActive(false);
-                                    countTextUitext.color = Color.white;
-                                    countTextUitext.text = "无";
-                                    if (ShowStationInfoMode.Value)
+                                    iconLocal.gameObject.SetActive(true);
+                                    countText.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(70, iconposition.y, 0);
+                                    if (stationComponent.isStellar || stationComponent.isCollector)
                                     {
-                                        if (stationComponent.isStellar || stationComponent.isCollector)
-                                        {
-                                            countTextUitext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(70, iconposition.y, 0);
-                                        }
-                                        else
-                                        {
-                                            countTextUitext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(90, iconposition.y, 0);
-                                        }
+                                        iconLocal.GetComponent<RectTransform>().sizeDelta = new Vector2(21, 21);
+                                        iconremote.GetComponent<RectTransform>().sizeDelta = new Vector2(21, 21);
+                                        iconLocal.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(105, iconposition.y, 0);
+                                        iconremote.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(105, iconposition.y - 15, 0);
                                     }
                                     else
+                                    {
+                                        iconremote.gameObject.SetActive(false);
+                                        iconLocal.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(100, iconposition.y, 0);
+                                        iconLocal.GetComponent<RectTransform>().sizeDelta = new Vector2(30, 30);
+                                    }
+                                }
+                                icon.GetComponent<Image>().sprite = LDB.items.Select(storage.itemId)?.iconSprite;
+                                icon.gameObject.SetActive(true);
+                                countTextUitext.text = storage.count.ToString("#,##0");
+                            }
+                            else
+                            {
+                                iconLocal.gameObject.SetActive(false);
+                                iconremote.gameObject.SetActive(false);
+                                icon.gameObject.SetActive(false);
+                                countTextUitext.color = Color.white;
+                                countTextUitext.text = "无";
+                                if (ShowStationInfoMode.Value)
+                                {
+                                    if (stationComponent.isStellar || stationComponent.isCollector)
                                     {
                                         countTextUitext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(70, iconposition.y, 0);
                                     }
-                                }
-                                countText.gameObject.SetActive(true);
-                            }
-                            var lasticon = tip.transform.Find("icon" + storageNum);
-                            var lastcountText = tip.transform.Find("countText" + storageNum);
-                            lasticon.gameObject.SetActive(false);
-                            int lastLine = storageNum;
-                            string stationComponentName = pd.factory.ReadExtraInfoOnEntity(stationComponent.entityId);
-                            if (!string.IsNullOrEmpty(stationComponentName))
-                            {
-                                var lastcountTextPosition = lastcountText.GetComponent<RectTransform>().anchoredPosition3D;
-                                lastcountText.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(90, lastcountTextPosition.y, 0);
-                                lastcountText.GetComponent<Text>().fontSize = 18;
-                                lastcountText.GetComponent<Text>().text = stationComponentName;
-                                lastcountText.GetComponent<Text>().color = Color.white;
-                                lastcountText.gameObject.SetActive(true);
-                                tipWindowHeight += 27;
-                                lastLine++;
-                            }
-                            else
-                            {
-                                lasticon.gameObject.SetActive(false);
-                                lastcountText.gameObject.SetActive(false);
-                            }
-                            for (int i = 0; i < 3; ++i)
-                            {
-                                var icontext = tip.transform.Find("icontext" + i);
-                                if (stationComponent.isCollector || stationComponent.isVeinCollector || (i >= 1 && !stationComponent.isStellar))
-                                {
-                                    icontext.gameObject.SetActive(false);
-                                    continue;
-                                }
-                                int itemId;
-                                string totalCount;
-                                if (i == 0)
-                                {
-                                    itemId = 5001;
-                                    totalCount = (stationComponent.idleDroneCount + stationComponent.workDroneCount).ToString();
-                                    icontext.Find("countText2").GetComponent<Text>().color = Color.white;
-                                    icontext.Find("countText2").GetComponent<Text>().text = stationComponent.idleDroneCount.ToString();
-                                }
-                                else if (i == 1)
-                                {
-                                    itemId = 5002;
-                                    totalCount = (stationComponent.idleShipCount + stationComponent.workShipCount).ToString();
-                                    icontext.Find("countText2").GetComponent<Text>().color = Color.white;
-                                    icontext.Find("countText2").GetComponent<Text>().text = stationComponent.idleShipCount.ToString();
+                                    else
+                                    {
+                                        countTextUitext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(90, iconposition.y, 0);
+                                    }
                                 }
                                 else
                                 {
-                                    itemId = 1210;
-                                    totalCount = stationComponent.warperCount.ToString();
+                                    countTextUitext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(70, iconposition.y, 0);
                                 }
-                                icontext.gameObject.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(i * 30, -30 - 30 * lastLine, 0);
-                                icontext.GetComponent<Image>().sprite = LDB.items.Select(itemId).iconSprite;
-                                icontext.Find("countText").GetComponent<Text>().color = Color.white;
-                                icontext.Find("countText").GetComponent<Text>().text = totalCount;
-                                icontext.gameObject.SetActive(true);
                             }
-                            float localScaleMultiple;
-                            if (magnitude < 50.0)
-                                localScaleMultiple = 1.5f;
-                            else if (magnitude < 250.0)
-                                localScaleMultiple = (float)(1.75 - magnitude * 0.005);
-                            else
-                                localScaleMultiple = 0.5f;
-                            tip.transform.localScale = Vector3.one * localScaleMultiple;
-                            for (int i = lastLine; i < 13; ++i)
-                            {
-                                tip.transform.Find("iconLocal" + i).gameObject.SetActive(false);
-                                tip.transform.Find("iconremote" + i).gameObject.SetActive(false);
-                                tip.transform.Find("icon" + i).gameObject.SetActive(false);
-                                tip.transform.Find("countText" + i).gameObject.SetActive(false);
-                            }
-                            tip.GetComponent<RectTransform>().sizeDelta = new Vector2(125f, tipWindowHeight);
+                            countText.gameObject.SetActive(true);
                         }
+                        var lasticon = tip.transform.Find("icon" + storageNum);
+                        var lastcountText = tip.transform.Find("countText" + storageNum);
+                        lasticon.gameObject.SetActive(false);
+                        int lastLine = storageNum;
+                        string stationComponentName = pd.factory.ReadExtraInfoOnEntity(stationComponent.entityId);
+                        for (int i = lastLine; i < 13; ++i)
+                        {
+                            tip.transform.Find("iconLocal" + i).gameObject.SetActive(false);
+                            tip.transform.Find("iconremote" + i).gameObject.SetActive(false);
+                            tip.transform.Find("icon" + i).gameObject.SetActive(false);
+                            tip.transform.Find("countText" + i).gameObject.SetActive(false);
+                        }
+                        if (!string.IsNullOrEmpty(stationComponentName))
+                        {
+                            var lastcountTextPosition = lastcountText.GetComponent<RectTransform>().anchoredPosition3D;
+                            lastcountText.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(90, lastcountTextPosition.y, 0);
+                            lastcountText.GetComponent<Text>().fontSize = 18;
+                            lastcountText.GetComponent<Text>().text = stationComponentName;
+                            lastcountText.GetComponent<Text>().color = Color.white;
+                            lastcountText.gameObject.SetActive(true);
+                            tipWindowHeight += 27;
+                            lastLine++;
+                        }
+                        else
+                        {
+                            lasticon.gameObject.SetActive(false);
+                            lastcountText.gameObject.SetActive(false);
+                        }
+                        for (int i = 0; i < 3; ++i)
+                        {
+                            var icontext = tip.transform.Find("icontext" + i);
+                            if (stationComponent.isCollector || stationComponent.isVeinCollector || (i >= 1 && !stationComponent.isStellar))
+                            {
+                                icontext.gameObject.SetActive(false);
+                                continue;
+                            }
+                            int itemId;
+                            string totalCount;
+                            if (i == 0)
+                            {
+                                itemId = 5001;
+                                totalCount = (stationComponent.idleDroneCount + stationComponent.workDroneCount).ToString();
+                                icontext.Find("countText2").GetComponent<Text>().color = Color.white;
+                                icontext.Find("countText2").GetComponent<Text>().text = stationComponent.idleDroneCount.ToString();
+                            }
+                            else if (i == 1)
+                            {
+                                itemId = 5002;
+                                totalCount = (stationComponent.idleShipCount + stationComponent.workShipCount).ToString();
+                                icontext.Find("countText2").GetComponent<Text>().color = Color.white;
+                                icontext.Find("countText2").GetComponent<Text>().text = stationComponent.idleShipCount.ToString();
+                            }
+                            else
+                            {
+                                itemId = 1210;
+                                totalCount = stationComponent.warperCount.ToString();
+                            }
+                            icontext.gameObject.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(i * 30, -30 - 30 * lastLine, 0);
+                            icontext.GetComponent<Image>().sprite = LDB.items.Select(itemId).iconSprite;
+                            icontext.Find("countText").GetComponent<Text>().color = Color.white;
+                            icontext.Find("countText").GetComponent<Text>().text = totalCount;
+                            icontext.gameObject.SetActive(true);
+                        }
+                        float localScaleMultiple;
+                        if (magnitude < 50.0)
+                            localScaleMultiple = 1.5f;
+                        else if (magnitude < 250.0)
+                            localScaleMultiple = (float)(1.75 - magnitude * 0.005);
+                        else
+                            localScaleMultiple = 0.5f;
+                        tip.transform.localScale = Vector3.one * localScaleMultiple;
+                        tip.GetComponent<RectTransform>().sizeDelta = new Vector2(125f, tipWindowHeight);
                     }
                 }
-                for (int index4 = tipIndex; index4 < maxCount; ++index4)
-                    tips[index4].SetActive(false);
+                for (int i = tipIndex; i < maxCount; ++i)
+                    tips[i].SetActive(false);
             }
             else
                 stationTip.SetActive(false);
@@ -972,6 +1019,15 @@ namespace Auxilaryfunction.Services
 
             GUILayout.BeginVertical();
             {
+                if (autoaddtech_bool.Value != GUILayout.Toggle(autoaddtech_bool.Value, "自动添加科技队列".getTranslate()))
+                {
+                    autoaddtech_bool.Value = !autoaddtech_bool.Value;
+                    if (!autoaddtech_bool.Value)
+                    {
+                        autoaddtechid = 0;
+                        auto_add_techid.Value = 0;
+                    }
+                }
                 if (autoaddtech_bool.Value)
                 {
                     GUILayout.BeginHorizontal();
@@ -1066,15 +1122,6 @@ namespace Auxilaryfunction.Services
                     GUILayout.Button(LDB.items.Select(2311).iconSprite.texture, normalstyle, iconbuttonoptions);
                     auto_setejector_bool.Value = GUILayout.Toggle(auto_setejector_bool.Value, "自动配置太阳帆弹射器".getTranslate());
                     GUILayout.EndHorizontal();
-                }
-                if (autoaddtech_bool.Value != GUILayout.Toggle(autoaddtech_bool.Value, "自动添加科技队列".getTranslate()))
-                {
-                    autoaddtech_bool.Value = !autoaddtech_bool.Value;
-                    if (!autoaddtech_bool.Value)
-                    {
-                        autoaddtechid = 0;
-                        auto_add_techid.Value = 0;
-                    }
                 }
 
                 if (autoabsorttrash_bool.Value != GUILayout.Toggle(autoabsorttrash_bool.Value, "30s间隔自动吸收垃圾".getTranslate()))
@@ -1296,6 +1343,28 @@ namespace Auxilaryfunction.Services
                     TrashCanButton.SetActive(TrashStorageWindow_bool.Value);
                 }
                 SunLightOpen.Value = GUILayout.Toggle(SunLightOpen.Value, "夜灯".getTranslate());
+                if (GUILayout.Button("初始化预制建筑池".getTranslate()))
+                {
+                    string unrecycleInfo = "";
+                    string recycleInfo = "";
+                    foreach (var factory in GameMain.data.factories)
+                    {
+                        if (factory == null || factory.prebuildCursor == 1) continue;
+                        if (factory.prebuildCount != 0)
+                        {
+                            unrecycleInfo += factory.planet.displayName + "剩余".getTranslate() + factory.prebuildCount + "个未完成建筑，该星球无法初始化".getTranslate() + "\n";
+                        }
+                        else
+                        {
+                            recycleInfo += factory.planet.displayName + "回收".getTranslate() + factory.prebuildCursor + "个".getTranslate() + "\n";
+                            factory.prebuildCursor = 1;
+                            Traverse.Create(factory).Field("prebuildRecycleCursor").SetValue(0);
+                            Traverse.Create(factory).Method("SetPrebuildCapacity", 256).GetValue();
+                        }
+                        //factory.prebuildCursor = 1;
+                    }
+                    UIMessageBox.Show("初始化预制建筑池", unrecycleInfo + recycleInfo, "确定", 3);
+                }
 
             }
             GUILayout.EndVertical();
@@ -1827,6 +1896,10 @@ namespace Auxilaryfunction.Services
 
         private void BluePrintConfigSetPanel()
         {
+            GUILayout.BeginHorizontal();
+            ChangeBluePrintQuickKey = GUILayout.Toggle(ChangeBluePrintQuickKey, !ChangeBluePrintQuickKey ? "改变蓝图设置快捷键".getTranslate() : "点击确认".getTranslate(), buttonoptions);
+            GUILayout.Label(tempBluePrintShowWindow.ToString(), labelstyle);
+            GUILayout.EndHorizontal();
             if (LocalPlanet == null || blue_copy?.blueprint?.buildings == null)
             {
                 BluePrintBatchModifyBuild.Reset();
@@ -2100,6 +2173,10 @@ namespace Auxilaryfunction.Services
             GUILayout.EndHorizontal();
 
             GUILayout.BeginVertical();
+            if (GUILayout.Button("重置物流站参数".getTranslate()))
+            {
+                ResetStationConfig();
+            }
             for (int i = 0; i < 4; i++)
             {
                 var stationStoreConfig = stationStoreConfigs[i];
@@ -2158,10 +2235,6 @@ namespace Auxilaryfunction.Services
                 GUILayout.EndVertical();
 
                 GUILayout.EndHorizontal();
-            }
-            if (GUILayout.Button("重置物流站参数".getTranslate()))
-            {
-                ResetStationConfig();
             }
             if (GUILayout.Button("设置物流站物品".getTranslate(), buttonoptions))
             {
@@ -2307,7 +2380,7 @@ namespace Auxilaryfunction.Services
                 {
                     stationStoreConfig.localLogic = (ELogisticStorage)(((int)stationStoreConfig.localLogic + 1) % 3);
                 }
-                if (GUILayout.Button(GetLogisticText(stationStoreConfig.localLogic, true, true), GetStationStorelogicStyle(stationStoreConfig.remoteLogic)))
+                if (GUILayout.Button(GetLogisticText(stationStoreConfig.remoteLogic, true, true), GetStationStorelogicStyle(stationStoreConfig.remoteLogic)))
                 {
                     stationStoreConfig.remoteLogic = (ELogisticStorage)(((int)stationStoreConfig.remoteLogic + 1) % 3);
                 }
@@ -2476,9 +2549,9 @@ namespace Auxilaryfunction.Services
 
             if (targetFunctionId != -1)
             {
-                for (int j = 0; j < labpools.Count; j++)
+                for (int j = 0; j < Filterlabpools.Count; j++)
                 {
-                    LocalPlanet.factory.factorySystem.labPool[labpools[j]].SetFunction(false, targetFunctionId, 0, LocalPlanet.factory.entitySignPool);
+                    LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].SetFunction(false, targetFunctionId, 0, LocalPlanet.factory.entitySignPool);
                 }
             }
 
@@ -2486,25 +2559,25 @@ namespace Auxilaryfunction.Services
 
             if (GUILayout.Button("科研模式".getTranslate(), buttonoptions))
             {
-                for (int j = 0; j < labpools.Count; j++)
+                for (int j = 0; j < Filterlabpools.Count; j++)
                 {
-                    LocalPlanet.factory.factorySystem.labPool[labpools[j]].SetFunction(true, 0, GameMain.history.currentTech, LocalPlanet.factory.entitySignPool);
+                    LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].SetFunction(true, 0, GameMain.history.currentTech, LocalPlanet.factory.entitySignPool);
                 }
             }
             if (GUILayout.Button("额外产出".getTranslate(), buttonoptions))
             {
-                for (int j = 0; j < labpools.Count; j++)
+                for (int j = 0; j < Filterlabpools.Count; j++)
                 {
-                    if (LocalPlanet.factory.factorySystem.labPool[labpools[j]].productive)
-                        LocalPlanet.factory.factorySystem.labPool[labpools[j]].forceAccMode = false;
+                    if (LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].productive)
+                        LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].forceAccMode = false;
                 }
             }
             if (GUILayout.Button("生产加速".getTranslate(), buttonoptions))
             {
-                for (int j = 0; j < labpools.Count; j++)
+                for (int j = 0; j < Filterlabpools.Count; j++)
                 {
-                    if (LocalPlanet.factory.factorySystem.labPool[labpools[j]].productive)
-                        LocalPlanet.factory.factorySystem.labPool[labpools[j]].forceAccMode = true;
+                    if (LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].productive)
+                        LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].forceAccMode = true;
                 }
             }
 
@@ -2639,7 +2712,7 @@ namespace Auxilaryfunction.Services
                 {
                     var assembler = LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[j]];
                     if (assembler.productive)
-                        assembler.forceAccMode = false;
+                        LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[j]].forceAccMode = false;
                 }
             }
             if (GUILayout.Button("生产加速".getTranslate(), buttonoptions))
@@ -2648,7 +2721,7 @@ namespace Auxilaryfunction.Services
                 {
                     var assembler = LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[j]];
                     if (assembler.productive)
-                        assembler.forceAccMode = true;
+                        LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[j]].forceAccMode = true;
                 }
             }
             GUILayout.EndHorizontal();

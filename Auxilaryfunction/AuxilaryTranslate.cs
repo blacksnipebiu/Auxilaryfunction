@@ -82,6 +82,10 @@ namespace Auxilaryfunction
             TranslateDict.Add("停止工厂", "stop factory");
             TranslateDict.Add("ctrl+空格快速开关", "quick start and stop(ctrl+space)");
 
+            TranslateDict.Add("个", "");
+            TranslateDict.Add("剩余", "surplus");
+            TranslateDict.Add("回收", "recycle");
+            TranslateDict.Add("个未完成建筑，该星球无法初始化", "unfinished building,The planet cannot be initialized.");
             TranslateDict.Add("自动飞向未完成建筑", "Auto fly to unfinished buildings");
             TranslateDict.Add("自动飞向地面黑雾基地", "Autp fly to dark fog on ground");
             TranslateDict.Add("自动添加科技队列", "Auto add tech queue");
@@ -113,6 +117,7 @@ namespace Auxilaryfunction
             TranslateDict.Add("生产加速", "Production Speedup");
             TranslateDict.Add("额外产出", "Extra Products");
 
+            TranslateDict.Add("初始化预制建筑池", "Initialize all planet prebuild pool");
             TranslateDict.Add("自动画最密戴森球", "Auto. draw DysonSphere");
             TranslateDict.Add("缓慢最密画法", "slow draw method");
             TranslateDict.Add("根", "root");

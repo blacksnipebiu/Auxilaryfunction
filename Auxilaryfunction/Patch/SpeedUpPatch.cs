@@ -38,6 +38,7 @@ namespace Auxilaryfunction.Patch
             set
             {
                 speedMultiple = value;
+                TargetFixedDeltaTime = 1 / (speedMultiple * 60f);
                 if (Enable)
                 {
                     //Time.timeScale = SpeedMultiple;
@@ -45,11 +46,13 @@ namespace Auxilaryfunction.Patch
             }
         }
 
+        public static float TargetFixedDeltaTime = 0.0166666f;
+
         [HarmonyPostfix]
         [HarmonyPatch(typeof(FPSController), "Update")]
-        public static void SpeedUp(FPSController __instance)
+        public static void SpeedUp()
         {
-            Time.fixedDeltaTime = 1f / (SpeedMultiple * 60);
+            Time.fixedDeltaTime = TargetFixedDeltaTime;
             //Time.timeScale = SpeedMultiple;
         }
     }
