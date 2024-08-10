@@ -24,7 +24,7 @@ namespace Auxilaryfunction
 
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.7.5";
+        public const string VERSION = "2.7.6";
         public static string ErrorTitle = "辅助面板错误提示";
         public static GUIDraw guidraw;
         public static int automovetoPrebuildSecondElapseCounter;
@@ -138,8 +138,9 @@ namespace Auxilaryfunction
         public static Thread autobuildThread;
 
         public static int maxCount = 0;
-        public static GameObject[] tips = new GameObject[maxCount];
-        public static GameObject stationTip;
+        public static StationTip[] stationtips = new StationTip[maxCount];
+        public static GameObject stationTipRoot;
+        public static RectTransform stationTipRectTransform;
         public static GameObject tipPrefab;
         public static GameObject StationWindow;
         public static GameObject TrashStorageWindow;

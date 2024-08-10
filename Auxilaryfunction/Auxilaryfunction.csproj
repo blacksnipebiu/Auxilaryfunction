@@ -87,6 +87,7 @@
     <Compile Include="Models\BluePrintBatchModify.cs" />
     <Compile Include="Models\BuildType.cs" />
     <Compile Include="Models\StationStoreConfig.cs" />
+    <Compile Include="Models\StationTip.cs" />
     <Compile Include="Patch\AuxilaryfunctionPatch.cs" />
     <Compile Include="AuxilaryTranslate.cs" />
     <Compile Include="Constant.cs" />
