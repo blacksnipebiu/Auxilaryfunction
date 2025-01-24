@@ -9,6 +9,16 @@
                 UIRealtimeTip.Popup("存在未解锁的前置科技".Translate(), true, 0);
                 return;
             }
+            if (GameMain.sandboxToolsEnabled)
+            {
+                if (!GameMain.data.history.HasPreTechUnlocked(tp.ID))
+                {
+                    UIRealtimeTip.Popup("存在未解锁的前置科技".Translate(), true, 0);
+                    return;
+                }
+                GameMain.history.UnlockTechUnlimited(tp.ID, true);
+                return;
+            }
             if (!GameMain.data.history.CheckPropertyAdequateForBuyout(tp.ID))
             {
                 UIRealtimeTip.Popup("元数据不足".Translate(), true, 0);

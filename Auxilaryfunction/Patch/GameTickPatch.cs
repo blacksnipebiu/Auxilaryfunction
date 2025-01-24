@@ -6,6 +6,7 @@ namespace Auxilaryfunction.Patch
     {
         private static Harmony _patch;
         private static bool enable;
+
         public static bool Enable
         {
             get => enable;
@@ -31,7 +32,7 @@ namespace Auxilaryfunction.Patch
             PerformanceMonitor.BeginSample(ECpuWorkEntry.Statistics);
             if (!DSPGame.IsMenuDemo)
             {
-                __instance.statistics.PrepareTick();
+                __instance.statistics.PrepareTick(time);
                 __instance.history.PrepareTick();
             }
             __instance.mainPlayer.packageUtility.Count();
