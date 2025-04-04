@@ -2623,21 +2623,26 @@ namespace Auxilaryfunction.Services
                         var stationStoreConfig = stationStoreConfigs[i];
                         int currentItemId = station.storage[i].itemId;
                         int TargetItemId = stationStoreConfig.ItemId;
-                        if (items.Contains(currentItemId) && TargetItemId != currentItemId)
+                        if (TargetItemId!=currentItemId)
                         {
-                            if (station.storage[i].count > 0)
+                            if (items.Contains(currentItemId))
                             {
-                                player.TryAddItemToPackage(currentItemId, station.storage[i].count, station.storage[i].inc, true);
+                                if (station.storage[i].count > 0)
+                                {
+                                    player.TryAddItemToPackage(currentItemId, station.storage[i].count, station.storage[i].inc, true);
+                                    station.storage[i].count = 0;
+                                }
+                                station.storage[i].itemId = 0;
                             }
-                            station.storage[i].itemId = 0;
                         }
                         if (!stationStoreConfig.IsEnabled)
                         {
                             continue;
                         }
-                        if (station.storage[i].count > 0)
+                        if (currentItemId != TargetItemId && station.storage[i].count > 0)
                         {
                             player.TryAddItemToPackage(currentItemId, station.storage[i].count, station.storage[i].inc, true);
+                            station.storage[i].count = 0;
                         }
                         station.storage[i].itemId = TargetItemId;
                         station.storage[i].max = stationStoreConfig.max * 100;

@@ -20,7 +20,8 @@ namespace Auxilaryfunction
     {
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.8.9";
+        public const string VERSION = "2.9.1";
+        private SynchronizationContext _mainContext;
         public static int autoaddtechid;
         public static bool autobuildgetitem;
         public static Thread autobuildThread;
@@ -369,6 +370,7 @@ namespace Auxilaryfunction
 
         public void Start()
         {
+            _mainContext = SynchronizationContext.Current;
             harmony = new Harmony(GUID);
             harmony.PatchAll(typeof(AuxilaryfunctionPatch));
             AuxilaryTranslate.regallTranslate();
@@ -707,7 +709,11 @@ namespace Auxilaryfunction
             }
             else if (lasthasitempd != -1 && lasthasitempd != 0 && lasthasitempd == GameMain.localPlanet.factory.prebuildPool[lasthasitempd].id)
             {
-                GameMain.mainPlayer.Order(OrderNode.MoveTo(GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos.normalized * GameMain.localPlanet.realRadius), false);
+                _mainContext.Post(_ =>
+                {
+                    GameMain.mainPlayer.Order(OrderNode.MoveTo(GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos.normalized * GameMain.localPlanet.realRadius), false);
+
+                }, null);
             }
         }
 
