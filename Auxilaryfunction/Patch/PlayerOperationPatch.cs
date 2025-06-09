@@ -47,7 +47,7 @@ namespace Auxilaryfunction.Patch
         private static int indicatorAstroId => player.navigation.indicatorAstroId;
         private static int indicatorMsgId => player.navigation.indicatorMsgId;
         private static int indicatorEnemyId => player.navigation.indicatorEnemyId;
-        private static bool CanWarp => LocalPlanet == null && autowarpcommand.Value && !player.warping && mecha.coreEnergy > mecha.warpStartPowerPerSpeed * maxWarpSpeed;
+        private static bool CanWarp => LocalPlanet == null && autowarpcommand.Value && !player.warping && mecha.coreEnergy > mecha.warpStartPowerPerSpeed * maxWarpSpeed && player.mecha.thrusterLevel >= 3;
         private static ESpaceGuideType guidetype;
         public static void ClearFollow()
         {
@@ -300,9 +300,10 @@ namespace Auxilaryfunction.Patch
                 {
                     player.warpCommand = false;
                 }
-                if (canWarp && !needstop && mecha.UseWarper() && distance > 10000)
+                if (canWarp && !needstop && distance > 10000 && mecha.UseWarper() )
                 {
                     player.warpCommand = true;
+                    Console.WriteLine("翘曲启动");
                 }
 
             }

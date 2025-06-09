@@ -247,7 +247,7 @@ namespace Auxilaryfunction.Models
                     turretpool.Add(LocalPlanet.factory.entityPool[bp.objId].turretId);
                     AddBuildNumber(bp.item.ID);
                 }
-                else if (prefab.isBelt && LocalPlanet.factory.entitySignPool[bp.objId].iconId0 > 0)
+                else if (prefab.isBelt)//LocalPlanet.factory.entitySignPool[bp.objId].iconId0 > 0
                 {
                     beltpools.Add(LocalPlanet.factory.entityPool[bp.objId].id);
                     AddBuildNumber(bp.item.ID);

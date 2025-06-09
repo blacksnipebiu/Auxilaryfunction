@@ -20,7 +20,7 @@ namespace Auxilaryfunction
     {
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.9.1";
+        public const string VERSION = "2.9.4";
         private SynchronizationContext _mainContext;
         public static int autoaddtechid;
         public static bool autobuildgetitem;
@@ -642,7 +642,11 @@ namespace Auxilaryfunction
                 return;
             }
             Vector3 targetPos = GameMain.localPlanet.factory.enemyPool[baseComponent.enemyId].pos;
-            GameMain.mainPlayer.Order(OrderNode.MoveTo(targetPos.normalized * GameMain.localPlanet.realRadius), false);
+
+            _mainContext.Post(_ =>
+            {
+                GameMain.mainPlayer.Order(OrderNode.MoveTo(targetPos.normalized * GameMain.localPlanet.realRadius), false);
+            }, null);
             if (autoRemoveRuin && enemySystem.CheckBaseCanRemoved(baseComponent.id) == 0)
             {
                 autoRemoveRuinId = baseComponent.ruinId;
@@ -687,6 +691,11 @@ namespace Auxilaryfunction
                     {
                         lasthasitempd = pd.id;
                         getitem = false;
+                        _mainContext.Post(_ =>
+                        {
+                            GameMain.mainPlayer.Order(OrderNode.MoveTo(GameMain.localPlanet.factory.prebuildPool[lasthasitempd].pos.normalized * GameMain.localPlanet.realRadius), false);
+
+                        }, null);
                         break;
                     }
                 }

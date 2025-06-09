@@ -2212,6 +2212,13 @@ namespace Auxilaryfunction.Services
                     LocalPlanet.factory.cargoTraffic.SetBeltSignalNumber(i, BeltSignalNumber);
                 }
             }
+            if (GUILayout.Button("清空选中传送带".getTranslate()))
+            {
+                foreach (int i in beltpools)
+                {
+                    LocalPlanet.factory.cargoTraffic.PickupBeltItems(GameMain.mainPlayer, LocalPlanet.factory.entityPool[i].beltId, true);
+                }
+            }
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
