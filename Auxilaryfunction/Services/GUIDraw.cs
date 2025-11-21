@@ -433,170 +433,184 @@ namespace Auxilaryfunction.Services
         {
             #region StationInfoWindow
 
-            stationTipRoot = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks"), GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs").transform);
-            stationTipRoot.name = "stationTip";
-            stationTipRectTransform = stationTipRoot.GetComponent<RectTransform>();
-            Destroy(stationTipRoot.GetComponent<UIVeinDetail>());
-            tipPrefab = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks/vein-tip-prefab"), stationTipRoot.transform);
-            tipPrefab.name = "tipPrefab";
-            tipPrefab.GetComponent<Image>().sprite = GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Key Tips/tip-prefab").GetComponent<Image>().sprite;
-            tipPrefab.GetComponent<Image>().color = new Color(0, 0, 0, 0.8f);
-            tipPrefab.GetComponent<RectTransform>().sizeDelta = new Vector2(150, 160f);
-            tipPrefab.GetComponent<Image>().enabled = true;
-            tipPrefab.transform.localPosition = new Vector3(200f, 800f, 0);
-            tipPrefab.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0.5f);
-            Destroy(tipPrefab.GetComponent<UIVeinDetailNode>());
-            var info_text = tipPrefab.transform.Find("info-text").gameObject;
-            for (int index = 0; index < 13; ++index)
+            try
             {
-                GameObject gameObject1 = Instantiate(info_text, Vector3.zero, Quaternion.identity, tipPrefab.transform);
-                gameObject1.name = "countText" + index;
-                float y = (-5 - 35 * index);
-                gameObject1.GetComponent<Text>().fontSize = index == 5 ? 15 : 19;
-                gameObject1.GetComponent<Text>().text = "99999";
-                gameObject1.GetComponent<Text>().alignment = TextAnchor.MiddleRight;
-                gameObject1.GetComponent<RectTransform>().sizeDelta = new Vector2(95, 30);
-                gameObject1.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
-                gameObject1.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
-                gameObject1.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
-                gameObject1.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(70, y, 0);
-                Destroy(gameObject1.GetComponent<Shadow>());
-                GameObject gameObject2 = Instantiate(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
-                gameObject2.name = "icon" + index;
-                gameObject1.GetComponent<RectTransform>().sizeDelta = new Vector2(30, 30);
-                gameObject2.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
-                gameObject2.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
-                gameObject2.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
-                gameObject2.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(0, y, 0);
-                GameObject iconLocal = Instantiate(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
-                iconLocal.name = "iconLocal" + index;
-                iconLocal.GetComponent<Image>().material = null;
-                iconLocal.GetComponent<RectTransform>().sizeDelta = new Vector2(21, 21);
-                iconLocal.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
-                iconLocal.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
-                iconLocal.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
-                iconLocal.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(105, y, 0);
-                GameObject iconremote = Instantiate(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
-                iconremote.name = "iconremote" + index;
-                iconremote.GetComponent<Image>().material = null;
-                iconremote.GetComponent<RectTransform>().sizeDelta = new Vector2(21, 21);
-                iconremote.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
-                iconremote.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
-                iconremote.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
-                iconremote.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(105, y - 15, 0);
-                //UIIconCountInc uiiconCountInc = Instantiate<UIIconCountInc>(this.icons[0], this.icons[0].transform.parent);
-                //uiiconCountInc.SetTransformIdentity();
-                //uiiconCountInc.visible = false;
-            }
-            for (int i = 0; i < 3; i++)
-            {
-                GameObject icontext = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Top Tips/Entity Briefs/brief-info-top/brief-info/content/icons/icon"), new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
-                icontext.name = "icontext" + i;
-                icontext.GetComponent<RectTransform>().localScale = new Vector3(0.7f, 0.7f, 1);
-                icontext.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
-                icontext.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
-                icontext.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
-                icontext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(i * 30, -180, 0);
-                GameObject gameObject1 = Instantiate(info_text, Vector3.zero, Quaternion.identity, icontext.transform);
-                gameObject1.name = "countText";
-                gameObject1.GetComponent<Text>().fontSize = 22;
-                gameObject1.GetComponent<Text>().text = "100";
-                gameObject1.GetComponent<Text>().alignment = TextAnchor.MiddleRight;
-                gameObject1.GetComponent<RectTransform>().sizeDelta = new Vector2(95, 30);
-                gameObject1.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
-                gameObject1.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
-                gameObject1.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
-                gameObject1.GetComponent<RectTransform>().localPosition = new Vector3(-50, -20, 0);
-                Destroy(gameObject1.GetComponent<Shadow>());
-                if (i != 2)
+                stationTipRoot = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks"), GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs").transform);
+                stationTipRoot.name = "stationTip";
+                stationTipRectTransform = stationTipRoot.GetComponent<RectTransform>();
+                Destroy(stationTipRoot.GetComponent<UIVeinDetail>());
+                tipPrefab = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks/vein-tips/vein-tip-prefab"), stationTipRoot.transform);
+                tipPrefab.name = "tipPrefab";
+                tipPrefab.GetComponent<Image>().sprite = GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Key Tips/tip-prefab").GetComponent<Image>().sprite;
+                tipPrefab.GetComponent<Image>().color = new Color(0, 0, 0, 0.8f);
+                tipPrefab.GetComponent<RectTransform>().sizeDelta = new Vector2(150, 160f);
+                tipPrefab.GetComponent<Image>().enabled = true;
+                tipPrefab.transform.localPosition = new Vector3(200f, 800f, 0);
+                tipPrefab.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0.5f);
+                Destroy(tipPrefab.GetComponent<UIVeinDetailNode>());
+                var info_text = tipPrefab.transform.Find("info-text").gameObject;
+                for (int index = 0; index < 13; ++index)
                 {
-                    GameObject gameObject2 = Instantiate(info_text, Vector3.zero, Quaternion.identity, icontext.transform);
-                    gameObject2.name = "countText2";
-                    gameObject2.GetComponent<Text>().fontSize = 22;
-                    gameObject2.GetComponent<Text>().text = "100";
-                    gameObject2.GetComponent<Text>().alignment = TextAnchor.MiddleRight;
-                    gameObject2.GetComponent<RectTransform>().sizeDelta = new Vector2(95, 30);
+                    GameObject gameObject1 = Instantiate(info_text, Vector3.zero, Quaternion.identity, tipPrefab.transform);
+                    gameObject1.name = "countText" + index;
+                    float y = (-5 - 35 * index);
+                    gameObject1.GetComponent<Text>().fontSize = index == 5 ? 15 : 19;
+                    gameObject1.GetComponent<Text>().text = "99999";
+                    gameObject1.GetComponent<Text>().alignment = TextAnchor.MiddleRight;
+                    gameObject1.GetComponent<RectTransform>().sizeDelta = new Vector2(95, 30);
+                    gameObject1.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
+                    gameObject1.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
+                    gameObject1.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+                    gameObject1.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(70, y, 0);
+                    Destroy(gameObject1.GetComponent<Shadow>());
+                    GameObject gameObject2 = Instantiate(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
+                    gameObject2.name = "icon" + index;
+                    gameObject1.GetComponent<RectTransform>().sizeDelta = new Vector2(30, 30);
                     gameObject2.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
                     gameObject2.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
                     gameObject2.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
-                    gameObject2.GetComponent<RectTransform>().localPosition = new Vector3(-50, 10, 0);
-                    Destroy(gameObject2.GetComponent<Shadow>());
+                    gameObject2.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(0, y, 0);
+                    GameObject iconLocal = Instantiate(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
+                    iconLocal.name = "iconLocal" + index;
+                    iconLocal.GetComponent<Image>().material = null;
+                    iconLocal.GetComponent<RectTransform>().sizeDelta = new Vector2(21, 21);
+                    iconLocal.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
+                    iconLocal.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
+                    iconLocal.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+                    iconLocal.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(105, y, 0);
+                    GameObject iconremote = Instantiate(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
+                    iconremote.name = "iconremote" + index;
+                    iconremote.GetComponent<Image>().material = null;
+                    iconremote.GetComponent<RectTransform>().sizeDelta = new Vector2(21, 21);
+                    iconremote.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
+                    iconremote.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
+                    iconremote.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+                    iconremote.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(105, y - 15, 0);
+                    //UIIconCountInc uiiconCountInc = Instantiate<UIIconCountInc>(this.icons[0], this.icons[0].transform.parent);
+                    //uiiconCountInc.SetTransformIdentity();
+                    //uiiconCountInc.visible = false;
                 }
-                Destroy(icontext.transform.Find("count-text").gameObject);
-                Destroy(icontext.transform.Find("bg").gameObject);
-                Destroy(icontext.transform.Find("inc").gameObject);
-                Destroy(icontext.GetComponent<UIIconCountInc>());
+                for (int i = 0; i < 3; i++)
+                {
+                    GameObject icontext = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Top Tips/Entity Briefs/brief-info-top/brief-info/content/icons/icon"), new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
+                    icontext.name = "icontext" + i;
+                    icontext.GetComponent<RectTransform>().localScale = new Vector3(0.7f, 0.7f, 1);
+                    icontext.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
+                    icontext.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
+                    icontext.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+                    icontext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(i * 30, -180, 0);
+                    GameObject gameObject1 = Instantiate(info_text, Vector3.zero, Quaternion.identity, icontext.transform);
+                    gameObject1.name = "countText";
+                    gameObject1.GetComponent<Text>().fontSize = 22;
+                    gameObject1.GetComponent<Text>().text = "100";
+                    gameObject1.GetComponent<Text>().alignment = TextAnchor.MiddleRight;
+                    gameObject1.GetComponent<RectTransform>().sizeDelta = new Vector2(95, 30);
+                    gameObject1.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
+                    gameObject1.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
+                    gameObject1.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+                    gameObject1.GetComponent<RectTransform>().localPosition = new Vector3(-50, -20, 0);
+                    Destroy(gameObject1.GetComponent<Shadow>());
+                    if (i != 2)
+                    {
+                        GameObject gameObject2 = Instantiate(info_text, Vector3.zero, Quaternion.identity, icontext.transform);
+                        gameObject2.name = "countText2";
+                        gameObject2.GetComponent<Text>().fontSize = 22;
+                        gameObject2.GetComponent<Text>().text = "100";
+                        gameObject2.GetComponent<Text>().alignment = TextAnchor.MiddleRight;
+                        gameObject2.GetComponent<RectTransform>().sizeDelta = new Vector2(95, 30);
+                        gameObject2.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
+                        gameObject2.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
+                        gameObject2.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
+                        gameObject2.GetComponent<RectTransform>().localPosition = new Vector3(-50, 10, 0);
+                        Destroy(gameObject2.GetComponent<Shadow>());
+                    }
+                    Destroy(icontext.transform.Find("count-text").gameObject);
+                    Destroy(icontext.transform.Find("bg").gameObject);
+                    Destroy(icontext.transform.Find("inc").gameObject);
+                    Destroy(icontext.GetComponent<UIIconCountInc>());
+                }
+                tipPrefab.transform.Find("icon").gameObject.SetActive(false);
+                tipPrefab.SetActive(false);
+                for (int i = 0; i < maxCount; ++i)
+                {
+                    var temptip = Instantiate(tipPrefab, stationTipRoot.transform);
+                    var tempstationtip = temptip.AddComponent<StationTip>();
+                    stationtips[i] = tempstationtip;
+                }
             }
-            tipPrefab.transform.Find("icon").gameObject.SetActive(false);
-            tipPrefab.SetActive(false);
-            for (int i = 0; i < maxCount; ++i)
+            catch
             {
-                var temptip = Instantiate(tipPrefab, stationTipRoot.transform);
-                var tempstationtip = temptip.AddComponent<StationTip>();
-                stationtips[i] = tempstationtip;
+                Console.WriteLine("StationWindow错误");
             }
 
             #endregion StationInfoWindow
 
             #region TrashStorageWindow
 
-            TrashCanButton = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Game Menu/button-1-bg"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Player Inventory").transform);
-            TrashCanButton.transform.Find("button-1/icon").GetComponent<Image>().sprite = trashcan;
-            TrashCanButton.transform.Find("button-1/icon").GetComponent<RectTransform>().sizeDelta = new Vector2(22, 22);
-            TrashCanButton.transform.localPosition = new Vector3(630, -60, 0);
-            TrashCanButton.GetComponent<RectTransform>().sizeDelta = new Vector2(40, 40);
-            TrashCanButton.GetComponent<RectTransform>().anchorMin = new Vector2(1, 1);
-            TrashCanButton.GetComponent<RectTransform>().anchorMax = new Vector2(1, 1);
-            TrashCanButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-58, -65);
-            TrashCanButton.GetComponent<UIButton>().tips.tipTitle = "垃圾桶".getTranslate();
-            TrashCanButton.GetComponent<UIButton>().tips.tipText = "开关显示垃圾桶，垃圾桶关闭后自动清理内部物品".getTranslate();
-            TrashCanButton.GetComponent<UIButton>().onClick += (_) =>
+            try
             {
-                bool isOpen = !TrashStorageWindow.activeSelf;
-                if (isOpen)
+                TrashCanButton = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Game Menu/button-1-bg"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Player Inventory").transform);
+                TrashCanButton.transform.Find("button-1/icon").GetComponent<Image>().sprite = trashcan;
+                TrashCanButton.transform.Find("button-1/icon").GetComponent<RectTransform>().sizeDelta = new Vector2(22, 22);
+                TrashCanButton.transform.localPosition = new Vector3(630, -60, 0);
+                TrashCanButton.GetComponent<RectTransform>().sizeDelta = new Vector2(40, 40);
+                TrashCanButton.GetComponent<RectTransform>().anchorMin = new Vector2(1, 1);
+                TrashCanButton.GetComponent<RectTransform>().anchorMax = new Vector2(1, 1);
+                TrashCanButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-58, -65);
+                TrashCanButton.GetComponent<UIButton>().tips.tipTitle = "垃圾桶".getTranslate();
+                TrashCanButton.GetComponent<UIButton>().tips.tipText = "开关显示垃圾桶，垃圾桶关闭后自动清理内部物品".getTranslate();
+                TrashCanButton.GetComponent<UIButton>().onClick += (_) =>
                 {
-                    UIRoot.instance.uiGame.ShutAllFunctionWindow();
-                    TrashStorageWindow.SetActive(isOpen);
-                    TrashCanButton.transform.Find("button-1/icon").GetComponent<Image>().sprite = trashcanOpen;
-                    uiTrashStorageWindow.storageUI._Free();
-                    uiTrashStorageWindow.storageUI._Init(TrashStorage);
-                    uiTrashStorageWindow.storageUI._Open();
-                    uiTrashStorageWindow.storageUI.OnStorageDataChanged();
-                }
-                else
+                    bool isOpen = !TrashStorageWindow.activeSelf;
+                    if (isOpen)
+                    {
+                        UIRoot.instance.uiGame.ShutAllFunctionWindow();
+                        TrashStorageWindow.SetActive(isOpen);
+                        TrashCanButton.transform.Find("button-1/icon").GetComponent<Image>().sprite = trashcanOpen;
+                        uiTrashStorageWindow.storageUI._Free();
+                        uiTrashStorageWindow.storageUI._Init(TrashStorage);
+                        uiTrashStorageWindow.storageUI._Open();
+                        uiTrashStorageWindow.storageUI.OnStorageDataChanged();
+                    }
+                    else
+                    {
+                        CloseTrashStorageWindow();
+                    }
+                };
+
+                TrashStorage = new StorageComponent(30);
+                TrashStorageWindow = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Storage Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Player Inventory").transform);
+                TrashStorageWindow.name = "TrashStorageWindow";
+
+                Destroy(TrashStorageWindow.transform.Find("filter-group").gameObject);
+                Destroy(TrashStorageWindow.transform.Find("panel-bg/drag-trigger").gameObject);
+                Destroy(TrashStorageWindow.transform.Find("bans-bar").gameObject);
+
+                uiTrashStorageWindow = TrashStorageWindow.GetComponent<UIStorageWindow>();
+                uiTrashStorageWindow.windowTrans.anchorMin = new Vector2(1, 1);
+                uiTrashStorageWindow.windowTrans.anchorMax = new Vector2(1, 1);
+                uiTrashStorageWindow.windowTrans.anchoredPosition = new Vector2(-14, -25);
+                uiTrashStorageWindow.windowTrans.pivot = new Vector2(0, 1);
+                uiTrashStorageWindow.windowTrans.sizeDelta = new Vector2(uiTrashStorageWindow.windowTrans.sizeDelta.x, 240);
+                uiTrashStorageWindow.titleText.text = "垃圾桶".getTranslate();
+                uiTrashStorageWindow.storageUI._Create();
+                var sortbtn = uiTrashStorageWindow.transform.Find("panel-bg/btn-box/sort-btn").GetComponent<UIButton>();
+                sortbtn.onClick += (_) =>
+                {
+                    TrashStorage.Sort(true);
+                };
+                UIButton closebutton = TrashStorageWindow.transform.Find("panel-bg/btn-box/close-wnd-btn").GetComponent<UIButton>();
+                closebutton.onClick += (_) =>
                 {
                     CloseTrashStorageWindow();
-                }
-            };
-
-            TrashStorage = new StorageComponent(30);
-            TrashStorageWindow = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Storage Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Player Inventory").transform);
-            TrashStorageWindow.name = "TrashStorageWindow";
-
-            Destroy(TrashStorageWindow.transform.Find("filter-group").gameObject);
-            Destroy(TrashStorageWindow.transform.Find("panel-bg/drag-trigger").gameObject);
-            Destroy(TrashStorageWindow.transform.Find("bans-bar").gameObject);
-
-            uiTrashStorageWindow = TrashStorageWindow.GetComponent<UIStorageWindow>();
-            uiTrashStorageWindow.windowTrans.anchorMin = new Vector2(1, 1);
-            uiTrashStorageWindow.windowTrans.anchorMax = new Vector2(1, 1);
-            uiTrashStorageWindow.windowTrans.anchoredPosition = new Vector2(-14, -25);
-            uiTrashStorageWindow.windowTrans.pivot = new Vector2(0, 1);
-            uiTrashStorageWindow.windowTrans.sizeDelta = new Vector2(uiTrashStorageWindow.windowTrans.sizeDelta.x, 240);
-            uiTrashStorageWindow.titleText.text = "垃圾桶".getTranslate();
-            uiTrashStorageWindow.storageUI._Create();
-            var sortbtn = uiTrashStorageWindow.transform.Find("panel-bg/btn-box/sort-btn").GetComponent<UIButton>();
-            sortbtn.onClick += (_) =>
+                };
+                TrashStorageWindow.SetActive(false);
+                TrashCanButton.SetActive(TrashStorageWindow_bool.Value);
+            }
+            catch
             {
-                TrashStorage.Sort(true);
-            };
-            UIButton closebutton = TrashStorageWindow.transform.Find("panel-bg/btn-box/close-wnd-btn").GetComponent<UIButton>();
-            closebutton.onClick += (_) =>
-            {
-                CloseTrashStorageWindow();
-            };
-            TrashStorageWindow.SetActive(false);
-            TrashCanButton.SetActive(TrashStorageWindow_bool.Value);
+                Console.WriteLine("TrashStorageWindow错误");
+            }
 
             #endregion TrashStorageWindow
         }
@@ -658,7 +672,6 @@ namespace Auxilaryfunction.Services
             Vector3 localPosition = GameCamera.main.transform.localPosition;
             Vector3 forward = GameCamera.main.transform.forward;
             float realRadius = pd.realRadius;
-
             foreach (StationComponent stationComponent in transport.stationPool)
             {
                 if (stationComponent?.storage == null) continue;

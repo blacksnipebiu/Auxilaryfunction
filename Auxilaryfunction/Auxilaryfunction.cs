@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using UnityEngine;
 using static Auxilaryfunction.Constant;
@@ -20,7 +21,7 @@ namespace Auxilaryfunction
     {
         public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
         public const string NAME = "Auxilaryfunction";
-        public const string VERSION = "2.9.4";
+        public const string VERSION = "3.0.3";
         private SynchronizationContext _mainContext;
         public static int autoaddtechid;
         public static bool autobuildgetitem;
@@ -709,10 +710,10 @@ namespace Auxilaryfunction
                     for (int j = packageGridLen - 1; j >= 0 && player.package.grids[j].count == 0; j--, stackSize++) { }
                     for (int i = 1; i < GameMain.data.warningSystem.warningCursor && stackSize > 0; i++)
                     {
-                        if (getItem.Contains(warningpools[i].detailId)) continue;
-                        if (player.package.GetItemCount(warningpools[i].detailId) > 0) break;
-                        getItem.Add(warningpools[i].detailId);
-                        FindItemAndMove(warningpools[i].detailId, warningCounts[warningpools[i].signalId]);
+                        if (getItem.Contains(warningpools[i].detailId1)) continue;
+                        if (player.package.GetItemCount(warningpools[i].detailId1) > 0) break;
+                        getItem.Add(warningpools[i].detailId1);
+                        FindItemAndMove(warningpools[i].detailId1, warningCounts[warningpools[i].signalId]);
                     }
                 }
             }
@@ -1187,6 +1188,23 @@ namespace Auxilaryfunction
                     else if (SpeedUpPatch.SpeedMultiple > 10) SpeedUpPatch.SpeedMultiple = 10;
                 }
             }
+
+            if (Input.GetKeyDown(KeyCode.F8))
+            {
+                test = !test;
+            }
+
+            if (test)
+            {
+                var sb = new StringBuilder();
+                foreach(var pd in GameMain.data.localStar.planets)
+                {
+                    sb.Append(pd.name + " " + pd.factoryLoaded + " " + pd.factoryLoading+";");
+                }
+                Debug.Log(sb.ToString());
+            }
         }
+
+        private bool test;
     }
 }
