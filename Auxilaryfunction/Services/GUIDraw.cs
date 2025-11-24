@@ -2202,6 +2202,11 @@ namespace Auxilaryfunction.Services
             {
                 foreach (int i in beltpools)
                 {
+                    var entity = LocalPlanet.factory.entityPool[i];
+                    if (!CurrentSelectedBuilds.Contains(entity.protoId))
+                    {
+                        continue;
+                    }
                     LocalPlanet.factory.cargoTraffic.SetBeltSignalIcon(i, BeltSignalIconId);
                 }
             }
@@ -2214,14 +2219,19 @@ namespace Auxilaryfunction.Services
             int tempnumber = 0;
             if (int.TryParse(temp, out tempnumber))
             {
-                tempnumber = Math.Min(99999, tempnumber);
-                tempnumber = Math.Max(-99999, tempnumber);
+                tempnumber = Math.Min(999999, tempnumber);
+                tempnumber = Math.Max(-999999, tempnumber);
                 BeltSignalNumber = tempnumber;
             }
             if (GUILayout.Button("设置".getTranslate()))
             {
                 foreach (int i in beltpools)
                 {
+                    var entity = LocalPlanet.factory.entityPool[i];
+                    if (!CurrentSelectedBuilds.Contains(entity.protoId))
+                    {
+                        continue;
+                    }
                     LocalPlanet.factory.cargoTraffic.SetBeltSignalNumber(i, BeltSignalNumber);
                 }
             }
@@ -2229,7 +2239,12 @@ namespace Auxilaryfunction.Services
             {
                 foreach (int i in beltpools)
                 {
-                    LocalPlanet.factory.cargoTraffic.PickupBeltItems(GameMain.mainPlayer, LocalPlanet.factory.entityPool[i].beltId, true);
+                    var entity = LocalPlanet.factory.entityPool[i];
+                    if (!CurrentSelectedBuilds.Contains(entity.protoId))
+                    {
+                        continue;
+                    }
+                    LocalPlanet.factory.cargoTraffic.PickupBeltItems(GameMain.mainPlayer, entity.beltId, true);
                 }
             }
             GUILayout.FlexibleSpace();

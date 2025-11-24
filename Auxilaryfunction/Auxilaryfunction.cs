@@ -1196,12 +1196,6 @@ namespace Auxilaryfunction
 
             if (test)
             {
-                var sb = new StringBuilder();
-                foreach(var pd in GameMain.data.localStar.planets)
-                {
-                    sb.Append(pd.name + " " + pd.factoryLoaded + " " + pd.factoryLoading+";");
-                }
-                Debug.Log(sb.ToString());
             }
         }
 
