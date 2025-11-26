@@ -3,6 +3,11 @@ using UnityEngine;
 
 namespace Auxilaryfunction.Patch
 {
+    /// <summary>
+    /// 逻辑帧暂停 Patch。
+    /// 通过启用 Harmony 前缀，短路 <c>GameMain.FixedUpdate</c> 的默认执行，实现暂停/恢复游戏主逻辑；
+    /// 同时保留必要的 Universe/Physics/Audio 相关调用以避免界面/场景冻结。
+    /// </summary>
     public class GameTickPatch
     {
         private static Harmony _patch;
@@ -26,6 +31,10 @@ namespace Auxilaryfunction.Patch
             }
         }
 
+        /// <summary>
+        /// 前缀拦截游戏固定更新：在未暂停时手动调用必要的逻辑阶段，
+        /// 返回 false 以跳过原方法体，达到暂停/自定义执行的目的。
+        /// </summary>
         [HarmonyPrefix]
         [HarmonyPatch(typeof(GameMain), "FixedUpdate")]
         public static bool GameTick1Path(GameMain __instance)
@@ -63,6 +72,9 @@ namespace Auxilaryfunction.Patch
             return false;
         }
 
+        /// <summary>
+        /// 后缀修正：需要飞行计数器保持更新，避免暂停态下飞行无响应。
+        /// </summary>
         [HarmonyPostfix]
         [HarmonyPatch(typeof(PlayerController), "SetDesireUPosition")]
         public static void SetDesireUPosition(VectorLF3 uPos)

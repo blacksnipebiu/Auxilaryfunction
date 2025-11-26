@@ -4,8 +4,8 @@ namespace Auxilaryfunction
 {
     public static class AuxilaryTranslate
     {
-        public static HashSet<string> notranslateStr = new HashSet<string>();
-        private static Dictionary<string, string> TranslateDict = new Dictionary<string, string>();
+        public static HashSet<string> notranslateStr = [];
+        private static readonly Dictionary<string, string> TranslateDict = [];
         public static string getTranslate(this string s)
         {
             if (Localization.CurrentLanguage.glyph != 0)

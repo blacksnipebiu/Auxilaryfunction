@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using static Auxilaryfunction.Auxilaryfunction;
+using static Auxilaryfunction.AuxConfig;
 using UnityEngine;
 
 namespace Auxilaryfunction.Patch

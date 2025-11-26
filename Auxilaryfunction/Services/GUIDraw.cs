@@ -1,4 +1,4 @@
-﻿using Auxilaryfunction.Models;
+using Auxilaryfunction.Models;
 using Auxilaryfunction.Patch;
 using BepInEx.Configuration;
 using System;
@@ -16,7 +16,9 @@ using static Auxilaryfunction.Constant;
 using static Auxilaryfunction.Models.BluePrintBatchModifyBuild;
 using static Auxilaryfunction.Models.BuildTargetValues;
 using static Auxilaryfunction.Services.DysonBluePrintDataService;
+using static Auxilaryfunction.Services.LogisticsService;
 using static Auxilaryfunction.Services.TechService;
+using static Auxilaryfunction.AuxConfig;
 using static UnityEngine.Object;
 using Application = UnityEngine.Application;
 using Image = UnityEngine.UI.Image;
@@ -26,34 +28,31 @@ namespace Auxilaryfunction.Services
 {
     public class GUIDraw
     {
+        private const float TitleBarHeight = 20f;
+        private const float BorderMargin = 10f;
+        private const float EdgeTolerance = 10f;
         public static Color BlueColor;
         public static bool blueprintopen;
-        public static bool ChangeBluePrintQuickKey;
-        public static bool ChangeQuickKey;
         public static Vector2 dysonBluePrintscrollPosition;
         public static Sprite flatsprite;
-        public static Vector2 itempickscrollPosition;
         public static Sprite leftsprite;
         public static bool limitmaterial;
         public static Color OrangeColor;
         public static Sprite rightsprite;
-        public static ConfigEntry<int> scale;
         public static Vector2 scrollPosition;
         public static bool showwindow;
-        public static KeyboardShortcut tempBluePrintShowWindow;
-        public static KeyboardShortcut tempShowWindow;
         public static Sprite trashcan;
         public static Sprite trashcanOpen;
         public bool AutoUnlockTechInSandBox;
         public float MainWindow_x = 300;
-        public float MainWindow_x_move = 200;
+        public float DragStartWindowX = 200;
         public float MainWindow_y = 200;
-        public float MainWindow_y_move = 200;
+        public float DragStartWindowY = 200;
         public Texture2D mytexture;
         public bool selectautoaddtechid;
         public Texture2D stationbluetexture;
-        public float temp_MainWindow_x = 10;
-        public float temp_MainWindow_y = 200;
+        public float DragStartMouseX = 10;
+        public float DragStartMouseY = 200;
         public int whichpannel;
         private float _windowheight;
         private float _windowwidth;
@@ -73,7 +72,7 @@ namespace Auxilaryfunction.Services
         private GUIStyle labelstyle = null;
         private bool leftscaling;
         private string[] menus;
-        private bool moving;
+        private bool isDragging;
         private GUIStyle nomarginButtonStyle = null;
         private GUIStyle normalstyle;
         private GUILayoutOption[] numberButtonoptions;
@@ -84,6 +83,7 @@ namespace Auxilaryfunction.Services
         private GUIStyle styleitemname = null;
         private GUIStyle styleyellow;
         private GameObject ui_AuxilaryPanelPanel;
+        public StationTip[] stationtips = new StationTip[maxCount];
 
         public GUIDraw(int baseSize, GameObject panel)
         {
@@ -184,10 +184,14 @@ namespace Auxilaryfunction.Services
             }
             if (styleitemname == null)
             {
-                imageButtonNormalStyle = new GUIStyle();
-                imageButtonNormalStyle.margin = new RectOffset();
-                imageButtonSelectedStyle = new GUIStyle();
-                imageButtonSelectedStyle.margin = new RectOffset();
+                imageButtonNormalStyle = new GUIStyle
+                {
+                    margin = new RectOffset()
+                };
+                imageButtonSelectedStyle = new GUIStyle
+                {
+                    margin = new RectOffset()
+                };
                 imageButtonSelectedStyle.normal.background = Texture2D.whiteTexture;
                 styleitemname = new GUIStyle(GUI.skin.label);
                 styleitemname.normal.textColor = Color.white;
@@ -211,12 +215,12 @@ namespace Auxilaryfunction.Services
             }
             if (showwindow)
             {
-                MoveWindow();
-                Scaling_window();
-                Rect window = new Rect(MainWindow_x, MainWindow_y, MainWindowWidth, MainWindowHeight);
+                bool _moved = MoveWindow();
+                bool _scaled = Scaling_window();
+                Rect window = new(MainWindow_x, MainWindow_y, MainWindowWidth, MainWindowHeight);
                 GUI.DrawTexture(window, mytexture);
                 window = GUI.Window(20210827, window, MainWindow, "辅助面板".getTranslate() + "(" + VERSION + ")" + "ps:ctrl+↑↓");
-                UIPanelSet();
+                if (_moved || _scaled) UIPanelSet();
                 ui_AuxilaryPanelPanel.SetActive(true);
             }
             NavigateGUI();
@@ -325,7 +329,7 @@ namespace Auxilaryfunction.Services
 
         private void NavigateGUI()
         {
-            if (!GameDataImported || player==null || GameMain.mainPlayer==null)
+            if (!GameDataImported || player == null || GameMain.mainPlayer == null)
             {
                 return;
             }
@@ -429,7 +433,7 @@ namespace Auxilaryfunction.Services
             }
         }
 
-        private void BeltMonitorWindowOpen()
+        private void GameWindowCopyInit()
         {
             #region StationInfoWindow
 
@@ -437,7 +441,6 @@ namespace Auxilaryfunction.Services
             {
                 stationTipRoot = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks"), GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs").transform);
                 stationTipRoot.name = "stationTip";
-                stationTipRectTransform = stationTipRoot.GetComponent<RectTransform>();
                 Destroy(stationTipRoot.GetComponent<UIVeinDetail>());
                 tipPrefab = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks/vein-tips/vein-tip-prefab"), stationTipRoot.transform);
                 tipPrefab.name = "tipPrefab";
@@ -652,7 +655,7 @@ namespace Auxilaryfunction.Services
             styleyellow.fontSize = 20;
             styleyellow.normal.textColor = new Color32(240, 191, 103, 255);
 
-            BeltMonitorWindowOpen();
+            GameWindowCopyInit();
         }
 
         private void StationInfoWindowUpdate()
@@ -793,11 +796,11 @@ namespace Auxilaryfunction.Services
             if (GameMain.data?.spaceSector?.dfHives != null)
             {
                 int num = 0;
-                List<string> originstars = new List<string>();
-                List<string> targetstars = new List<string>();
-                List<string> showdistances = new List<string>();
-                List<string> showremaindistances = new List<string>();
-                List<int> enermyIds = new List<int>();
+                List<string> originstars = [];
+                List<string> targetstars = [];
+                List<string> showdistances = [];
+                List<string> showremaindistances = [];
+                List<int> enermyIds = [];
                 var spacesector = GameMain.data.spaceSector;
                 foreach (var dfHive in spacesector.dfHives)
                 {
@@ -893,8 +896,8 @@ namespace Auxilaryfunction.Services
             {
                 int num = 0;
                 GUILayout.Space(30);
-                List<string> showdistances = new List<string>();
-                List<CosmicMessageData> CosmicMessageDatas = new List<CosmicMessageData>();
+                List<string> showdistances = [];
+                List<CosmicMessageData> CosmicMessageDatas = [];
                 foreach (var t in GameMain.gameScenario.cosmicMessageManager.messageSimulators)
                 {
                     if (t?.messageData == null)
@@ -1026,7 +1029,7 @@ namespace Auxilaryfunction.Services
                     SelectItemId(item.ID);
                 }
             }
-            CurrentSelectedBuildName = "";
+            CurrentSelectedBuildName = string.Empty;
             for (int i = CurrentSelectedBuilds.Count - 1; i >= 0; i--)
             {
                 int itemId = CurrentSelectedBuilds[i];
@@ -1203,7 +1206,6 @@ namespace Auxilaryfunction.Services
                     autoaddtech_bool.Value = !autoaddtech_bool.Value;
                     if (!autoaddtech_bool.Value)
                     {
-                        autoaddtechid = 0;
                         auto_add_techid.Value = 0;
                     }
                 }
@@ -1215,7 +1217,7 @@ namespace Auxilaryfunction.Services
                     }
                     GUILayout.BeginHorizontal();
                     GUILayout.Label("科技等级上限".getTranslate() + ":");
-                    string t = GUILayout.TextField(auto_add_techmaxLevel.Value.ToString(), new[] { GUILayout.Height(heightdis), GUILayout.Width(heightdis * 3) });
+                    string t = GUILayout.TextField(auto_add_techmaxLevel.Value.ToString(), [GUILayout.Height(heightdis), GUILayout.Width(heightdis * 3)]);
                     GUILayout.EndHorizontal();
                     bool reset = !int.TryParse(Regex.Replace(t, @"^[^0-9]", ""), out int maxlevel);
                     if (maxlevel != 0)
@@ -1249,7 +1251,6 @@ namespace Auxilaryfunction.Services
                             {
                                 if (GUILayout.Button(LDB.techs.dataArray[i].name + " " + techstate.curLevel + " " + techstate.maxLevel, buttonoptions))
                                 {
-                                    autoaddtechid = LDB.techs.dataArray[i].ID;
                                     auto_add_techid.Value = LDB.techs.dataArray[i].ID;
                                 }
                             }
@@ -1799,7 +1800,7 @@ namespace Auxilaryfunction.Services
         private void TextTechPanel()
         {
             int buttonwidth = heightdis * 5;
-            int colnum = (int)MainWindowWidth / buttonwidth;
+            int colnum = Math.Max(1, (int)(MainWindowWidth / buttonwidth));
             var propertyicon = UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture;
             GUILayout.BeginVertical();
             limitmaterial = GUILayout.Toggle(limitmaterial, "限制材料".getTranslate());
@@ -1820,16 +1821,17 @@ namespace Auxilaryfunction.Services
                     var buttoncontent = tp.ID < 2000 ? tp.name : (tp.name + tp.Level);
                     if (GUILayout.Button(buttoncontent, nomarginButtonStyle, buttonSize))
                     {
-                        if (GameMain.history.TechInQueue(showList[i]))
+                        int techId = showList[index];
+                        if (GameMain.history.TechInQueue(techId))
                         {
                             for (int k = 0; k < GameMain.history.techQueue.Length; k++)
                             {
-                                if (GameMain.history.techQueue[k] != showList[index]) continue;
+                                if (GameMain.history.techQueue[k] != techId) continue;
                                 GameMain.history.RemoveTechInQueue(k);
                                 break;
                             }
                         }
-                        readyresearch.RemoveAt(i);
+                        readyresearch.Remove(techId);
                     }
 
                     GUILayout.BeginHorizontal();
@@ -1990,40 +1992,35 @@ namespace Auxilaryfunction.Services
         /// <summary>
         /// 移动窗口
         /// </summary>
-        private void MoveWindow()
+        private bool MoveWindow()
         {
-            if (leftscaling || rightscaling || bottomscaling) return;
-            Vector2 temp = Input.mousePosition;
-            if (temp.x > MainWindow_x && temp.x < MainWindow_x + MainWindowWidth && Screen.height - temp.y > MainWindow_y && Screen.height - temp.y < MainWindow_y + 20)
+            float _prevX = MainWindow_x;
+            float _prevY = MainWindow_y;
+            if (leftscaling || rightscaling || bottomscaling) return false;
+            Vector2 mouse = Input.mousePosition;
+            float mouseX = mouse.x;
+            float mouseY = Screen.height - mouse.y;
+            bool overTitle = mouseX > MainWindow_x && mouseX < MainWindow_x + MainWindowWidth && mouseY > MainWindow_y && mouseY < MainWindow_y + TitleBarHeight;
+            if (Input.GetMouseButtonDown(0) && overTitle)
             {
-                if (Input.GetMouseButton(0))
-                {
-                    if (!moving)
-                    {
-                        MainWindow_x_move = MainWindow_x;
-                        MainWindow_y_move = MainWindow_y;
-                        temp_MainWindow_x = temp.x;
-                        temp_MainWindow_y = Screen.height - temp.y;
-                    }
-                    moving = true;
-                    MainWindow_x = MainWindow_x_move + temp.x - temp_MainWindow_x;
-                    MainWindow_y = MainWindow_y_move + (Screen.height - temp.y) - temp_MainWindow_y;
-                }
-                else
-                {
-                    moving = false;
-                    temp_MainWindow_x = MainWindow_x;
-                    temp_MainWindow_y = MainWindow_y;
-                }
+                DragStartWindowX = MainWindow_x;
+                DragStartWindowY = MainWindow_y;
+                DragStartMouseX = mouseX;
+                DragStartMouseY = mouseY;
+                isDragging = true;
             }
-            else if (moving)
+            if (isDragging && Input.GetMouseButton(0))
             {
-                moving = false;
-                MainWindow_x = MainWindow_x_move + temp.x - temp_MainWindow_x;
-                MainWindow_y = MainWindow_y_move + (Screen.height - temp.y) - temp_MainWindow_y;
+                MainWindow_x = DragStartWindowX + mouseX - DragStartMouseX;
+                MainWindow_y = DragStartWindowY + mouseY - DragStartMouseY;
             }
-            MainWindow_y = Math.Max(10, Math.Min(Screen.height - 10, MainWindow_y));
-            MainWindow_x = Math.Max(10, Math.Min(Screen.width - 10, MainWindow_x));
+            if (Input.GetMouseButtonUp(0))
+            {
+                isDragging = false;
+            }
+            MainWindow_y = Math.Max(BorderMargin, Math.Min(Screen.height - BorderMargin, MainWindow_y));
+            MainWindow_x = Math.Max(BorderMargin, Math.Min(Screen.width - BorderMargin, MainWindow_x));
+            return MainWindow_x != _prevX || MainWindow_y != _prevY;
         }
 
         /// <summary>
@@ -2033,27 +2030,29 @@ namespace Auxilaryfunction.Services
         /// <param name="y"></param>
         /// <param name="window_x"></param>
         /// <param name="window_y"></param>
-        private void Scaling_window()
+        private bool Scaling_window()
         {
+            float _prevW = MainWindowWidth;
+            float _prevH = MainWindowHeight;
             Vector2 temp = Input.mousePosition;
             float x = MainWindowWidth;
             float y = MainWindowHeight;
             if (Input.GetMouseButton(0))
             {
-                if ((temp.x + 10 > MainWindow_x && temp.x - 10 < MainWindow_x) && (Screen.height - temp.y >= MainWindow_y && Screen.height - temp.y <= MainWindow_y + y) || leftscaling)
+                if ((temp.x + EdgeTolerance > MainWindow_x && temp.x - EdgeTolerance < MainWindow_x) && (Screen.height - temp.y >= MainWindow_y && Screen.height - temp.y <= MainWindow_y + y) || leftscaling)
                 {
                     x -= temp.x - MainWindow_x;
                     MainWindow_x = temp.x;
                     leftscaling = true;
                     rightscaling = false;
                 }
-                if ((temp.x + 10 > MainWindow_x + x && temp.x - 10 < MainWindow_x + x) && (Screen.height - temp.y >= MainWindow_y && Screen.height - temp.y <= MainWindow_y + y) || rightscaling)
+                if ((temp.x + EdgeTolerance > MainWindow_x + x && temp.x - EdgeTolerance < MainWindow_x + x) && (Screen.height - temp.y >= MainWindow_y && Screen.height - temp.y <= MainWindow_y + y) || rightscaling)
                 {
                     x += temp.x - MainWindow_x - x;
                     rightscaling = true;
                     leftscaling = false;
                 }
-                if ((Screen.height - temp.y + 10 > y + MainWindow_y && Screen.height - temp.y - 10 < y + MainWindow_y) && (temp.x >= MainWindow_x && temp.x <= MainWindow_x + x) || bottomscaling)
+                if ((Screen.height - temp.y + EdgeTolerance > y + MainWindow_y && Screen.height - temp.y - EdgeTolerance < y + MainWindow_y) && (temp.x >= MainWindow_x && temp.x <= MainWindow_x + x) || bottomscaling)
                 {
                     y += Screen.height - temp.y - (MainWindow_y + y);
                     bottomscaling = true;
@@ -2065,8 +2064,9 @@ namespace Auxilaryfunction.Services
                 leftscaling = false;
                 bottomscaling = false;
             }
-            MainWindowWidth = x;
-            MainWindowHeight = y;
+            MainWindowWidth = Math.Max(100f, x);
+            MainWindowHeight = Math.Max(100f, y);
+            return MainWindowWidth != _prevW || MainWindowHeight != _prevH;
         }
 
         private void UIPanelSet()
@@ -2658,7 +2658,7 @@ namespace Auxilaryfunction.Services
                         var stationStoreConfig = stationStoreConfigs[i];
                         int currentItemId = station.storage[i].itemId;
                         int TargetItemId = stationStoreConfig.ItemId;
-                        if (TargetItemId!=currentItemId)
+                        if (TargetItemId != currentItemId)
                         {
                             if (items.Contains(currentItemId))
                             {

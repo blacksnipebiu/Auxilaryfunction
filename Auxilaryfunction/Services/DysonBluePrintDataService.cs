@@ -5,13 +5,14 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using UnityEngine;
+using static Auxilaryfunction.AuxConfig;
 
 namespace Auxilaryfunction.Services
 {
     public class DysonBluePrintDataService
     {
-        public static TempDysonBlueprintData selectDysonBlueprintData = new TempDysonBlueprintData();
-        public static List<TempDysonBlueprintData> tempDysonBlueprintData = new List<TempDysonBlueprintData>();
+        public static TempDysonBlueprintData selectDysonBlueprintData = new();
+        public static List<TempDysonBlueprintData> tempDysonBlueprintData = [];
 
         #region 应用戴森球蓝图
         public static void LoadDysonBluePrintData()
@@ -25,7 +26,7 @@ namespace Auxilaryfunction.Services
                 byte[] bs = new byte[sm.Length];
                 sm.Read(bs, 0, (int)sm.Length);
                 sm.Close();
-                UTF8Encoding con = new UTF8Encoding();
+                UTF8Encoding con = new();
                 string strdata = con.GetString(bs);
                 try
                 {
@@ -54,7 +55,7 @@ namespace Auxilaryfunction.Services
         {
             if (selectDysonBlueprintData.path == "")
             {
-                UIMessageBox.Show(Auxilaryfunction.ErrorTitle.getTranslate(), "路径为空，请重新选择".getTranslate(), "确定".Translate(), 3, null);
+                UIMessageBox.Show(ErrorTitle.getTranslate(), "路径为空，请重新选择".getTranslate(), "确定".Translate(), 3, null);
                 return "";
             }
             if (File.Exists(path))
@@ -66,10 +67,10 @@ namespace Auxilaryfunction.Services
                 }
                 catch
                 {
-                    UIMessageBox.Show(Auxilaryfunction.ErrorTitle.getTranslate(), "文件读取失败".getTranslate(), "确定".Translate(), 3, null);
+                    UIMessageBox.Show(ErrorTitle.getTranslate(), "文件读取失败".getTranslate(), "确定".Translate(), 3, null);
                 }
             }
-            UIMessageBox.Show(Auxilaryfunction.ErrorTitle.getTranslate(), "文件不存在".getTranslate(), "确定".Translate(), 3, null);
+            UIMessageBox.Show(ErrorTitle.getTranslate(), "文件不存在".getTranslate(), "确定".Translate(), 3, null);
             return "";
 
         }
@@ -247,7 +248,7 @@ namespace Auxilaryfunction.Services
                 case EDysonBlueprintType.SingleLayer:
                     if (id == -1)
                     {
-                        UIMessageBox.Show(Auxilaryfunction.ErrorTitle.getTranslate(), "单层壳蓝图请选择层级".Translate(), "确定".Translate(), 3, null);
+                        UIMessageBox.Show(ErrorTitle.getTranslate(), "单层壳蓝图请选择层级".Translate(), "确定".Translate(), 3, null);
                         VFAudio.Create("ui-error", null, Vector3.zero, true, 1, -1, -1L);
                         return;
                     }

@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using static Auxilaryfunction.Auxilaryfunction;
+using static Auxilaryfunction.AuxConfig;
 namespace Auxilaryfunction.Models
 {
     public class BuildTargetValues
