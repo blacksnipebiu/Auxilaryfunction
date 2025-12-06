@@ -1,20 +1,19 @@
-﻿namespace Auxilaryfunction.Models
+﻿namespace Auxilaryfunction.Models;
+
+public enum BuildType
 {
-    public enum BuildType
-    {
-        None,
-        Belt,
-        Assemble,
-        Smelt,
-        Chemical,
-        Refine,
-        Particle,
-        Turret,
-        Lab,
-        Ejector,
-        NormalStation,
-        StellarStation,
-        PowergenGamma,
-        PowerExchanger
-    }
+    None,
+    Belt,
+    Assemble,
+    Smelt,
+    Chemical,
+    Refine,
+    Particle,
+    Turret,
+    Lab,
+    Ejector,
+    NormalStation,
+    StellarStation,
+    PowergenGamma,
+    PowerExchanger
 }

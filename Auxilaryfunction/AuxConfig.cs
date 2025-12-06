@@ -1,7 +1,6 @@
 using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
-using static Auxilaryfunction.Auxilaryfunction;
 
 namespace Auxilaryfunction;
 
@@ -9,7 +8,7 @@ public static class AuxConfig
 {
     public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
     public const string NAME = "Auxilaryfunction";
-    public const string VERSION = "3.0.3";
+    public const string VERSION = "3.0.4";
     public static string ErrorTitle = "辅助面板错误提示";
     public static Harmony harmony;
     public static bool ChangingBluePrintQuickKey;

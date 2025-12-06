@@ -125,10 +125,10 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="auxilarypanel" />
+    <EmbeddedResource Include="Resources\auxilarypanel" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="450节点+框架+32壳面.txt" />
+    <EmbeddedResource Include="Resources\450节点+框架+32壳面.txt" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\right.png" />
