@@ -8,7 +8,7 @@ public static class AuxConfig
 {
     public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
     public const string NAME = "Auxilaryfunction";
-    public const string VERSION = "3.0.7";
+    public const string VERSION = "3.0.8";
     public static string ErrorTitle = "辅助面板错误提示";
     public static Harmony harmony;
     public static bool ChangingBluePrintQuickKey;

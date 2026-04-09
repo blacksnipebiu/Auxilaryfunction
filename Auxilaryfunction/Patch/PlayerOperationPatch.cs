@@ -41,7 +41,7 @@ public class PlayerOperationPatch
     private static double max_acc => player.controller.actionSail.max_acc;
     private static float maxSailSpeed => player.controller.actionSail.maxSailSpeed;
     private static float maxWarpSpeed => player.controller.actionSail.maxWarpSpeed;
-    private static int indicatorAstroId => player.navigation.indicatorAstroId;
+    private static int indicatorAstroId => player?.navigation?.indicatorAstroId??0;
     private static int indicatorMsgId => player.navigation.indicatorMsgId;
     private static int indicatorEnemyId => player.navigation.indicatorEnemyId;
     private static bool CanWarp => LocalPlanet == null && autowarpcommand.Value && !player.warping && mecha.coreEnergy > mecha.warpStartPowerPerSpeed * maxWarpSpeed && player.mecha.thrusterLevel >= 3;
@@ -60,12 +60,12 @@ public class PlayerOperationPatch
         Debug.Log("Auxilaryfunction.ClearFollow");
     }
 
-    //鎿嶇旱浜虹墿
+    //操纵人物
     [HarmonyPostfix]
     [HarmonyPatch(typeof(PlayerController), "GetInput")]
     public static void Postfix(PlayerController __instance)
     {
-        #region 鑷姩瀵艰埅
+        #region 自动导航
         if (autonavigation_bool.Value)
         {
             if (indicatorAstroId <= 1000000 && indicatorAstroId > 0)
@@ -145,7 +145,7 @@ public class PlayerOperationPatch
             }
             else if (indicatorAstroId > 1000000)
             {
-                uPosition = GameMain.data.spaceSector.astros[player.navigation.indicatorAstroId - 1000000].uPos;
+                uPosition = GameMain.data.spaceSector.astros[indicatorAstroId - 1000000].uPos;
                 guidetype = ESpaceGuideType.DFHive;
             }
             else if (indicatorEnemyId != 0)
@@ -300,7 +300,7 @@ public class PlayerOperationPatch
             if (canWarp && !needstop && distance > 10000 && mecha.UseWarper())
             {
                 player.warpCommand = true;
-                Console.WriteLine("缈樻洸鍚姩");
+                Console.WriteLine("翘曲启动");
             }
 
         }

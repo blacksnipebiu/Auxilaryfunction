@@ -37,16 +37,23 @@ public class DysonBluePrintDataService
         var filesPath = Directory.GetFiles(path, "*.txt", SearchOption.AllDirectories);
         for (int i = 0; i < filesPath.Length; i++)
         {
-            string str64Data = File.ReadAllText(filesPath[i]);
-            var data = new TempDysonBlueprintData()
+            try
             {
-                name = filesPath[i].Substring(path.Length),
-                path = filesPath[i],
-            };
-            data.ReadDysonSphereBluePrint(str64Data);
-            if (data.type != EDysonBlueprintType.None)
+                string str64Data = File.ReadAllText(filesPath[i]);
+                var data = new TempDysonBlueprintData()
+                {
+                    name = filesPath[i].Substring(path.Length),
+                    path = filesPath[i],
+                };
+                data.ReadDysonSphereBluePrint(str64Data);
+                if (data.type != EDysonBlueprintType.None)
+                {
+                    tempDysonBlueprintData.Add(data);
+                }
+            }
+            catch (Exception ex)
             {
-                tempDysonBlueprintData.Add(data);
+                Debug.LogWarning($"Failed to load dyson blueprint: {filesPath[i]}\nError: {ex.Message}");
             }
         }
 
