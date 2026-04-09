@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Auxilaryfunction.Models;
 using static Auxilaryfunction.AuxConfig;
 using static Auxilaryfunction.Auxilaryfunction;
 using static Auxilaryfunction.Constant;
@@ -14,8 +15,8 @@ namespace Auxilaryfunction.Services;
 /// 依赖当前星球 <c>LocalPlanet</c> 与玩家背包 <c>player.package</c>，
 /// 读取插件配置项以执行对应逻辑。
 /// </summary>
-public static class LogisticsService
-{
+    public static class LogisticsService
+    {
     /// <summary>
     /// 为当前星球的配送机（Dispenser）填充目标数量的配送运输机。
     /// 会从玩家背包中取出物品 ID 5003 并补充到空闲配送机数量。
@@ -23,6 +24,7 @@ public static class LogisticsService
     public static void AddCourierToAllStar()
     {
         if (LocalPlanet == null) return;
+        if (!BuildTargetValues.IsConfigEnabled("填充配送机数量")) return;
         int autoCourierValue = auto_supply_Courier.Value;
         foreach (var dc in LocalPlanet.factory.transport.dispenserPool)
         {
@@ -41,23 +43,37 @@ public static class LogisticsService
     public static void AddDroneShipToStation()
     {
         if (LocalPlanet == null || LocalPlanet.type == EPlanetType.Gas) return;
+        bool enableDroneFill = BuildTargetValues.IsConfigEnabled("填充飞机数量");
+        bool enableShipFill = BuildTargetValues.IsConfigEnabled("填充飞船数量");
+        bool enableWarpFill = BuildTargetValues.IsConfigEnabled("翘曲填充数量");
         int autoShipValue = auto_supply_ship.Value;
         int autoDroneValue = auto_supply_drone.Value;
         int autoWrapValue = auto_supply_warp.Value;
         foreach (StationComponent sc in LocalPlanet.factory.transport.stationPool)
         {
             if (sc == null || sc.isVeinCollector) continue;
-            int dronelimit = sc.isStellar ? 100 : 50;
-            int tempdrone = autoDroneValue > dronelimit ? dronelimit : autoDroneValue;
-            int needDroneNum = tempdrone - sc.workDroneCount - sc.idleDroneCount;
-            if (needDroneNum > 0)
-                sc.idleDroneCount += player.package.TakeItem(5001, needDroneNum, out _);
-            int needShipNum = autoShipValue - sc.idleShipCount - sc.workShipCount;
-            if (sc.isStellar && needShipNum > 0)
-                sc.idleShipCount += player.package.TakeItem(5002, needShipNum, out _);
-            int needWrapNum = autoWrapValue - sc.warperCount;
-            if (needWrapNum > 0)
-                sc.warperCount += player.package.TakeItem(1210, needWrapNum, out _);
+            if (enableDroneFill)
+            {
+                int dronelimit = sc.isStellar ? 100 : 50;
+                int tempdrone = autoDroneValue > dronelimit ? dronelimit : autoDroneValue;
+                int needDroneNum = tempdrone - sc.workDroneCount - sc.idleDroneCount;
+                if (needDroneNum > 0)
+                    sc.idleDroneCount += player.package.TakeItem(5001, needDroneNum, out _);
+            }
+
+            if (enableShipFill)
+            {
+                int needShipNum = autoShipValue - sc.idleShipCount - sc.workShipCount;
+                if (sc.isStellar && needShipNum > 0)
+                    sc.idleShipCount += player.package.TakeItem(5002, needShipNum, out _);
+            }
+
+            if (enableWarpFill)
+            {
+                int needWrapNum = autoWrapValue - sc.warperCount;
+                if (needWrapNum > 0)
+                    sc.warperCount += player.package.TakeItem(1210, needWrapNum, out _);
+            }
         }
     }
 
@@ -104,21 +120,49 @@ public static class LogisticsService
     public static void ChangeAllStationConfig()
     {
         if (LocalPlanet == null || LocalPlanet.factory == null || LocalPlanet.factory.transport == null || LocalPlanet.factory.transport.stationPool == null) return;
+        bool enableStationDroneDist = BuildTargetValues.IsConfigEnabled("运输机最远路程");
+        bool enableMaxPower = BuildTargetValues.IsConfigEnabled("最大充电功率");
+        bool enableDroneStartCarry = BuildTargetValues.IsConfigEnabled("运输机起送量");
+        bool enableWarpDist = BuildTargetValues.IsConfigEnabled("曲速启用路程");
+        bool enableShipStartCarry = BuildTargetValues.IsConfigEnabled("运输船起送量");
+        bool enableShipMaxDist = BuildTargetValues.IsConfigEnabled("运输船最远路程");
         foreach (StationComponent sc in LocalPlanet.factory.transport.stationPool)
         {
             if (sc == null || sc.isVeinCollector) continue;
-            sc.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
-            LocalPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
-            if (stationmaxpowerpertick.Value > 60 && !sc.isStellar)
+            if (enableStationDroneDist)
             {
-                LocalPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)60 * 16667;
+                sc.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
             }
-            sc.deliveryDrones = DroneStartCarry.Value == 0 ? 1 : (int)(DroneStartCarry.Value * 10) * 10;
+
+            if (enableMaxPower)
+            {
+                LocalPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
+                if (stationmaxpowerpertick.Value > 60 && !sc.isStellar)
+                {
+                    LocalPlanet.factory.powerSystem.consumerPool[sc.pcId].workEnergyPerTick = (long)60 * 16667;
+                }
+            }
+
+            if (enableDroneStartCarry)
+            {
+                sc.deliveryDrones = DroneStartCarry.Value == 0 ? 1 : (int)(DroneStartCarry.Value * 10) * 10;
+            }
             if (sc.isStellar)
             {
-                sc.warpEnableDist = stationwarpdist.Value * GalaxyData.AU;
-                sc.deliveryShips = ShipStartCarry.Value == 0 ? 1 : (int)(ShipStartCarry.Value * 10) * 10;
-                sc.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
+                if (enableWarpDist)
+                {
+                    sc.warpEnableDist = stationwarpdist.Value * GalaxyData.AU;
+                }
+
+                if (enableShipStartCarry)
+                {
+                    sc.deliveryShips = ShipStartCarry.Value == 0 ? 1 : (int)(ShipStartCarry.Value * 10) * 10;
+                }
+
+                if (enableShipMaxDist)
+                {
+                    sc.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
+                }
             }
         }
     }
@@ -129,6 +173,7 @@ public static class LogisticsService
     public static void ChangeAllVeinCollectorSpeedConfig()
     {
         if (LocalPlanet == null || LocalPlanet.type == EPlanetType.Gas) return;
+        if (!BuildTargetValues.IsConfigEnabled("大型采矿机采矿速率")) return;
         foreach (StationComponent sc in LocalPlanet.factory.transport.stationPool)
         {
             if (sc == null || !sc.isVeinCollector) continue;

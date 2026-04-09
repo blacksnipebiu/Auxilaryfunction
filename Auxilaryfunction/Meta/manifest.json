@@ -1,0 +1,9 @@
+﻿{
+  "name": "Auxilaryfunction",
+  "version_number": "3.0.7",
+  "website_url": "https://github.com/blacksnipebiu/Auxilaryfunction",
+  "description": "It provides some Auxilary functions which I can do,提供一些纯辅助功能",
+  "dependencies": [
+    "xiaoye97-BepInEx-5.4.11"
+  ]
+}

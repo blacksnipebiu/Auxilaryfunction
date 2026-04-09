@@ -182,24 +182,6 @@ public class Auxilaryfunction : BaseUnityPlugin
     }
 
     /// <summary>
-    /// 自动添加翘曲器
-    /// </summary>
-    private void AutoAddwarp()
-    {
-        if (player?.mecha != null && player.mecha.thrusterLevel >= 3 && !player.mecha.HasWarper())
-        {
-            int itemID = 1210;
-            int count = 20;
-            player.package.TakeTailItems(ref itemID, ref count, out int inc);
-            if (itemID <= 0 || count <= 0)
-            {
-                return;
-            }
-            player.mecha.warpStorage.AddItem(itemID, count, inc, out _);
-        }
-    }
-
-    /// <summary>
     /// 自动移动到黑雾单位
     /// </summary>
     private void AutoMoveToDarkfog()
@@ -490,10 +472,6 @@ public class Auxilaryfunction : BaseUnityPlugin
             {
                 Thread.Sleep(500);
                 continue;
-            }
-            if (autoAddwarp.Value)
-            {
-                AutoAddwarp();
             }
             autoaddtechid = auto_add_techid.Value;
             if (autoaddtech_bool.Value && autoaddtechid > 0 && GameMain.history != null && GameMain.history.techQueueLength == 0)

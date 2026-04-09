@@ -10,7 +10,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.PostProcessing;
 using UnityEngine.UI;
+using static Auxilaryfunction.AuxConfig;
 using static Auxilaryfunction.Auxilaryfunction;
 using static Auxilaryfunction.Constant;
 using static Auxilaryfunction.Models.BluePrintBatchModifyBuild;
@@ -18,7 +20,6 @@ using static Auxilaryfunction.Models.BuildTargetValues;
 using static Auxilaryfunction.Services.DysonBluePrintDataService;
 using static Auxilaryfunction.Services.LogisticsService;
 using static Auxilaryfunction.Services.TechService;
-using static Auxilaryfunction.AuxConfig;
 using static UnityEngine.Object;
 using Application = UnityEngine.Application;
 using Image = UnityEngine.UI.Image;
@@ -1120,15 +1121,19 @@ public class GUIDraw
             if (autosetstationconfig.Value)
             {
                 string showinfo;
-                foreach (var buildconfigkeyvalue in buildConfigsDic)
+                var buildConfigsArray = buildConfigsDic.ToArray();
+                foreach (var buildconfigkeyvalue in buildConfigsArray)
                 {
                     var Name = buildconfigkeyvalue.Key;
                     var buildconfig = buildconfigkeyvalue.Value;
                     GUILayout.BeginHorizontal();
                     showinfo = "";
+                    bool previousEnabled = GUI.enabled;
+                    GUI.enabled = buildconfig.IsEnabled;
                     switch (Name)
                     {
                         default:
+                            GUI.enabled = previousEnabled;
                             GUILayout.EndHorizontal();
                             continue;
                         case "填充飞机数量":
@@ -1183,6 +1188,9 @@ public class GUIDraw
                             showinfo = VeinCollectorSpeed / 10.0f + " ";
                             break;
                     }
+                    GUI.enabled = previousEnabled;
+                    buildconfig.IsEnabled = GUILayout.Toggle(buildconfig.IsEnabled, "启用".getTranslate(), buttonoptions);
+                    buildConfigsDic[Name] = buildconfig;
                     showinfo += Name.getTranslate();
                     GUILayout.Label(showinfo, labelstyle, buttonoptions);
                     GUILayout.EndHorizontal();
@@ -1294,8 +1302,10 @@ public class GUIDraw
 
                 GUILayout.BeginVertical();
                 autosetCourier_bool.Value = GUILayout.Toggle(autosetCourier_bool.Value, "自动填充配送运输机".getTranslate());
-                GUILayout.Label("填充配送运输机数量".getTranslate() + "：" + AutoSupplyCourierNumber);
                 var CourierConfig = buildConfigsDic["填充配送机数量"];
+                CourierConfig.IsEnabled = GUILayout.Toggle(CourierConfig.IsEnabled, "启用".getTranslate());
+                buildConfigsDic["填充配送机数量"] = CourierConfig;
+                GUILayout.Label("填充配送运输机数量".getTranslate() + "：" + AutoSupplyCourierNumber);
                 AutoSupplyCourierNumber = (int)GUILayout.HorizontalSlider(AutoSupplyCourierNumber, CourierConfig.LowLimit, CourierConfig.UpperLimit, HorizontalSlideroptions);
                 if (GUILayout.Button("填充当前星球配送机".getTranslate(), buttonoptions)) AddCourierToAllStar();
                 GUILayout.EndVertical();
@@ -1330,7 +1340,6 @@ public class GUIDraw
         GUILayout.BeginVertical();
         {
             GUILayout.Label("机甲自动化".getTranslate());
-            autoAddwarp.Value = GUILayout.Toggle(autoAddwarp.Value, "自动添加翘曲器".getTranslate());
 
             automovetounbuilt.Value = GUILayout.Toggle(automovetounbuilt.Value, "自动飞向未完成建筑".getTranslate() + $":{automovetoPrebuildSecondElapse.Value}s");
             if (automovetounbuilt.Value)
@@ -2103,6 +2112,7 @@ public class GUIDraw
                     {
                         for (int k = 0; k < FilterAssemblePools.Count; k++)
                         {
+                            LocalPlanet.factory.factorySystem.TakeBackItems_Assembler(player, FilterAssemblePools[k]);
                             LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[k]].SetRecipe(0, LocalPlanet.factory.entitySignPool);
                         }
                     }
@@ -2114,6 +2124,7 @@ public class GUIDraw
                 {
                     for (int k = 0; k < FilterAssemblePools.Count; k++)
                     {
+                        LocalPlanet.factory.factorySystem.TakeBackItems_Assembler(player, FilterAssemblePools[k]);
                         LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[k]].SetRecipe(rp.ID, LocalPlanet.factory.entitySignPool);
                     }
                 }
@@ -2128,7 +2139,7 @@ public class GUIDraw
             for (int j = 0; j < FilterAssemblePools.Count; j++)
             {
                 var assembler = LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[j]];
-                if (assembler.productive)
+                if (assembler.recipeExecuteData.productive)
                     LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[j]].forceAccMode = false;
             }
         }
@@ -2137,7 +2148,7 @@ public class GUIDraw
             for (int j = 0; j < FilterAssemblePools.Count; j++)
             {
                 var assembler = LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[j]];
-                if (assembler.productive)
+                if (assembler.recipeExecuteData.productive)
                     LocalPlanet.factory.factorySystem.assemblerPool[FilterAssemblePools[j]].forceAccMode = true;
             }
         }
@@ -2297,6 +2308,7 @@ public class GUIDraw
         {
             for (int j = 0; j < Filterlabpools.Count; j++)
             {
+                LocalPlanet.factory.factorySystem.TakeBackItems_Lab(player, Filterlabpools[j]);
                 LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].SetFunction(false, targetFunctionId, 0, LocalPlanet.factory.entitySignPool);
             }
         }
@@ -2307,6 +2319,7 @@ public class GUIDraw
         {
             for (int j = 0; j < Filterlabpools.Count; j++)
             {
+                LocalPlanet.factory.factorySystem.TakeBackItems_Lab(player, Filterlabpools[j]);
                 LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].SetFunction(true, 0, GameMain.history.currentTech, LocalPlanet.factory.entitySignPool);
             }
         }
@@ -2314,7 +2327,7 @@ public class GUIDraw
         {
             for (int j = 0; j < Filterlabpools.Count; j++)
             {
-                if (LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].productive)
+                if (LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].recipeExecuteData.productive)
                     LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].forceAccMode = false;
             }
         }
@@ -2322,7 +2335,7 @@ public class GUIDraw
         {
             for (int j = 0; j < Filterlabpools.Count; j++)
             {
-                if (LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].productive)
+                if (LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].recipeExecuteData.productive)
                     LocalPlanet.factory.factorySystem.labPool[Filterlabpools[j]].forceAccMode = true;
             }
         }

@@ -8,7 +8,7 @@ public static class AuxConfig
 {
     public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
     public const string NAME = "Auxilaryfunction";
-    public const string VERSION = "3.0.4";
+    public const string VERSION = "3.0.7";
     public static string ErrorTitle = "辅助面板错误提示";
     public static Harmony harmony;
     public static bool ChangingBluePrintQuickKey;
@@ -36,7 +36,6 @@ public static class AuxConfig
     public static ConfigEntry<bool> autoabsorttrash_bool;
     public static ConfigEntry<bool> autoAddPlayerVel;
     public static ConfigEntry<bool> autoaddtech_bool;
-    public static ConfigEntry<bool> autoAddwarp;
     public static ConfigEntry<bool> autocleartrash_bool;
     public static ConfigEntry<bool> automovetodarkfog;
     public static ConfigEntry<float> automovetoPrebuildSecondElapse;
@@ -139,7 +138,6 @@ public static class AuxConfig
         CloseMilestone = config.Bind("关闭里程碑", "CloseMilestone", false);
         CloseUIGeneralTip = config.Bind("关闭科技解锁提示", "CloseUIGeneralTip", false);
 
-        autoAddwarp = config.Bind("自动添加翘曲器", "autoAddwarp", false);
         autonavigation_bool = config.Bind("自动导航", "autonavigation_bool", false);
         autoAddPlayerVel = config.Bind("自动加速", "autoAddPlayerVel", false);
         autowarpdistance = config.Bind("自动使用翘曲器距离", "autowarpdistance", 0f);

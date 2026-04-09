@@ -1,4 +1,5 @@
-﻿using Auxilaryfunction.Models;
+using Auxilaryfunction.Models;
+using Auxilaryfunction.Models;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
@@ -35,7 +36,10 @@ public class AuxilaryfunctionPatch
     {
         if (auto_supply_station.Value && __instance.factory.entityPool[__instance.minerPool[__result].entityId].protoId == 2316)
         {
-            __instance.minerPool[__result].speed = veincollectorspeed.Value * 1000;
+            if (BuildTargetValues.IsConfigEnabled("大型采矿机采矿速率"))
+            {
+                __instance.minerPool[__result].speed = veincollectorspeed.Value * 1000;
+            }
         }
     }
 
@@ -74,28 +78,68 @@ public class AuxilaryfunctionPatch
     {
         if (auto_supply_station.Value && !__result.isCollector && !__result.isVeinCollector)
         {
-            __result.idleDroneCount = player.package.TakeItem(5001, __result.isStellar ? auto_supply_drone.Value : (auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value), out _);
-            __result.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
-            __instance.planet.factory.powerSystem.consumerPool[__result.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
-            if (stationmaxpowerpertick.Value > 60 && !__result.isStellar)
+            if (BuildTargetValues.IsConfigEnabled("填充飞机数量"))
             {
-                __instance.planet.factory.powerSystem.consumerPool[__result.pcId].workEnergyPerTick = (long)60 * 16667;
+                __result.idleDroneCount = player.package.TakeItem(5001, __result.isStellar ? auto_supply_drone.Value : (auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value), out _);
             }
 
-            __result.deliveryDrones = DroneStartCarry.Value == 0 ? 1 : (int)(DroneStartCarry.Value * 10) * 10;
+            if (BuildTargetValues.IsConfigEnabled("运输机最远路程"))
+            {
+                __result.tripRangeDrones = Math.Cos(stationdronedist.Value * Math.PI / 180);
+            }
+
+            if (BuildTargetValues.IsConfigEnabled("最大充电功率"))
+            {
+                __instance.planet.factory.powerSystem.consumerPool[__result.pcId].workEnergyPerTick = (long)stationmaxpowerpertick.Value * 16667;
+                if (stationmaxpowerpertick.Value > 60 && !__result.isStellar)
+                {
+                    __instance.planet.factory.powerSystem.consumerPool[__result.pcId].workEnergyPerTick = (long)60 * 16667;
+                }
+            }
+
+            if (BuildTargetValues.IsConfigEnabled("运输机起送量"))
+            {
+                __result.deliveryDrones = DroneStartCarry.Value == 0 ? 1 : (int)(DroneStartCarry.Value * 10) * 10;
+            }
             if (__result.isStellar)
             {
-                __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
-                __result.warpEnableDist = stationwarpdist.Value * GalaxyData.AU;
-                __result.deliveryShips = ShipStartCarry.Value == 0 ? 1 : (int)(ShipStartCarry.Value * 10) * 10;
-                __result.idleShipCount = player.package.TakeItem(5002, auto_supply_ship.Value, out _);
-                __result.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
-                if (GameMain.data.history.TechUnlocked(3404)) __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
+                if (BuildTargetValues.IsConfigEnabled("翘曲填充数量"))
+                {
+                    __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
+                }
+
+                if (BuildTargetValues.IsConfigEnabled("曲速启用路程"))
+                {
+                    __result.warpEnableDist = stationwarpdist.Value * GalaxyData.AU;
+                }
+
+                if (BuildTargetValues.IsConfigEnabled("运输船起送量"))
+                {
+                    __result.deliveryShips = ShipStartCarry.Value == 0 ? 1 : (int)(ShipStartCarry.Value * 10) * 10;
+                }
+
+                if (BuildTargetValues.IsConfigEnabled("填充飞船数量"))
+                {
+                    __result.idleShipCount = player.package.TakeItem(5002, auto_supply_ship.Value, out _);
+                }
+
+                if (BuildTargetValues.IsConfigEnabled("运输船最远路程"))
+                {
+                    __result.tripRangeShips = stationshipdist.Value > 60 ? 24000000000 : stationshipdist.Value * 2400000;
+                }
+
+                if (BuildTargetValues.IsConfigEnabled("翘曲填充数量") && GameMain.data.history.TechUnlocked(3404))
+                {
+                    __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
+                }
             }
         }
         if (auto_supply_station.Value && __result.isVeinCollector)
         {
-            __instance.factory.factorySystem.minerPool[__result.minerId].speed = veincollectorspeed.Value * 1000;
+            if (BuildTargetValues.IsConfigEnabled("大型采矿机采矿速率"))
+            {
+                __instance.factory.factorySystem.minerPool[__result.minerId].speed = veincollectorspeed.Value * 1000;
+            }
         }
     }
 
@@ -105,7 +149,10 @@ public class AuxilaryfunctionPatch
     {
         if (autosetCourier_bool.Value)
         {
-            __instance.dispenserPool[__result].idleCourierCount = player.package.TakeItem(5003, auto_supply_Courier.Value, out _);
+            if (BuildTargetValues.IsConfigEnabled("填充配送机数量"))
+            {
+                __instance.dispenserPool[__result].idleCourierCount = player.package.TakeItem(5003, auto_supply_Courier.Value, out _);
+            }
         }
     }
 

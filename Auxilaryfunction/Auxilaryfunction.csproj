@@ -141,12 +141,31 @@
     <EmbeddedResource Include="Resources\trashcan.png" />
     <EmbeddedResource Include="Resources\trashcanOpen.png" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Meta\icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Meta\manifest.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Meta\README.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>taskkill /f /im DSPGAME.exe
 mkdir "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)"
 del /q "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)\$(TargetFileName)"
 copy "$(TargetPath)" "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)\$(TargetFileName)"
+del /q "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)\manifest.json"
+copy "$(TargetDir)Meta\manifest.json" "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)\manifest.json"
+del /q "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)\README.md"
+copy "$(TargetDir)Meta\README.md" "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)\README.md"
+del /q "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)\icon.png"
+copy "$(TargetDir)Meta\icon.png" "E:\Game\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins\$(ProjectName)\icon.png"
 start steam://rungameid/1366540</PostBuildEvent>
   </PropertyGroup>
 </Project>

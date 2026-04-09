@@ -17,7 +17,7 @@ public class DysonBluePrintDataService
     #region 应用戴森球蓝图
     public static void LoadDysonBluePrintData()
     {
-        tempDysonBlueprintData = new List<TempDysonBlueprintData>();
+        tempDysonBlueprintData.Clear();
         string path = new StringBuilder(GameConfig.overrideDocumentFolder).Append(GameConfig.gameName).Append("/DysonBluePrint/").ToString();
         if (!Directory.Exists(path))
         {
