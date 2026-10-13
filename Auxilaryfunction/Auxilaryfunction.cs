@@ -384,26 +384,32 @@ public class Auxilaryfunction : BaseUnityPlugin
     /// </summary>
     private void  EnqueueTech()
     {
-        int len = readyresearch.Count;
-        if (len > 0)
+        try
         {
-            try
+            // 注意：移除元素后不能 i++，否则会跳过刚补位的那一项；用 i 只在“未移除”时前进
+            for (int i = 0; i < readyresearch.Count && GameMain.history.techQueueLength < 7;)
             {
-                for (int i = 0; i < len && GameMain.history.techQueueLength < 7; i++)
+                int techId = readyresearch[i];
+                if (GameMain.history.TechUnlocked(techId))
                 {
-                    if (GameMain.history.TechUnlocked(readyresearch[i])) readyresearch.RemoveAt(i);
-                    else if (!GameMain.history.TechInQueue(readyresearch[i]))
-                    {
-                        if (!GameMain.history.CanEnqueueTech(readyresearch[i]))
-                        {
-                            readyresearch.RemoveAt(i);
-                        }
-                        else GameMain.history.EnqueueTech(readyresearch[i]);
-                    }
+                    readyresearch.RemoveAt(i);
+                    continue;
                 }
+                if (GameMain.history.TechInQueue(techId))
+                {
+                    i++;
+                    continue;
+                }
+                if (!GameMain.history.CanEnqueueTech(techId))
+                {
+                    readyresearch.RemoveAt(i);
+                    continue;
+                }
+                GameMain.history.EnqueueTech(techId);
+                i++;
             }
-            catch { }
         }
+        catch { }
     }
 
     private void GameUpdate()

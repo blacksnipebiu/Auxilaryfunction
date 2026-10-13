@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using UnityEngine;
 using static Auxilaryfunction.AuxConfig;
@@ -22,17 +21,6 @@ public class DysonBluePrintDataService
         if (!Directory.Exists(path))
         {
             Directory.CreateDirectory(path);
-            Stream sm = Assembly.GetExecutingAssembly().GetManifestResourceStream("Auxilaryfunction.Resources.450节点+框架+32壳面.txt");
-            byte[] bs = new byte[sm.Length];
-            sm.Read(bs, 0, (int)sm.Length);
-            sm.Close();
-            UTF8Encoding con = new();
-            string strdata = con.GetString(bs);
-            try
-            {
-                File.WriteAllText(Path.Combine(path, "450节点+框架+32壳面.txt"), strdata);
-            }
-            catch { }
         }
         var filesPath = Directory.GetFiles(path, "*.txt", SearchOption.AllDirectories);
         for (int i = 0; i < filesPath.Length; i++)

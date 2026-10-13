@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Auxilaryfunction.Models;
@@ -19,6 +20,8 @@ internal class BluePrintBatchModifyBuild
     public static BuildTool_BlueprintCopy blue_copy => GameMain.mainPlayer?.controller?.actionBuild?.blueprintCopyTool;
     public static string ModifyStationName = "";
     public static bool[] StationGroup = new bool[30];
+    // 分组 UI 状态是否需要在下次绘制时从选中站读回
+    public static bool StationGroupDirty = true;
     public static bool[] TurretConfigIsSelected = new bool[4];
     public static int[] TurretConfigs = new int[4];
     public static int SelectedTurretGroup = 0;
@@ -287,6 +290,8 @@ internal class BluePrintBatchModifyBuild
             SelectItemId(buildIconsDictionary.First().Key);
         }
         OnFilterAssemblePoolsConditionChanged();
+        // 选中集由蓝图决定，重建后需要把分组 UI 从第一个选中站读回
+        StationGroupDirty = true;
     }
 
     public static void Reset()
@@ -308,6 +313,31 @@ internal class BluePrintBatchModifyBuild
         {
             stationStoreConfigs[i] = new StationStoreConfig();
         }
+    }
+
+    /// <summary>
+    /// 按游戏实际分组按钮数量调整 StationGroup 数组长度（保留已有值）。
+    /// </summary>
+    public static void EnsureStationGroupCount(int count)
+    {
+        if (count <= 0) count = 30;
+        if (StationGroup == null || StationGroup.Length != count)
+        {
+            Array.Resize(ref StationGroup, count);
+        }
+    }
+
+    /// <summary>
+    /// 从某个物流站读回分组位图与配对行为，刷新到分组 UI 状态。
+    /// </summary>
+    public static void SyncStationGroupFrom(StationComponent sc)
+    {
+        if (sc == null || StationGroup == null) return;
+        for (int i = 0; i < StationGroup.Length; i++)
+        {
+            StationGroup[i] = (sc.remoteGroupMask & (1L << i)) > 0;
+        }
+        eRemoteRoutePriority = sc.routePriority;
     }
 
     public static void SelectItemId(int itemId)

@@ -37,22 +37,22 @@ public class StationTip : MonoBehaviour
         CountText2 = new Text[3];
 
         IconRectTransforms = new RectTransform[13];
-        info_text = transform.Find("info-text").gameObject;
+        info_text = transform.Find(GameUi.InfoText).gameObject;
         for (int i = 0; i < 3; i++)
         {
-            Icontexts[i] = transform.Find("icontext" + i);
-            CountText[i] = Icontexts[i].Find("countText").GetComponent<Text>();
+            Icontexts[i] = transform.Find(GameUi.IconText + i);
+            CountText[i] = Icontexts[i].Find(GameUi.CountText).GetComponent<Text>();
             if (i != 2)
             {
-                CountText2[i] = Icontexts[i].Find("countText2").GetComponent<Text>();
+                CountText2[i] = Icontexts[i].Find(GameUi.CountText2).GetComponent<Text>();
             }
         }
         for (int i = 0; i < 13; i++)
         {
-            Icons[i] = transform.Find("icon" + i);
-            IconLocals[i] = transform.Find("iconLocal" + i);
-            IconRemotes[i] = transform.Find("iconremote" + i);
-            countTexts[i] = transform.Find("countText" + i);
+            Icons[i] = transform.Find(GameUi.Icon + i);
+            IconLocals[i] = transform.Find(GameUi.IconLocal + i);
+            IconRemotes[i] = transform.Find(GameUi.IconRemote + i);
+            countTexts[i] = transform.Find(GameUi.CountText + i);
             IconRectTransforms[i] = Icons[i].GetComponent<RectTransform>();
 
             IconLocals[i].gameObject.SetActive(false);

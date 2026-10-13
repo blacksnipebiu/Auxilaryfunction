@@ -12,9 +12,9 @@ public static class AuxilaryTranslate
         {
             return s;
         }
-        if (TranslateDict.ContainsKey(s))
+        if (TranslateDict.TryGetValue(s, out string translated))
         {
-            return TranslateDict[s];
+            return translated;
         }
         notranslateStr.Add(s);
 
@@ -50,6 +50,7 @@ public static class AuxilaryTranslate
         TranslateDict.Add("记录上次蓝图路径", "Record the last blueprint path");
 
         TranslateDict.Add("单层壳蓝图请选择层级", " Single layer blueprint please select the layer");
+        TranslateDict.Add("当前星系没有戴森球", "No Dyson Sphere in the current star system");
 
         #endregion
         TranslateDict.Add("自动配置新运输站", "AutoStation");
@@ -164,12 +165,19 @@ public static class AuxilaryTranslate
         TranslateDict.Add("忽略配队设置", "Ignore Pairing");
         TranslateDict.Add("优先配队设置", "Priority Pairing");
         TranslateDict.Add("只看配队设置", "Exclusive Pairing");
+        TranslateDict.Add("专属配队设置", "Designated Pairing");
         TranslateDict.Add("物流站名称", "Station Name");
         TranslateDict.Add("设置名称", "Set Station Name");
         TranslateDict.Add("设置分组", "Set group");
         TranslateDict.Add("设置物流站物品", "Set Station Items");
         TranslateDict.Add("设置物流站参数", "Set Station Config");
         TranslateDict.Add("设置分组行为", "Set Behavior");
+        TranslateDict.Add("读取当前站", "Read current station");
+        TranslateDict.Add("全选", "Select all");
+        TranslateDict.Add("反选", "Invert");
+        TranslateDict.Add("清空", "Clear");
+        TranslateDict.Add("应用到选中物流站", "Apply to selected stations");
+        TranslateDict.Add("（多站分组不一致）", " (groups differ among stations)");
 
         TranslateDict.Add("垃圾桶", "trash can");
         TranslateDict.Add("暂无选中设备", "No equipment selected");

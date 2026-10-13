@@ -31,7 +31,7 @@ namespace Auxilaryfunction.Services;
             if (dc == null) continue;
             int needCourierNum = autoCourierValue - dc.idleCourierCount - dc.workCourierCount;
             if (needCourierNum > 0)
-                dc.idleCourierCount += player.package.TakeItem(5003, needCourierNum, out _);
+                dc.idleCourierCount += player.package.TakeItem(GameIds.Courier, needCourierNum, out _);
         }
     }
 
@@ -58,21 +58,21 @@ namespace Auxilaryfunction.Services;
                 int tempdrone = autoDroneValue > dronelimit ? dronelimit : autoDroneValue;
                 int needDroneNum = tempdrone - sc.workDroneCount - sc.idleDroneCount;
                 if (needDroneNum > 0)
-                    sc.idleDroneCount += player.package.TakeItem(5001, needDroneNum, out _);
+                    sc.idleDroneCount += player.package.TakeItem(GameIds.Drone, needDroneNum, out _);
             }
 
             if (enableShipFill)
             {
                 int needShipNum = autoShipValue - sc.idleShipCount - sc.workShipCount;
                 if (sc.isStellar && needShipNum > 0)
-                    sc.idleShipCount += player.package.TakeItem(5002, needShipNum, out _);
+                    sc.idleShipCount += player.package.TakeItem(GameIds.Vessel, needShipNum, out _);
             }
 
             if (enableWarpFill)
             {
                 int needWrapNum = autoWrapValue - sc.warperCount;
                 if (needWrapNum > 0)
-                    sc.warperCount += player.package.TakeItem(1210, needWrapNum, out _);
+                    sc.warperCount += player.package.TakeItem(GameIds.Warper, needWrapNum, out _);
             }
         }
     }
@@ -86,7 +86,7 @@ namespace Auxilaryfunction.Services;
         if (LocalPlanet == null) return;
         PlanetFactory fs = LocalPlanet.factory;
         int fuelId = auto_supply_starfuelID.Value;
-        if (fuelId < 1803 || fuelId > 1804)
+        if (fuelId < GameIds.StarFuelA || fuelId > GameIds.StarFuelB)
         {
             return;
         }
@@ -210,14 +210,14 @@ namespace Auxilaryfunction.Services;
         int sum = 0;
         for (int index = 0; index < package.size; ++index)
         {
-            if (package.grids[index].itemId == 2105)
+            if (package.grids[index].itemId == GameIds.OrbitalCollector)
             {
                 sum += package.grids[index].count;
                 if (sum >= 40)
                     break;
             }
         }
-        if (sum >= 40) package.TakeItem(2105, 40, out _);
+        if (sum >= 40) package.TakeItem(GameIds.OrbitalCollector, 40, out _);
         else
         {
             UIMessageBox.Show("铺满轨道采集器失败", "背包里没有40个采集器，请重新准备", "确定", 3);
@@ -267,7 +267,7 @@ namespace Auxilaryfunction.Services;
             pos += vector3_3;
             PrebuildData prebuild = new()
             {
-                protoId = 2105,
+                protoId = GameIds.OrbitalCollector,
                 modelIndex = 117,
                 pos = pos + quaternion3 * Vector3.zero,
                 pos2 = pos + quaternion3 * Vector3.zero,

@@ -65,6 +65,11 @@ public class GUIDraw
     private GUIStyle buttonstyleyellow = null;
     private bool DeleteDysonLayer;
     private bool firstDraw;
+    private bool wasShowWindow;
+    private int panelSyncScreenW = -1;
+    private int panelSyncScreenH = -1;
+    private float panelSyncCanvasW = -1f;
+    private float panelSyncCanvasH = -1f;
     private int heightdis;
     private GUILayoutOption[] HorizontalSlideroptions;
     private GUILayoutOption[] iconbuttonoptions;
@@ -133,7 +138,7 @@ public class GUIDraw
 
     public void CloseTrashStorageWindow()
     {
-        TrashCanButton.transform.Find("button-1/icon").GetComponent<Image>().sprite = trashcan;
+        TrashCanButton.transform.Find(GameUi.Button1Icon).GetComponent<Image>().sprite = trashcan;
         TrashStorageWindow.SetActive(false);
         uiTrashStorageWindow.storageUI._Free();
         TrashStorage.Clear();
@@ -221,9 +226,30 @@ public class GUIDraw
             Rect window = new(MainWindow_x, MainWindow_y, MainWindowWidth, MainWindowHeight);
             GUI.DrawTexture(window, mytexture);
             window = GUI.Window(20210827, window, MainWindow, "辅助面板".getTranslate() + "(" + VERSION + ")" + "ps:ctrl+↑↓");
-            if (_moved || _scaled) UIPanelSet();
+
+            // 打开窗口这一帧、以及画布/分辨率变化时都必须同步一次面板，
+            // 否则面板会停留在上次的位置/大小（原来只在移动/缩放时同步，导致打开后不跟随）
+            var canvasRt = UIRoot.instance.overlayCanvas.GetComponent<RectTransform>();
+            bool needPanelSync = _moved || _scaled || !wasShowWindow
+                || panelSyncScreenW != Screen.width || panelSyncScreenH != Screen.height
+                || panelSyncCanvasW != canvasRt.sizeDelta.x || panelSyncCanvasH != canvasRt.sizeDelta.y;
+            if (needPanelSync)
+            {
+                UIPanelSet();
+                panelSyncScreenW = Screen.width;
+                panelSyncScreenH = Screen.height;
+                panelSyncCanvasW = canvasRt.sizeDelta.x;
+                panelSyncCanvasH = canvasRt.sizeDelta.y;
+            }
             ui_AuxilaryPanelPanel.SetActive(true);
         }
+        else
+        {
+            // 窗口关闭时清理拖动/缩放状态，
+            // 否则残留的 isDragging / leftscaling 等状态会在下次打开时把窗口位置或大小改掉
+            ResetWindowInteraction();
+        }
+        wasShowWindow = showwindow;
         NavigateGUI();
     }
 
@@ -440,23 +466,23 @@ public class GUIDraw
 
         try
         {
-            stationTipRoot = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks"), GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs").transform);
+            stationTipRoot = Instantiate(GameObject.Find(GameUi.VeinMarks), GameObject.Find(GameUi.SceneUIs).transform);
             stationTipRoot.name = "stationTip";
             Destroy(stationTipRoot.GetComponent<UIVeinDetail>());
-            tipPrefab = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Scene UIs/Vein Marks/vein-tips/vein-tip-prefab"), stationTipRoot.transform);
+            tipPrefab = Instantiate(GameObject.Find(GameUi.VeinTipPrefab), stationTipRoot.transform);
             tipPrefab.name = "tipPrefab";
-            tipPrefab.GetComponent<Image>().sprite = GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Key Tips/tip-prefab").GetComponent<Image>().sprite;
+            tipPrefab.GetComponent<Image>().sprite = GameObject.Find(GameUi.KeyTipPrefab).GetComponent<Image>().sprite;
             tipPrefab.GetComponent<Image>().color = new Color(0, 0, 0, 0.8f);
             tipPrefab.GetComponent<RectTransform>().sizeDelta = new Vector2(150, 160f);
             tipPrefab.GetComponent<Image>().enabled = true;
             tipPrefab.transform.localPosition = new Vector3(200f, 800f, 0);
             tipPrefab.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0.5f);
             Destroy(tipPrefab.GetComponent<UIVeinDetailNode>());
-            var info_text = tipPrefab.transform.Find("info-text").gameObject;
+            var info_text = tipPrefab.transform.Find(GameUi.InfoText).gameObject;
             for (int index = 0; index < 13; ++index)
             {
                 GameObject gameObject1 = Instantiate(info_text, Vector3.zero, Quaternion.identity, tipPrefab.transform);
-                gameObject1.name = "countText" + index;
+                gameObject1.name = GameUi.CountText + index;
                 float y = (-5 - 35 * index);
                 gameObject1.GetComponent<Text>().fontSize = index == 5 ? 15 : 19;
                 gameObject1.GetComponent<Text>().text = "99999";
@@ -467,23 +493,23 @@ public class GUIDraw
                 gameObject1.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
                 gameObject1.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(70, y, 0);
                 Destroy(gameObject1.GetComponent<Shadow>());
-                GameObject gameObject2 = Instantiate(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
-                gameObject2.name = "icon" + index;
+                GameObject gameObject2 = Instantiate(tipPrefab.transform.Find(GameUi.Icon).gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
+                gameObject2.name = GameUi.Icon + index;
                 gameObject1.GetComponent<RectTransform>().sizeDelta = new Vector2(30, 30);
                 gameObject2.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
                 gameObject2.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
                 gameObject2.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
                 gameObject2.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(0, y, 0);
-                GameObject iconLocal = Instantiate(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
-                iconLocal.name = "iconLocal" + index;
+                GameObject iconLocal = Instantiate(tipPrefab.transform.Find(GameUi.Icon).gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
+                iconLocal.name = GameUi.IconLocal + index;
                 iconLocal.GetComponent<Image>().material = null;
                 iconLocal.GetComponent<RectTransform>().sizeDelta = new Vector2(21, 21);
                 iconLocal.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
                 iconLocal.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
                 iconLocal.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
                 iconLocal.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(105, y, 0);
-                GameObject iconremote = Instantiate(tipPrefab.transform.Find("icon").gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
-                iconremote.name = "iconremote" + index;
+                GameObject iconremote = Instantiate(tipPrefab.transform.Find(GameUi.Icon).gameObject, new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
+                iconremote.name = GameUi.IconRemote + index;
                 iconremote.GetComponent<Image>().material = null;
                 iconremote.GetComponent<RectTransform>().sizeDelta = new Vector2(21, 21);
                 iconremote.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
@@ -496,15 +522,15 @@ public class GUIDraw
             }
             for (int i = 0; i < 3; i++)
             {
-                GameObject icontext = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Top Tips/Entity Briefs/brief-info-top/brief-info/content/icons/icon"), new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
-                icontext.name = "icontext" + i;
+                GameObject icontext = Instantiate(GameObject.Find(GameUi.EntityBriefIcon), new Vector3(0, 0, 0), Quaternion.identity, tipPrefab.transform);
+                icontext.name = GameUi.IconText + i;
                 icontext.GetComponent<RectTransform>().localScale = new Vector3(0.7f, 0.7f, 1);
                 icontext.GetComponent<RectTransform>().anchorMax = new Vector2(0, 1);
                 icontext.GetComponent<RectTransform>().anchorMin = new Vector2(0, 1);
                 icontext.GetComponent<RectTransform>().pivot = new Vector2(0, 1);
                 icontext.GetComponent<RectTransform>().anchoredPosition3D = new Vector3(i * 30, -180, 0);
                 GameObject gameObject1 = Instantiate(info_text, Vector3.zero, Quaternion.identity, icontext.transform);
-                gameObject1.name = "countText";
+                gameObject1.name = GameUi.CountText;
                 gameObject1.GetComponent<Text>().fontSize = 22;
                 gameObject1.GetComponent<Text>().text = "100";
                 gameObject1.GetComponent<Text>().alignment = TextAnchor.MiddleRight;
@@ -517,7 +543,7 @@ public class GUIDraw
                 if (i != 2)
                 {
                     GameObject gameObject2 = Instantiate(info_text, Vector3.zero, Quaternion.identity, icontext.transform);
-                    gameObject2.name = "countText2";
+                    gameObject2.name = GameUi.CountText2;
                     gameObject2.GetComponent<Text>().fontSize = 22;
                     gameObject2.GetComponent<Text>().text = "100";
                     gameObject2.GetComponent<Text>().alignment = TextAnchor.MiddleRight;
@@ -528,12 +554,12 @@ public class GUIDraw
                     gameObject2.GetComponent<RectTransform>().localPosition = new Vector3(-50, 10, 0);
                     Destroy(gameObject2.GetComponent<Shadow>());
                 }
-                Destroy(icontext.transform.Find("count-text").gameObject);
-                Destroy(icontext.transform.Find("bg").gameObject);
-                Destroy(icontext.transform.Find("inc").gameObject);
+                Destroy(icontext.transform.Find(GameUi.ShadowCountText).gameObject);
+                Destroy(icontext.transform.Find(GameUi.Bg).gameObject);
+                Destroy(icontext.transform.Find(GameUi.Inc).gameObject);
                 Destroy(icontext.GetComponent<UIIconCountInc>());
             }
-            tipPrefab.transform.Find("icon").gameObject.SetActive(false);
+            tipPrefab.transform.Find(GameUi.Icon).gameObject.SetActive(false);
             tipPrefab.SetActive(false);
             for (int i = 0; i < maxCount; ++i)
             {
@@ -553,9 +579,9 @@ public class GUIDraw
 
         try
         {
-            TrashCanButton = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Game Menu/button-1-bg"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Player Inventory").transform);
-            TrashCanButton.transform.Find("button-1/icon").GetComponent<Image>().sprite = trashcan;
-            TrashCanButton.transform.Find("button-1/icon").GetComponent<RectTransform>().sizeDelta = new Vector2(22, 22);
+            TrashCanButton = Instantiate(GameObject.Find(GameUi.GameMenuButton1Bg), GameObject.Find(GameUi.PlayerInventory).transform);
+            TrashCanButton.transform.Find(GameUi.Button1Icon).GetComponent<Image>().sprite = trashcan;
+            TrashCanButton.transform.Find(GameUi.Button1Icon).GetComponent<RectTransform>().sizeDelta = new Vector2(22, 22);
             TrashCanButton.transform.localPosition = new Vector3(630, -60, 0);
             TrashCanButton.GetComponent<RectTransform>().sizeDelta = new Vector2(40, 40);
             TrashCanButton.GetComponent<RectTransform>().anchorMin = new Vector2(1, 1);
@@ -570,7 +596,7 @@ public class GUIDraw
                 {
                     UIRoot.instance.uiGame.ShutAllFunctionWindow();
                     TrashStorageWindow.SetActive(isOpen);
-                    TrashCanButton.transform.Find("button-1/icon").GetComponent<Image>().sprite = trashcanOpen;
+                    TrashCanButton.transform.Find(GameUi.Button1Icon).GetComponent<Image>().sprite = trashcanOpen;
                     uiTrashStorageWindow.storageUI._Free();
                     uiTrashStorageWindow.storageUI._Init(TrashStorage);
                     uiTrashStorageWindow.storageUI._Open();
@@ -583,12 +609,12 @@ public class GUIDraw
             };
 
             TrashStorage = new StorageComponent(30);
-            TrashStorageWindow = Instantiate(GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Storage Window"), GameObject.Find("UI Root/Overlay Canvas/In Game/Windows/Player Inventory").transform);
+            TrashStorageWindow = Instantiate(GameObject.Find(GameUi.StorageWindow), GameObject.Find(GameUi.PlayerInventory).transform);
             TrashStorageWindow.name = "TrashStorageWindow";
 
-            Destroy(TrashStorageWindow.transform.Find("filter-group").gameObject);
-            Destroy(TrashStorageWindow.transform.Find("panel-bg/drag-trigger").gameObject);
-            Destroy(TrashStorageWindow.transform.Find("bans-bar").gameObject);
+            Destroy(TrashStorageWindow.transform.Find(GameUi.FilterGroup).gameObject);
+            Destroy(TrashStorageWindow.transform.Find(GameUi.DragTrigger).gameObject);
+            Destroy(TrashStorageWindow.transform.Find(GameUi.BansBar).gameObject);
 
             uiTrashStorageWindow = TrashStorageWindow.GetComponent<UIStorageWindow>();
             uiTrashStorageWindow.windowTrans.anchorMin = new Vector2(1, 1);
@@ -598,12 +624,12 @@ public class GUIDraw
             uiTrashStorageWindow.windowTrans.sizeDelta = new Vector2(uiTrashStorageWindow.windowTrans.sizeDelta.x, 240);
             uiTrashStorageWindow.titleText.text = "垃圾桶".getTranslate();
             uiTrashStorageWindow.storageUI._Create();
-            var sortbtn = uiTrashStorageWindow.transform.Find("panel-bg/btn-box/sort-btn").GetComponent<UIButton>();
+            var sortbtn = uiTrashStorageWindow.transform.Find(GameUi.SortBtn).GetComponent<UIButton>();
             sortbtn.onClick += (_) =>
             {
                 TrashStorage.Sort(true);
             };
-            UIButton closebutton = TrashStorageWindow.transform.Find("panel-bg/btn-box/close-wnd-btn").GetComponent<UIButton>();
+            UIButton closebutton = TrashStorageWindow.transform.Find(GameUi.CloseWndBtn).GetComponent<UIButton>();
             closebutton.onClick += (_) =>
             {
                 CloseTrashStorageWindow();
@@ -719,7 +745,12 @@ public class GUIDraw
                 continue;
             if (Phys.RayCastSphere(localPosition, rhs / magnitude, magnitude, Vector3.zero, realRadius, out _))
                 continue;
-            if (!stationComponent.storage.Select(x => x.itemId).Where(x => x != 0).Any())
+            bool hasItem = false;
+            for (int s = 0; s < stationComponent.storage.Length; s++)
+            {
+                if (stationComponent.storage[s].itemId != 0) { hasItem = true; break; }
+            }
+            if (!hasItem)
                 continue;
             tipIndex++;
             stationtip.gameObject.SetActive(true);
@@ -949,6 +980,19 @@ public class GUIDraw
         GUILayout.EndHorizontal();
     }
 
+    private static int stationGroupButtonCountCache = 0;
+
+    /// <summary>
+    /// 取游戏物流站窗口实际的分组按钮数量（读不到时退回 30）。结果缓存，数量不会变。
+    /// </summary>
+    private static int GetStationGroupButtonCount()
+    {
+        if (stationGroupButtonCountCache > 0) return stationGroupButtonCountCache;
+        var btns = UIRoot.instance?.uiGame?.stationWindow?.groupBtns;
+        if (btns != null && btns.Length > 0) stationGroupButtonCountCache = btns.Length;
+        return stationGroupButtonCountCache > 0 ? stationGroupButtonCountCache : 30;
+    }
+
     private void BluePrintConfigSetPanel()
     {
         GUILayout.BeginHorizontal();
@@ -1100,9 +1144,6 @@ public class GUIDraw
 
             case BuildType.Ejector:
                 EjectorModify();
-                if (GameMain.data.dysonSpheres[GameMain.localStar.index] != null)
-                {
-                }
                 break;
         }
 
@@ -1200,7 +1241,7 @@ public class GUIDraw
             if (GUILayout.Button("批量配置当前星球物流站".getTranslate(), buttonoptions)) ChangeAllStationConfig();
             if (GUILayout.Button("批量配置当前星球大型采矿机采矿速率".getTranslate(), buttonoptions)) ChangeAllVeinCollectorSpeedConfig();
             GUILayout.BeginHorizontal();
-            GUILayout.Button(LDB.items.Select(2105).iconSprite.texture, normalstyle, iconbuttonoptions);
+            GUILayout.Button(LDB.items.Select(GameIds.OrbitalCollector).iconSprite.texture, normalstyle, iconbuttonoptions);
             if (GUILayout.Button("铺满轨道采集器".getTranslate(), buttonoptions)) SetGasStation();
             GUILayout.EndHorizontal();
         }
@@ -1268,7 +1309,7 @@ public class GUIDraw
             GUILayout.BeginHorizontal();
 
             {
-                GUILayout.Button(LDB.items.Select(2210).iconSprite.texture, normalstyle, iconbuttonoptions);
+                GUILayout.Button(LDB.items.Select(GameIds.ArtificialStar).iconSprite.texture, normalstyle, iconbuttonoptions);
 
                 GUILayout.BeginVertical();
 
@@ -1298,7 +1339,7 @@ public class GUIDraw
             GUILayout.BeginHorizontal();
 
             {
-                GUILayout.Button(LDB.items.Select(2107).iconSprite.texture, normalstyle, iconbuttonoptions);
+                GUILayout.Button(LDB.items.Select(GameIds.LogisticsDispenser).iconSprite.texture, normalstyle, iconbuttonoptions);
 
                 GUILayout.BeginVertical();
                 autosetCourier_bool.Value = GUILayout.Toggle(autosetCourier_bool.Value, "自动填充配送运输机".getTranslate());
@@ -2003,6 +2044,12 @@ public class GUIDraw
     /// </summary>
     private bool MoveWindow()
     {
+        // 窗口未打开时不做任何拖动处理
+        if (!showwindow)
+        {
+            isDragging = false;
+            return false;
+        }
         float _prevX = MainWindow_x;
         float _prevY = MainWindow_y;
         if (leftscaling || rightscaling || bottomscaling) return false;
@@ -2010,6 +2057,7 @@ public class GUIDraw
         float mouseX = mouse.x;
         float mouseY = Screen.height - mouse.y;
         bool overTitle = mouseX > MainWindow_x && mouseX < MainWindow_x + MainWindowWidth && mouseY > MainWindow_y && mouseY < MainWindow_y + TitleBarHeight;
+        // 仅当在标题栏上按下鼠标时才开始拖动，避免按住鼠标划过标题栏就触发移动
         if (Input.GetMouseButtonDown(0) && overTitle)
         {
             DragStartWindowX = MainWindow_x;
@@ -2033,40 +2081,66 @@ public class GUIDraw
     }
 
     /// <summary>
-    /// 改变窗口大小
+    /// 改变窗口大小。
+    /// 仅在鼠标“按下”的瞬间、且指针位于窗口左/右/下边缘的把手范围内时才开始缩放，
+    /// 缩放过程中持续跟随鼠标，松开左键后结束。
     /// </summary>
-    /// <param name="x"></param>
-    /// <param name="y"></param>
-    /// <param name="window_x"></param>
-    /// <param name="window_y"></param>
     private bool Scaling_window()
     {
+        // 窗口未打开时不做任何缩放处理，避免残留状态改到窗口大小
+        if (!showwindow)
+        {
+            leftscaling = false;
+            rightscaling = false;
+            bottomscaling = false;
+            return false;
+        }
         float _prevW = MainWindowWidth;
         float _prevH = MainWindowHeight;
-        Vector2 temp = Input.mousePosition;
+        Vector2 mouse = Input.mousePosition;
+        float mouseX = mouse.x;
+        float mouseY = Screen.height - mouse.y;
         float x = MainWindowWidth;
         float y = MainWindowHeight;
-        if (Input.GetMouseButton(0))
+
+        // 开始缩放：只在按下鼠标左键的那一帧判断一次，且不与拖动标题栏冲突
+        if (Input.GetMouseButtonDown(0) && !leftscaling && !rightscaling && !bottomscaling)
         {
-            if ((temp.x + EdgeTolerance > MainWindow_x && temp.x - EdgeTolerance < MainWindow_x) && (Screen.height - temp.y >= MainWindow_y && Screen.height - temp.y <= MainWindow_y + y) || leftscaling)
+            bool overTitle = mouseY >= MainWindow_y && mouseY <= MainWindow_y + TitleBarHeight;
+            if (!overTitle)
             {
-                x -= temp.x - MainWindow_x;
-                MainWindow_x = temp.x;
-                leftscaling = true;
-                rightscaling = false;
-            }
-            if ((temp.x + EdgeTolerance > MainWindow_x + x && temp.x - EdgeTolerance < MainWindow_x + x) && (Screen.height - temp.y >= MainWindow_y && Screen.height - temp.y <= MainWindow_y + y) || rightscaling)
-            {
-                x += temp.x - MainWindow_x - x;
-                rightscaling = true;
-                leftscaling = false;
-            }
-            if ((Screen.height - temp.y + EdgeTolerance > y + MainWindow_y && Screen.height - temp.y - EdgeTolerance < y + MainWindow_y) && (temp.x >= MainWindow_x && temp.x <= MainWindow_x + x) || bottomscaling)
-            {
-                y += Screen.height - temp.y - (MainWindow_y + y);
-                bottomscaling = true;
+                bool onLeftEdge = mouseX >= MainWindow_x - EdgeTolerance && mouseX <= MainWindow_x + EdgeTolerance
+                    && mouseY >= MainWindow_y && mouseY <= MainWindow_y + y;
+                bool onRightEdge = mouseX >= MainWindow_x + x - EdgeTolerance && mouseX <= MainWindow_x + x + EdgeTolerance
+                    && mouseY >= MainWindow_y && mouseY <= MainWindow_y + y;
+                bool onBottomEdge = mouseY >= MainWindow_y + y - EdgeTolerance && mouseY <= MainWindow_y + y + EdgeTolerance
+                    && mouseX >= MainWindow_x && mouseX <= MainWindow_x + x;
+
+                leftscaling = onLeftEdge;
+                rightscaling = !onLeftEdge && onRightEdge;
+                bottomscaling = !onLeftEdge && !rightscaling && onBottomEdge;
             }
         }
+
+        if (Input.GetMouseButton(0))
+        {
+            if (leftscaling)
+            {
+                // 以右边缘为参照移动左边缘，保证缩放时右边缘不漂移
+                float right = MainWindow_x + MainWindowWidth;
+                x = Math.Max(100f, right - mouseX);
+                MainWindow_x = right - x;
+            }
+            else if (rightscaling)
+            {
+                x = Math.Max(100f, mouseX - MainWindow_x);
+            }
+            else if (bottomscaling)
+            {
+                y = Math.Max(100f, mouseY - MainWindow_y);
+            }
+        }
+
         if (Input.GetMouseButtonUp(0))
         {
             rightscaling = false;
@@ -2076,6 +2150,17 @@ public class GUIDraw
         MainWindowWidth = Math.Max(100f, x);
         MainWindowHeight = Math.Max(100f, y);
         return MainWindowWidth != _prevW || MainWindowHeight != _prevH;
+    }
+
+    /// <summary>
+    /// 清理窗口拖动/缩放状态。窗口关闭时调用，避免状态残留。
+    /// </summary>
+    private void ResetWindowInteraction()
+    {
+        isDragging = false;
+        leftscaling = false;
+        rightscaling = false;
+        bottomscaling = false;
     }
 
     private void UIPanelSet()
@@ -2094,8 +2179,10 @@ public class GUIDraw
 
     public void AssemblyGeneral(ERecipeType targetRecipeType)
     {
-        var showrecipe = LDB.recipes.dataArray.Where(rp => rp.Type == targetRecipeType && GameMain.history.RecipeUnlocked(rp.ID));
-        int totalNumber = showrecipe.Count();
+        var showrecipe = LDB.recipes.dataArray
+            .Where(rp => rp.Type == targetRecipeType && GameMain.history.RecipeUnlocked(rp.ID))
+            .ToList();
+        int totalNumber = showrecipe.Count;
         int columnNumber = 15;
         int lines = totalNumber / columnNumber + ((totalNumber % columnNumber) > 0 ? 1 : 0);
         GUILayout.BeginVertical();
@@ -2118,7 +2205,7 @@ public class GUIDraw
                     }
                     break;
                 }
-                var rp = showrecipe.ElementAt(index);
+                var rp = showrecipe[index];
 
                 if (GUILayout.Button(rp.iconSprite.texture, bigiconbuttonoptions))
                 {
@@ -2265,7 +2352,14 @@ public class GUIDraw
 
     public void EjectorModify()
     {
-        DysonSwarm ds = GameMain.data.dysonSpheres[GameMain.localStar.index].swarm;
+        // 本地星系没有戴森球时 dysonSpheres[index] 为 null，直接取 .swarm 会空引用
+        DysonSphere dysonSphere = GameMain.localStar == null ? null : GameMain.data?.dysonSpheres?[GameMain.localStar.index];
+        if (dysonSphere?.swarm == null)
+        {
+            GUILayout.Label("当前星系没有戴森球".getTranslate());
+            return;
+        }
+        DysonSwarm ds = dysonSphere.swarm;
         GUILayout.BeginVertical();
         for (int i = 0; i < 4; i++)
         {
@@ -2728,13 +2822,64 @@ public class GUIDraw
         GUILayout.EndVertical();
 
         GUILayout.BeginVertical();
-        GUILayout.Label("分组".getTranslate(), buttonoptions);
-        for (int i = 0; i < 5; i++)
+
+        // 分组按钮数量以游戏 UI 实际为准（UIRoot.uiGame.stationWindow.groupBtns）
+        EnsureStationGroupCount(GetStationGroupButtonCount());
+
+        // 选中集变化（CheckBluePrint 重建）后，从第一个选中站读回分组与行为
+        if (StationGroupDirty && stellarstations.Count > 0)
+        {
+            var firstStation = LocalPlanet.factory.transport.stationPool[stellarstations[0]];
+            SyncStationGroupFrom(firstStation);
+            StationGroupDirty = false;
+        }
+
+        // 多选且分组不一致时给出提示
+        bool groupMixed = false;
+        if (stellarstations.Count > 1)
+        {
+            long firstMask = LocalPlanet.factory.transport.stationPool[stellarstations[0]].remoteGroupMask;
+            for (int k = 1; k < stellarstations.Count; k++)
+            {
+                if (LocalPlanet.factory.transport.stationPool[stellarstations[k]].remoteGroupMask != firstMask)
+                {
+                    groupMixed = true;
+                    break;
+                }
+            }
+        }
+        GUILayout.Label("分组".getTranslate() + (groupMixed ? "（多站分组不一致）".getTranslate() : ""), buttonoptions);
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("读取当前站".getTranslate()))
+        {
+            if (stellarstations.Count > 0)
+            {
+                SyncStationGroupFrom(LocalPlanet.factory.transport.stationPool[stellarstations[0]]);
+            }
+        }
+        if (GUILayout.Button("全选".getTranslate()))
+        {
+            for (int k = 0; k < StationGroup.Length; k++) StationGroup[k] = true;
+        }
+        if (GUILayout.Button("反选".getTranslate()))
+        {
+            for (int k = 0; k < StationGroup.Length; k++) StationGroup[k] = !StationGroup[k];
+        }
+        if (GUILayout.Button("清空".getTranslate()))
+        {
+            for (int k = 0; k < StationGroup.Length; k++) StationGroup[k] = false;
+        }
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+
+        for (int row = 0; row * 6 < StationGroup.Length; row++)
         {
             GUILayout.BeginHorizontal();
-            for (int j = 0; j < 6; j++)
+            for (int col = 0; col < 6; col++)
             {
-                int index = i * 6 + j;
+                int index = row * 6 + col;
+                if (index >= StationGroup.Length) break;
                 if (GUILayout.Button((index + 1).ToString(), StationGroup[index] ? selectedButtonStyle : GUI.skin.button, numberButtonoptions))
                 {
                     StationGroup[index] = !StationGroup[index];
@@ -2742,21 +2887,9 @@ public class GUIDraw
             }
             GUILayout.EndHorizontal();
         }
-        if (GUILayout.Button("设置分组".getTranslate(), buttonoptions))
-        {
-            foreach (var stationId in stellarstations)
-            {
-                StationComponent station = LocalPlanet.factory.transport.stationPool[stationId];
-                station.remoteGroupMask = 0;
-                for (int i = 0; i < StationGroup.Length; i++)
-                {
-                    if (!StationGroup[i]) continue;
-                    station.remoteGroupMask ^= 1 << i;
-                }
-            }
-            GameMain.data.galacticTransport.RefreshTraffic(0);
-        }
+
         GUILayout.Label("行为设置".getTranslate());
+        GUILayout.BeginHorizontal();
         if (GUILayout.Button("忽略配队设置".getTranslate(), eRemoteRoutePriority == ERemoteRoutePriority.Ignore ? selectedButtonStyle : GUI.skin.button))
         {
             eRemoteRoutePriority = ERemoteRoutePriority.Ignore;
@@ -2769,13 +2902,26 @@ public class GUIDraw
         {
             eRemoteRoutePriority = ERemoteRoutePriority.Only;
         }
-        if (GUILayout.Button("设置分组行为".getTranslate()))
+        if (GUILayout.Button("专属配队设置".getTranslate(), eRemoteRoutePriority == ERemoteRoutePriority.Designated ? selectedButtonStyle : GUI.skin.button))
         {
+            eRemoteRoutePriority = ERemoteRoutePriority.Designated;
+        }
+        GUILayout.EndHorizontal();
+
+        if (GUILayout.Button("应用到选中物流站".getTranslate(), buttonoptions))
+        {
+            long mask = 0;
+            for (int k = 0; k < StationGroup.Length; k++)
+            {
+                if (StationGroup[k]) mask |= 1L << k;
+            }
             foreach (var stationId in stellarstations)
             {
-                StationComponent sc = LocalPlanet.factory.transport.stationPool[stationId];
-                sc.routePriority = eRemoteRoutePriority;
+                StationComponent station = LocalPlanet.factory.transport.stationPool[stationId];
+                station.remoteGroupMask = mask;
+                station.routePriority = eRemoteRoutePriority;
             }
+            GameMain.data.galacticTransport.RefreshTraffic(0);
         }
         GUILayout.EndVertical();
         GUILayout.FlexibleSpace();

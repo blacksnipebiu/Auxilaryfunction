@@ -1,5 +1,4 @@
 using Auxilaryfunction.Models;
-using Auxilaryfunction.Models;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
@@ -59,7 +58,7 @@ public class AuxilaryfunctionPatch
             if (autosetSomevalue_bool.Value)
             {
                 int fuelId = auto_supply_starfuelID.Value;
-                if (fuelId < 1803 || fuelId > 1804)
+                if (fuelId < GameIds.StarFuelA || fuelId > GameIds.StarFuelB)
                 {
                     return;
                 }
@@ -80,7 +79,7 @@ public class AuxilaryfunctionPatch
         {
             if (BuildTargetValues.IsConfigEnabled("填充飞机数量"))
             {
-                __result.idleDroneCount = player.package.TakeItem(5001, __result.isStellar ? auto_supply_drone.Value : (auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value), out _);
+                __result.idleDroneCount = player.package.TakeItem(GameIds.Drone, __result.isStellar ? auto_supply_drone.Value : (auto_supply_drone.Value > 50 ? 50 : auto_supply_drone.Value), out _);
             }
 
             if (BuildTargetValues.IsConfigEnabled("运输机最远路程"))
@@ -105,7 +104,7 @@ public class AuxilaryfunctionPatch
             {
                 if (BuildTargetValues.IsConfigEnabled("翘曲填充数量"))
                 {
-                    __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
+                    __result.warperCount = player.package.TakeItem(GameIds.Warper, auto_supply_warp.Value, out _);
                 }
 
                 if (BuildTargetValues.IsConfigEnabled("曲速启用路程"))
@@ -120,7 +119,7 @@ public class AuxilaryfunctionPatch
 
                 if (BuildTargetValues.IsConfigEnabled("填充飞船数量"))
                 {
-                    __result.idleShipCount = player.package.TakeItem(5002, auto_supply_ship.Value, out _);
+                    __result.idleShipCount = player.package.TakeItem(GameIds.Vessel, auto_supply_ship.Value, out _);
                 }
 
                 if (BuildTargetValues.IsConfigEnabled("运输船最远路程"))
@@ -130,7 +129,7 @@ public class AuxilaryfunctionPatch
 
                 if (BuildTargetValues.IsConfigEnabled("翘曲填充数量") && GameMain.data.history.TechUnlocked(3404))
                 {
-                    __result.warperCount = player.package.TakeItem(1210, auto_supply_warp.Value, out _);
+                    __result.warperCount = player.package.TakeItem(GameIds.Warper, auto_supply_warp.Value, out _);
                 }
             }
         }
@@ -151,7 +150,7 @@ public class AuxilaryfunctionPatch
         {
             if (BuildTargetValues.IsConfigEnabled("填充配送机数量"))
             {
-                __instance.dispenserPool[__result].idleCourierCount = player.package.TakeItem(5003, auto_supply_Courier.Value, out _);
+                __instance.dispenserPool[__result].idleCourierCount = player.package.TakeItem(GameIds.Courier, auto_supply_Courier.Value, out _);
             }
         }
     }
