@@ -707,11 +707,45 @@ public class GUIDraw
         GameWindowCopyInit();
     }
 
+    /// <summary>
+    /// 当前视角模式是否允许显示物流站信息。
+    /// 普通视图与行星视图始终允许；开启“建筑/蓝图模式下也显示”后，建筑模式
+    /// （<see cref="EViewMode.Build"/>）同样允许——蓝图复制/粘贴工具属于建筑模式
+    /// （玩家指令为 <c>ECommand.Build</c>），这里再按工具激活状态兜底判定一次，
+    /// 避免工具已开启而视角模式尚未刷新时提示被隐藏。
+    /// </summary>
+    private static bool IsStationInfoViewModeAllowed()
+    {
+        if (UIGame.viewMode == EViewMode.Normal || UIGame.viewMode == EViewMode.Globe)
+        {
+            return true;
+        }
+        if (!ShowStationInfoInBuildMode.Value)
+        {
+            return false;
+        }
+        return UIGame.viewMode == EViewMode.Build || IsBlueprintToolActive();
+    }
+
+    /// <summary>
+    /// 蓝图复制或粘贴工具是否处于激活状态（即通常所说的“蓝图模式”）。
+    /// </summary>
+    private static bool IsBlueprintToolActive()
+    {
+        PlayerAction_Build build = GameMain.mainPlayer?.controller?.actionBuild;
+        if (build == null)
+        {
+            return false;
+        }
+        return (build.blueprintCopyTool != null && build.blueprintCopyTool.active)
+            || (build.blueprintPasteTool != null && build.blueprintPasteTool.active);
+    }
+
     private void StationInfoWindowUpdate()
     {
         var pd = GameMain.localPlanet;
         var transport = pd?.factory?.transport;
-        if (!ShowStationInfo.Value || transport == null || transport.stationCursor == 0 || (UIGame.viewMode != EViewMode.Normal && UIGame.viewMode != EViewMode.Globe))
+        if (!ShowStationInfo.Value || transport == null || transport.stationCursor == 0 || !IsStationInfoViewModeAllowed())
         {
             if (stationTipRoot.activeSelf)
             {
@@ -1724,6 +1758,7 @@ public class GUIDraw
                 {
                     ShowStationInfoMode.Value = !ShowStationInfoMode.Value;
                 }
+                ShowStationInfoInBuildMode.Value = GUILayout.Toggle(ShowStationInfoInBuildMode.Value, "建筑/蓝图模式下也显示".getTranslate());
                 GUILayout.EndVertical();
                 GUILayout.EndHorizontal();
             }

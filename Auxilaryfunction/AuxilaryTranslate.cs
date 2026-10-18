@@ -109,6 +109,7 @@ public static class AuxilaryTranslate
         TranslateDict.Add("物流站信息显示", "Show station info");
         TranslateDict.Add("详细模式", "Detailed mode");
         TranslateDict.Add("简易模式", "Simple Mode");
+        TranslateDict.Add("建筑/蓝图模式下也显示", "Show in build/blueprint mode");
         TranslateDict.Add("物流站物品设置复制粘贴", "Station grids copy(<) and paste(>)");
         TranslateDict.Add("30s间隔自动吸收垃圾", "Auto. recycle Litter in 30s");
         TranslateDict.Add("只回收建筑", "Recycle only buildings");

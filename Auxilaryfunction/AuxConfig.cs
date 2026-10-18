@@ -8,7 +8,7 @@ public static class AuxConfig
 {
     public const string GUID = "cn.blacksnipe.dsp.Auxilaryfunction";
     public const string NAME = "Auxilaryfunction";
-    public const string VERSION = "3.1.0";
+    public const string VERSION = "3.1.1";
     public static string ErrorTitle = "辅助面板错误提示";
     public static Harmony harmony;
     public static bool ChangingBluePrintQuickKey;
@@ -82,6 +82,7 @@ public static class AuxConfig
     public static ConfigEntry<bool> SaveLastOpenBluePrintBrowserPathConfig;
     public static ConfigEntry<float> ShipStartCarry;
     public static ConfigEntry<bool> ShowStationInfo;
+    public static ConfigEntry<bool> ShowStationInfoInBuildMode;
     public static ConfigEntry<bool> ShowStationInfoMode;
     public static ConfigEntry<bool> stationcopyItem_bool;
     public static ConfigEntry<int> stationdronedist;
@@ -146,6 +147,7 @@ public static class AuxConfig
         auto_add_techid = config.Bind("自动添加科技队列科技ID", "auto_add_techid", 0);
         auto_add_techmaxLevel = config.Bind("自动添加科技队列科技等级上限", "auto_add_techmaxLevel", 500);
         ShowStationInfo = config.Bind("展示物流站信息", "ShowStationInfo", false);
+        ShowStationInfoInBuildMode = config.Bind("建筑/蓝图模式下显示物流站信息", "ShowStationInfoInBuildMode", false);
         ShowStationInfoMode = config.Bind("展示物流站信息模式", "ShowStationInfoMode", false);
         SaveLastOpenBluePrintBrowserPathConfig = config.Bind("记录上次蓝图路径", "SaveLastOpenBluePrintBrowserPathConfig", false);
 
