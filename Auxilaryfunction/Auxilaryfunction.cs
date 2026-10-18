@@ -1,4 +1,4 @@
-﻿using Auxilaryfunction.Models;
+using Auxilaryfunction.Models;
 using Auxilaryfunction.Patch;
 using Auxilaryfunction.Services;
 using BepInEx;
@@ -30,6 +30,13 @@ public class Auxilaryfunction : BaseUnityPlugin
     public static int maxCount = 0;
     public static Player player;
     public static List<int> readyresearch;
+    // readyresearch 同时被后台线程（SecondEvent → EnqueueTech/AutoOrderAddTech）和 UI 线程访问，用它串行化
+    public static readonly object ReadyResearchLock = new object();
+    /// <summary>
+    /// 文字科技树的“自动顺序添加”开关。仅供本次运行使用，刻意不做成配置项：
+    /// 每次进游戏都是关闭状态，需要时在面板上勾一下。
+    /// </summary>
+    public static bool autoorderadd;
     public static bool StartAutoMovetoDarkfog;
     public static bool StartAutoMovetounbuilt;
     public static int[,] stationcopyItem = new int[5, 6];
@@ -386,30 +393,124 @@ public class Auxilaryfunction : BaseUnityPlugin
     {
         try
         {
-            // 注意：移除元素后不能 i++，否则会跳过刚补位的那一项；用 i 只在“未移除”时前进
-            for (int i = 0; i < readyresearch.Count && GameMain.history.techQueueLength < 7;)
+            // readyresearch 会被后台线程（本方法、AutoOrderAddTech）和 UI 线程（文字科技树点击、快照）同时访问，
+            // 统一用 ReadyResearchLock 串行化，避免“集合已修改”之类的异常打断 OnGUI
+            lock (ReadyResearchLock)
             {
-                int techId = readyresearch[i];
-                if (GameMain.history.TechUnlocked(techId))
+                // 等级上限超过文字科技树范围（TechService.TechTreeMaxLevelLimit）的科技不再呈现，
+                // 也就不该继续占着研究队列：旧版本留下的这种条目直接剔除。
+                readyresearch.RemoveAll(TechService.IsBeyondTechTreeLimit);
+                // 注意：移除元素后不能 i++，否则会跳过刚补位的那一项；用 i 只在“未移除”时前进
+                for (int i = 0; i < readyresearch.Count && GameMain.history.techQueueLength < 7;)
                 {
-                    readyresearch.RemoveAt(i);
-                    continue;
-                }
-                if (GameMain.history.TechInQueue(techId))
-                {
+                    int techId = readyresearch[i];
+                    if (GameMain.history.TechUnlocked(techId))
+                    {
+                        readyresearch.RemoveAt(i);
+                        continue;
+                    }
+                    if (GameMain.history.TechInQueue(techId))
+                    {
+                        i++;
+                        continue;
+                    }
+                    if (!GameMain.history.CanEnqueueTech(techId))
+                    {
+                        readyresearch.RemoveAt(i);
+                        continue;
+                    }
+                    GameMain.history.EnqueueTech(techId);
                     i++;
-                    continue;
                 }
-                if (!GameMain.history.CanEnqueueTech(techId))
-                {
-                    readyresearch.RemoveAt(i);
-                    continue;
-                }
-                GameMain.history.EnqueueTech(techId);
-                i++;
             }
         }
         catch { }
+    }
+
+    /// <summary>
+    /// “自动顺序添加”：把当前可以研究（前置科技全部解锁）且还没进列表的科技加入“准备研究”，
+    /// 随后由 EnqueueTech() 依次入队。入列位置由 CompareTechPriority 决定（见那里）。
+    /// </summary>
+    private void AutoOrderAddTech()
+    {
+        if (GameMain.history == null) return;
+        foreach (int techId in TechService.CollectResearchableTechIds(false, limitmaterial))
+        {
+            AddTechToReady(techId);
+        }
+        foreach (int techId in TechService.CollectResearchableTechIds(true, limitmaterial))
+        {
+            AddTechToReady(techId);
+        }
+    }
+
+    /// <summary>
+    /// 把科技补进“准备研究”：按优先级插到合适位置，而不是简单追加
+    /// （列表只增不改序，直接追加会让先入列的贵科技一直挡着后面新出现的便宜科技）。
+    /// </summary>
+    private void AddTechToReady(int techId)
+    {
+        if (GameMain.history.TechInQueue(techId)) return;
+        lock (ReadyResearchLock)
+        {
+            if (readyresearch.Contains(techId)) return;
+            readyresearch.Insert(InsertIndexFor(techId), techId);
+        }
+    }
+
+    /// <summary>
+    /// 新科技插在“第一个优先级比它低的项”之前；优先级相同的排在后面（保持先来后到）。
+    /// </summary>
+    private static int InsertIndexFor(int techId)
+    {
+        for (int i = 0; i < readyresearch.Count; i++)
+        {
+            if (CompareTechPriority(readyresearch[i], techId) > 0) return i;
+        }
+        return readyresearch.Count;
+    }
+
+    /// <summary>
+    /// 自动顺序添加的优先级，返回 &lt;0 表示 a 先入列（先研究）：
+    /// 1) 多级/无限升级科技（MaxLevel≥20）垫底 —— 一个上万级的科技排在前面会把研究队列一直堵住；
+    /// 2) 所需矩阵档次低的先入列 —— 只要 6001 的排在要 6004 的前面；
+    /// 3) 档次相同时，需要矩阵种类少的先入列 —— 只要 6004 的排在要 6001~6004 的前面；
+    /// 4) 矩阵要求一致时，普通科技（ID≤2000）优先于升级科技（ID&gt;2000）；
+    /// 5) 再比矩阵消耗总量，少的先入列；
+    /// 6) 仍然并列就保持原有先后。
+    /// </summary>
+    private static int CompareTechPriority(int a, int b)
+    {
+        int ua = IsUnboundedLevelTech(a) ? 1 : 0;
+        int ub = IsUnboundedLevelTech(b) ? 1 : 0;
+        if (ua != ub) return ua - ub;
+
+        TechProto pa = LDB.techs.Select(a);
+        TechProto pb = LDB.techs.Select(b);
+        int tierA = TechService.MatrixTier(pa);
+        int tierB = TechService.MatrixTier(pb);
+        if (tierA != tierB) return tierA - tierB;
+
+        int kindA = TechService.MatrixTypeCount(pa);
+        int kindB = TechService.MatrixTypeCount(pb);
+        if (kindA != kindB) return kindA - kindB;
+
+        // 矩阵要求一致：先“科技”，后“升级”
+        int upgradeA = pa != null && pa.ID > 2000 ? 1 : 0;
+        int upgradeB = pb != null && pb.ID > 2000 ? 1 : 0;
+        if (upgradeA != upgradeB) return upgradeA - upgradeB;
+
+        long costA = TechService.MatrixCost(pa, GameMain.history.techStates[a].curLevel);
+        long costB = TechService.MatrixCost(pb, GameMain.history.techStates[b].curLevel);
+        if (costA != costB) return costA < costB ? -1 : 1;
+        return 0;
+    }
+
+    /// <summary>多级/无限升级科技（MaxLevel ≥ 分界值），这类必须排最后</summary>
+    private static bool IsUnboundedLevelTech(int techId)
+    {
+        TechProto tp = LDB.techs.Select(techId);
+        return tp != null && tp.MaxLevel >= TechService.FiniteUpgradeMaxLevel;
     }
 
     private void GameUpdate()
@@ -418,7 +519,7 @@ public class Auxilaryfunction : BaseUnityPlugin
         {
             player = null;
             firstStart = true;
-            readyresearch.Clear();
+            lock (ReadyResearchLock) { readyresearch.Clear(); }
             SpeedUpPatch.SpeedMultiple = 1;
             blueprintopen = false;
             simulatorrender = false;
@@ -528,6 +629,10 @@ public class Auxilaryfunction : BaseUnityPlugin
                 counter = 0;
             }
             counter++;
+            if (autoorderadd)
+            {
+                try { AutoOrderAddTech(); } catch { }
+            }
             EnqueueTech();
             Thread.Sleep(1000);
         }

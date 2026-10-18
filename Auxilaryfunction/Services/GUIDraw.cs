@@ -71,6 +71,16 @@ public class GUIDraw
     private float panelSyncCanvasW = -1f;
     private float panelSyncCanvasH = -1f;
     private int heightdis;
+    // 页签切换的待生效值：只在下一帧 Layout 事件里写进 whichpannel（见 MainWindow）
+    private int pendingPannel;
+    // 文字科技树的面板数据快照。只在 Layout 事件里重算，其余事件复用同一份，
+    // 保证一帧内 Layout 与 Repaint 的控件序列完全一致（详见 RefreshTechPanelData）。
+    private int techPanelColNum = 1;
+    private int techPanelButtonWidth;
+    private Texture techPanelPropertyIcon;
+    private List<int> techPanelPrepareList = new();
+    private List<int> techPanelNormalList = new();
+    private List<int> techPanelUpgradeList = new();
     private GUILayoutOption[] HorizontalSlideroptions;
     private GUILayoutOption[] iconbuttonoptions;
     private GUIStyle imageButtonNormalStyle = null;
@@ -151,7 +161,12 @@ public class GUIDraw
             firstDraw = false;
             BaseSize = GUI.skin.label.fontSize;
         }
-        if (showwindow && Input.GetKey(KeyCode.LeftControl))
+        // 字号缩放只在 Layout 事件里提交。
+        // OnGUI 一帧内会依次收到 Layout、各种输入事件、最后是 Repaint；GUILayout 在 Layout 阶段
+        // 记录控件序列，后续事件都按那份记录回放。若中途改字号（heightdis→buttonwidth→colnum→行数），
+        // Repaint 就会索取比 Layout 记录更多的控件，Unity 抛出
+        // "Getting control N's position in a group with only N controls when doing repaint" 并中断面板。
+        if (showwindow && Event.current.type == EventType.Layout && Input.GetKey(KeyCode.LeftControl))
         {
             int t = (int)(Input.GetAxis("Mouse Wheel") * 10);
             int temp = BaseSize + t;
@@ -221,8 +236,15 @@ public class GUIDraw
         }
         if (showwindow)
         {
-            bool _moved = MoveWindow();
-            bool _scaled = Scaling_window();
+            // 拖动/缩放同样只在 Layout 事件里提交：窗口宽高决定文字科技树的 colnum，
+            // 在本帧的输入事件里改宽高会让 Layout 与 Repaint 的控件数不一致，同样报上面那个异常。
+            bool _moved = false;
+            bool _scaled = false;
+            if (Event.current.type == EventType.Layout)
+            {
+                _moved = MoveWindow();
+                _scaled = Scaling_window();
+            }
             Rect window = new(MainWindow_x, MainWindow_y, MainWindowWidth, MainWindowHeight);
             GUI.DrawTexture(window, mytexture);
             window = GUI.Window(20210827, window, MainWindow, "辅助面板".getTranslate() + "(" + VERSION + ")" + "ps:ctrl+↑↓");
@@ -1790,6 +1812,16 @@ public class GUIDraw
 
     private void MainWindow(int winId)
     {
+        // 页签切换延后到下一帧的 Layout 事件生效。
+        // 之前是在菜单按钮的 MouseUp 里直接改 whichpannel，于是同一帧的 Repaint 就开始画新面板：
+        // 一来 Layout 记录的是旧面板的控件、Repaint 画新面板，控件数不一致时 Unity 会抛
+        // "Getting control ... when doing repaint"；二来文字科技树的面板数据只在 Layout 计算，
+        // 首次切到该页签时会拿着 0 列的旧值去做除法（除0）。
+        if (Event.current.type == EventType.Layout && pendingPannel > 0)
+        {
+            whichpannel = pendingPannel;
+            pendingPannel = 0;
+        }
         GUILayout.BeginArea(new Rect(10, 20, MainWindowWidth, MainWindowHeight));
 
         GUILayout.BeginVertical();
@@ -1803,7 +1835,7 @@ public class GUIDraw
             }
             else
             {
-                if (GUILayout.Button(menus[i].getTranslate(), buttonoptions)) { whichpannel = i; }
+                if (GUILayout.Button(menus[i].getTranslate(), buttonoptions)) { pendingPannel = i; }
             }
         }
         GUILayout.Space(20);
@@ -1849,16 +1881,31 @@ public class GUIDraw
 
     private void TextTechPanel()
     {
-        int buttonwidth = heightdis * 5;
-        int colnum = Math.Max(1, (int)(MainWindowWidth / buttonwidth));
-        var propertyicon = UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture;
+        // 列表/列数只在 Layout 事件里重算，其余事件复用同一份快照。
+        // 点击科技（readyresearch 增删）、买断科技、解锁状态、字号、窗口宽度都会改变这段的控件数量，
+        // 只要发生在本帧 Layout 之后（鼠标事件），Repaint 就会索取比 Layout 记录更多的控件而抛异常。
+        // techPanelColNum<=0 表示本帧还没算过（例如刚切到本页签），必须先补算，否则下面会除以 0。
+        if (Event.current.type == EventType.Layout || techPanelColNum <= 0)
+        {
+            RefreshTechPanelData();
+        }
+        int buttonwidth = techPanelButtonWidth;
+        int colnum = techPanelColNum;
+        var propertyicon = techPanelPropertyIcon;
         GUILayout.BeginVertical();
+        GUILayout.BeginHorizontal();
         limitmaterial = GUILayout.Toggle(limitmaterial, "限制材料".getTranslate());
+        // 这是临时开关（Auxilaryfunction.autoorderadd），不写进配置文件：每次进游戏默认关闭，
+        // 需要时勾上即可，由后台线程（SecondEvent → AutoOrderAddTech）每秒把当前可以研究的科技
+        // 按优先级加进“准备研究”（矩阵档次低/消耗少的靠前），再由 EnqueueTech() 依次入队；面板关闭时同样生效。
+        // 只处理 MaxLevel ≤ TechService.TechTreeMaxLevelLimit 的科技，等级上限超过 50 的不呈现也不入列。
+        autoorderadd = GUILayout.Toggle(autoorderadd, "自动顺序添加".getTranslate());
+        GUILayout.EndHorizontal();
         GUILayout.Label("准备研究".getTranslate());
         var buttonSize = new GUILayoutOption[] { GUILayout.Width(buttonwidth), GUILayout.Height(heightdis * 2) };
-        int totalNum = readyresearch.Count;
+        var showList = techPanelPrepareList;
+        int totalNum = showList.Count;
         int lines = totalNum / colnum + ((totalNum % colnum) > 0 ? 1 : 0);
-        var showList = new List<int>(readyresearch);
         for (int i = 0; i < lines; i++)
         {
             GUILayout.BeginHorizontal();
@@ -1881,7 +1928,7 @@ public class GUIDraw
                             break;
                         }
                     }
-                    readyresearch.Remove(techId);
+                    lock (ReadyResearchLock) { readyresearch.Remove(techId); }
                 }
 
                 GUILayout.BeginHorizontal();
@@ -1910,27 +1957,9 @@ public class GUIDraw
         }
 
         GUILayout.Label("科技".getTranslate());
-        var techList = new List<int>();
-        foreach (TechProto tp in LDB.techs.dataArray)
-        {
-            if (tp.ID > 2000 || tp.IsHiddenTech || tp.IsObsolete) break;
-            if (readyresearch.Contains(tp.ID) || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || GameMain.history.TechUnlocked(tp.ID)) continue;
-            if (limitmaterial)
-            {
-                bool condition = true;
-                foreach (int ip in tp.Items)
-                {
-                    if (GameMain.history.ItemUnlocked(ip)) continue;
-                    condition = false;
-                    break;
-                }
-                if (!condition) continue;
-            }
-            techList.Add(tp.ID);
-        }
-        totalNum = techList.Count;
+        showList = techPanelNormalList;
+        totalNum = showList.Count;
         lines = totalNum / colnum + ((totalNum % colnum) > 0 ? 1 : 0);
-        showList = techList;
         for (int i = 0; i < lines; i++)
         {
             GUILayout.BeginHorizontal();
@@ -1942,7 +1971,7 @@ public class GUIDraw
                 TechProto tp = LDB.techs.Select(showList[index]);
                 if (GUILayout.Button(tp.name, nomarginButtonStyle, buttonSize))
                 {
-                    readyresearch.Add(tp.ID);
+                    lock (ReadyResearchLock) { readyresearch.Add(tp.ID); }
                 }
 
                 GUILayout.BeginHorizontal();
@@ -1972,26 +2001,9 @@ public class GUIDraw
 
         GUILayout.Label("升级".getTranslate());
 
-        techList = new List<int>();
-        foreach (TechProto tp in LDB.techs.dataArray)
-        {
-            if (tp.ID < 2000 || readyresearch.Contains(tp.ID) || tp.IsObsolete || tp.IsHiddenTech || !GameMain.history.CanEnqueueTech(tp.ID) || tp.MaxLevel > 20 || tp.MaxLevel > 100 || GameMain.history.TechUnlocked(tp.ID)) continue;
-            if (limitmaterial)
-            {
-                bool condition = true;
-                foreach (int ip in tp.Items)
-                {
-                    if (GameMain.history.ItemUnlocked(ip)) continue;
-                    condition = false;
-                    break;
-                }
-                if (!condition) continue;
-            }
-            techList.Add(tp.ID);
-        }
-        totalNum = techList.Count;
+        showList = techPanelUpgradeList;
+        totalNum = showList.Count;
         lines = totalNum / colnum + ((totalNum % colnum) > 0 ? 1 : 0);
-        showList = techList;
 
         for (int i = 0; i < lines; i++)
         {
@@ -2004,7 +2016,7 @@ public class GUIDraw
                 TechProto tp = LDB.techs.Select(showList[index]);
                 if (GUILayout.Button(tp.name, nomarginButtonStyle, buttonSize))
                 {
-                    readyresearch.Add(tp.ID);
+                    lock (ReadyResearchLock) { readyresearch.Add(tp.ID); }
                 }
 
                 GUILayout.BeginHorizontal();
@@ -2033,6 +2045,48 @@ public class GUIDraw
             GUILayout.EndHorizontal();
         }
         GUILayout.EndVertical();
+    }
+
+    /// <summary>
+    /// 重算文字科技树的列数与三段列表，只在 Layout 事件里调用。
+    /// OnGUI 一帧内会依次收到 Layout、鼠标/滚轮等输入事件、最后是 Repaint；GUILayout 在 Layout 阶段
+    /// 记录控件序列，后续事件按那份记录回放。如果控件数量在本帧中途变化（例如点击把科技加入
+    /// readyresearch、买断科技改变解锁状态、Ctrl+滚轮改字号、拖窗口边缘改宽度），Repaint 就会索取
+    /// 比 Layout 记录更多的控件，Unity 抛出
+    /// "Getting control N's position in a group with only N controls when doing repaint" 并中断整个面板。
+    /// 这里把这一帧要画的内容固定下来，其它事件只做回放，点击的效果从下一帧 Layout 起生效。
+    /// </summary>
+    private void RefreshTechPanelData()
+    {
+        techPanelButtonWidth = heightdis * 5;
+        techPanelColNum = Math.Max(1, (int)(MainWindowWidth / techPanelButtonWidth));
+        techPanelPropertyIcon = UIRoot.instance.uiGame.techTree.nodePrefab.buyoutButton.transform.Find("icon").GetComponent<Image>().mainTexture;
+        // “准备研究”里只显示仍在文字科技树范围内的科技（MaxLevel ≤ 上限）；
+        // 超范围的由 EnqueueTech() 每秒从 readyresearch 里清掉，这里同时过滤避免中间态显示出来。
+        lock (ReadyResearchLock) { techPanelPrepareList = readyresearch.FindAll(id => !IsBeyondTechTreeLimit(id)); }
+        techPanelNormalList = BuildTechPanelList(false);
+        techPanelUpgradeList = BuildTechPanelList(true);
+    }
+
+    /// <summary>
+    /// 收集“科技”（upgrade=false，ID≤2000）或“升级”（upgrade=true，ID≥2000）列表。
+    /// 过滤条件与“自动顺序添加”共用 TechService.CollectResearchableTechIds
+    /// （当前能入队、MaxLevel ≤ TechService.TechTreeMaxLevelLimit），
+    /// 所以面板里列出来的科技就是自动添加会去加的那些。
+    /// </summary>
+    private List<int> BuildTechPanelList(bool upgrade)
+    {
+        var list = new List<int>();
+        lock (ReadyResearchLock)
+        {
+            foreach (int techId in CollectResearchableTechIds(upgrade, limitmaterial))
+            {
+                // 已经在“准备研究”列表里的不再重复显示
+                if (readyresearch.Contains(techId)) continue;
+                list.Add(techId);
+            }
+        }
+        return list;
     }
 
     #endregion 窗口UI
